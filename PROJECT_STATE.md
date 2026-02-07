@@ -1,7 +1,7 @@
 # Blender Addon Framework - Project State
 
 **Last Updated:** 2025-02-07  
-**Current Session:** Framework Fix - Namespace Package Support
+**Current Session:** Addon Virtual Environment Support Complete
 
 ## 📍 Current Status
 
@@ -55,6 +55,17 @@
   - Updated `search_files()` to exclude virtual environments and cache directories by default
   - Files changed: `framework.py`, `common/io/FileManagerClient.py`
 - **Impact:** Framework now properly handles addons with complex dependencies
+
+### 5. Addon Virtual Environment Support (COMPLETE)
+- **Issue:** Blender couldn't find dependencies installed in addon's `.venv`
+- **Root Cause:** Blender runs with its own Python, not the addon's venv
+- **Solution:**
+  - Added `get_addon_venv_site_packages()` to detect addon venv
+  - Modified `execute_blender_script()` to set PYTHONPATH with addon venv
+  - Blender now uses addon's dependencies from `.venv`
+  - Files changed: `framework.py`
+- **Impact:** Addons with UV dependencies now work correctly in Blender
+- **Tested:** subtitle_editor with faster-whisper, onnxruntime ✓
 
 ## 🚀 Available Commands
 
@@ -125,11 +136,12 @@ Or just paste this file content and say:
 ## 📊 Quick Stats
 
 - **Total Branches:** 5
-- **Commits on dev:** 12 (4 auto-detection + 7 UV + 1 fix)
+- **Commits on dev:** 13 (4 auto-detection + 7 UV + 2 fixes)
 - **Files Modified/Created:** 15+
 - **Tests Passing:** All UV commands working ✓
 - **Subtitle Editor:** Migrated to Framework ✓
 - **Framework Fixes:** Namespace package support ✓
+- **Addon Venv Support:** Blender uses addon dependencies ✓
 
 ## 🔗 Important Links
 
