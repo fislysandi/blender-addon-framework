@@ -1,7 +1,7 @@
 # Blender Addon Framework - Project State
 
-**Last Updated:** 2025-02-07
-**Current Session:** Debug Mode Support for Addon Testing
+**Last Updated:** 2025-02-08
+**Current Session:** Debug Mode Support Merged into Dev
 
 ## 📍 Current Status
 
@@ -12,8 +12,8 @@
 
 | Branch | Purpose | Contains |
 |--------|---------|----------|
-| `dev` | **Working branch** | All features (Auto-detection + UV + Debug) |
-| `debug-mode-support` | **Feature branch** | Debug mode for addon testing |
+| `dev` | **Working branch** | All features merged (Auto-detection + UV + Debug) |
+| `debug-mode-support` | **Feature branch** | Debug mode (merged into dev, preserved for reference) |
 | `uv-support` | **Feature branch** | Auto-detection + UV (for PR) |
 | `automatic-blender-detection-support-v2` | **Base branch** | Auto-detection only |
 | `automatic-blender-detection-support` | Old branch | 4 commits |
@@ -68,9 +68,10 @@
 - **Impact:** Addons with UV dependencies now work correctly in Blender
 - **Tested:** subtitle_editor with faster-whisper, onnxruntime ✓
 
-### 6. Debug Mode Support for Addon Testing (COMPLETE)
+### 6. Debug Mode Support for Addon Testing (COMPLETE - MERGED INTO DEV)
 - **Feature:** Comprehensive debugging for addon testing
-- **Branch:** `debug-mode-support`
+- **Branch:** `debug-mode-support` (merged into dev, preserved for reference)
+- **Merge Commit:** `f346795` - feat: merge debug mode support into dev
 - **Features:**
   - **Performance Tracking:** Load time, memory usage, import times
   - **Import Tracking:** Shows what modules are imported and from where
@@ -81,7 +82,7 @@
   - `uv run test <addon>` - Debug mode ON (default)
   - `uv run test <addon> --no-debug` - Debug mode OFF
 - **Files Changed:** `scripts/test.py`, `framework.py`
-- **Status:** Tested and working ✓
+- **Status:** Merged into dev, tested and working ✓
 - **Root Cause:** Blender runs with its own Python, not the addon's venv
 - **Solution:**
   - Added `get_addon_venv_site_packages()` to detect addon venv
@@ -160,14 +161,15 @@ Or just paste this file content and say:
 ## 📊 Quick Stats
 
 - **Total Branches:** 6
-- **Commits on dev:** 13 (4 auto-detection + 7 UV + 2 fixes)
-- **Commits on debug-mode-support:** 14 (includes debug mode feature)
+- **Commits on dev:** 15 (4 auto-detection + 7 UV + 2 fixes + 2 debug mode)
+- **Commits on debug-mode-support:** 14 (feature branch, merged into dev)
 - **Files Modified/Created:** 15+
 - **Tests Passing:** All UV commands working ✓
-- **Debug Mode:** Tested and working ✓
+- **Debug Mode:** Merged into dev, tested and working ✓
 - **Subtitle Editor:** Migrated to Framework ✓
 - **Framework Fixes:** Namespace package support ✓
 - **Addon Venv Support:** Blender uses addon dependencies ✓
+- **Merge Status:** debug-mode-support → dev ✓
 
 ## 🔗 Important Links
 
