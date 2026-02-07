@@ -21,7 +21,9 @@ dev = [
 ]
 
 [project.scripts]
-# Entry points will be added in Phase 2
+create = "scripts.create:main"
+test = "scripts.test:main"
+release = "scripts.release:main"
 
 [tool.uv]
 # Not a package to publish - this is an application/framework
