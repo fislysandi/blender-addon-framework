@@ -140,6 +140,9 @@ def start_test(init_file, addon_name, enable_watch=True):
     update_addon_for_test(init_file, addon_name)
     test_addon_path = os.path.normpath(os.path.join(BLENDER_ADDON_PATH, addon_name))
 
+    # Check if addon has a virtual environment
+    addon_venv_path = get_addon_venv_site_packages(addon_name)
+
     if not enable_watch:
 
         def exit_handler():
@@ -156,6 +159,7 @@ def start_test(init_file, addon_name, enable_watch=True):
                     f'import bpy\nbpy.ops.preferences.addon_enable(module="{addon_name}")',
                 ],
                 test_addon_path,
+                addon_venv_path,
             )
         finally:
             exit_handler()
@@ -192,6 +196,7 @@ def start_test(init_file, addon_name, enable_watch=True):
                 python_script,
             ],
             test_addon_path,
+            addon_venv_path,
         )
     finally:
         exit_handler()
@@ -201,9 +206,68 @@ def start_test(init_file, addon_name, enable_watch=True):
 _addon_on_init_file = os.path.abspath(os.path.join(PROJECT_ROOT, "__init__.py"))
 
 
-def execute_blender_script(args, addon_path):
+def get_addon_venv_site_packages(addon_name):
+    """
+    Check if addon has a .venv and return the site-packages path.
+
+    Args:
+        addon_name: Name of the addon
+
+    Returns:
+        str or None: Path to site-packages if .venv exists, None otherwise
+    """
+    venv_path = os.path.join(_ADDON_ROOT, addon_name, ".venv")
+    if not os.path.exists(venv_path):
+        return None
+
+    # Detect Python version from current interpreter
+    python_version = f"python{sys.version_info.major}.{sys.version_info.minor}"
+
+    # Check both lib and lib64 directories (some systems use lib64)
+    for lib_dir in ["lib", "lib64"]:
+        site_packages = os.path.join(
+            venv_path, lib_dir, python_version, "site-packages"
+        )
+        if os.path.exists(site_packages):
+            return site_packages
+
+    # Fallback: try to find site-packages dynamically
+    for lib_dir in ["lib", "lib64"]:
+        lib_path = os.path.join(venv_path, lib_dir)
+        if os.path.exists(lib_path):
+            # Look for any pythonX.Y directory
+            for entry in os.listdir(lib_path):
+                if entry.startswith("python"):
+                    site_packages = os.path.join(lib_path, entry, "site-packages")
+                    if os.path.exists(site_packages):
+                        return site_packages
+
+    return None
+
+
+def execute_blender_script(args, addon_path, addon_venv_path=None):
+    """
+    Execute Blender with optional addon venv in PYTHONPATH.
+
+    Args:
+        args: Command line arguments for Blender
+        addon_path: Path to the addon for error message path replacement
+        addon_venv_path: Optional path to addon's venv site-packages
+    """
+    # Copy environment to avoid modifying global env
+    env = os.environ.copy()
+
+    if addon_venv_path:
+        # Prepend addon venv to PYTHONPATH
+        current_pythonpath = env.get("PYTHONPATH", "")
+        if current_pythonpath:
+            env["PYTHONPATH"] = f"{addon_venv_path}{os.pathsep}{current_pythonpath}"
+        else:
+            env["PYTHONPATH"] = addon_venv_path
+        print(f"Using addon venv: {addon_venv_path}")
+
     process = subprocess.Popen(
-        args, stderr=subprocess.PIPE, text=True, encoding="utf-8"
+        args, stderr=subprocess.PIPE, text=True, encoding="utf-8", env=env
     )
     try:
         for line in process.stderr:
