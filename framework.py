@@ -159,7 +159,16 @@ except:
 
 # Custom import hook to track import times and sources
 class DebugImportFinder:
+    def find_spec(self, fullname, path, target=None):
+        # Python 3.4+ uses find_spec instead of find_module
+        if fullname.startswith("{addon_name}"):
+            # Return a simple namespace to indicate we can handle this module
+            import importlib.machinery
+            return importlib.machinery.ModuleSpec(fullname, self)
+        return None
+    
     def find_module(self, fullname, path=None):
+        # Legacy method for older Python versions
         if fullname.startswith("{addon_name}"):
             return self
         return None
@@ -199,11 +208,17 @@ sys.meta_path.insert(0, _debug_finder)
 
 # Capture warnings
 warnings.filterwarnings('always')
+# Suppress ImportWarning about find_spec to avoid spam
+warnings.filterwarnings('ignore', category=ImportWarning, message='.*find_spec.*')
 original_showwarning = warnings.showwarning
 
 def debug_showwarning(message, category, filename, lineno, file=None, line=None):
+    # Skip ImportWarnings about DebugImportFinder to avoid spam
+    if category == ImportWarning and 'find_spec' in str(message):
+        return
     print(f"[WARNING] {{category.__name__}}: {{message}}")
-    print(f"          at {{filename}}:{{lineno}}")
+    if filename != '<frozen importlib._bootstrap>':
+        print(f"          at {{filename}}:{{lineno}}")
     original_showwarning(message, category, filename, lineno, file, line)
 
 warnings.showwarning = debug_showwarning
