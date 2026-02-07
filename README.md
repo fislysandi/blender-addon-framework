@@ -74,9 +74,9 @@ uv run python -c "import watchdog; print('✓ UV setup complete')"
 
 | File | UV Command | Legacy Command |
 |------|------------|----------------|
-| Create addon | `uv run python scripts/create.py <addon>` | `python3 create.py <addon>` |
-| Test addon | `uv run python scripts/test.py <addon>` | `python3 test.py <addon>` |
-| Release addon | `uv run python scripts/release.py <addon>` | `python3 release.py <addon>` |
+| Create addon | `uv run create <addon>` | `python3 create.py <addon>` |
+| Test addon | `uv run test <addon>` | `python3 test.py <addon>` |
+| Release addon | `uv run release <addon>` | `python3 release.py <addon>` |
 
 ### Framework Files
 
@@ -92,16 +92,16 @@ You can manage dependencies for individual addons using UV:
 
 ```bash
 # Initialize UV support for an addon
-uv run python scripts/addon_deps.py init my_addon
+uv run addon-deps init my_addon
 
 # Add a dependency to an addon
-uv run python scripts/addon_deps.py add my_addon requests
+uv run addon-deps add my_addon requests
 
 # List addon dependencies
-uv run python scripts/addon_deps.py list my_addon
+uv run addon-deps list my_addon
 
 # Sync/install addon dependencies
-uv run python scripts/addon_deps.py sync my_addon
+uv run addon-deps sync my_addon
 ```
 
 This creates a `pyproject.toml` in the addon directory, allowing each addon to have its own isolated dependencies.
@@ -168,7 +168,7 @@ addon_prefs.some_property
 
 ```bash
 # Using UV (recommended)
-uv run python scripts/create.py my_addon
+uv run create my_addon
 
 # Legacy method
 python3 create.py my_addon
@@ -178,10 +178,10 @@ python3 create.py my_addon
 
 ```bash
 # Using UV
-uv run python scripts/test.py my_addon
+uv run test my_addon
 
 # Without hot reload
-uv run python scripts/test.py my_addon --disable-watch
+uv run test my_addon --disable-watch
 
 # Legacy method
 python3 test.py my_addon
@@ -191,7 +191,7 @@ python3 test.py my_addon
 
 ```bash
 # Using UV
-uv run python scripts/release.py my_addon
+uv run release my_addon
 
 # Legacy method
 python3 release.py my_addon
@@ -271,13 +271,13 @@ test_release_dir = C:/path/to/test/release/dir
 | Command | Description |
 |---------|-------------|
 | `uv sync` | Install all dependencies from uv.lock |
-| `uv run python scripts/create.py <addon>` | Create a new addon from template |
-| `uv run python scripts/test.py <addon>` | Test addon with hot reload |
-| `uv run python scripts/release.py <addon>` | Package addon for distribution |
-| `uv run python scripts/addon_deps.py init <addon>` | Initialize addon dependencies |
-| `uv run python scripts/addon_deps.py add <addon> <pkg>` | Add dependency to addon |
-| `uv run python scripts/addon_deps.py list <addon>` | List addon dependencies |
-| `uv run python scripts/addon_deps.py sync <addon>` | Sync addon dependencies |
+| `uv run create <addon>` | Create a new addon from template |
+| `uv run test <addon>` | Test addon with hot reload |
+| `uv run release <addon>` | Package addon for distribution |
+| `uv run addon-deps init <addon>` | Initialize addon dependencies |
+| `uv run addon-deps add <addon> <pkg>` | Add dependency to addon |
+| `uv run addon-deps list <addon>` | List addon dependencies |
+| `uv run addon-deps sync <addon>` | Sync addon dependencies |
 
 # Blender 插件开发框架及打包工具
 
