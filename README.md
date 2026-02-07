@@ -257,16 +257,52 @@ test_release_dir = C:/path/to/test/release/dir
    need to manually replace the framework files to get the new features. You may fork this project and use
    `git fetch upstream` to update.
    We are looking for more user-friendly migration
-   experience. In general, we aim to keep the framework lightweight and avoid making structural changes. Most future
-   updates are expected to just adding new features rather than making major changes to the framework structure. So
-   unless you personally made changes to the framework code locally, you will only need to replace the old files with
-   the new ones in future updates.
+    experience. In general, we aim to keep the framework lightweight and avoid making structural changes. Most future
+    updates are expected to just adding new features rather than making major changes to the framework structure. So
+    unless you personally made changes to the framework code locally, you will only need to replace the old files with
+    the new ones in future updates.
 1. Breakpoint Debugging: The framework currently does not support breakpoint debugging within the IDE. Implementing this
-   feature requires some modifications to the framework code, which may increase the complexity of using the framework.
-   We are looking for a lightweight solution to enable this feature. However, in general, breakpoint debugging is not
-   necessary for developing add-ons. Breakpoint debugging is helpful for complex add-ons features, but logging is
-   sufficient in most of the cases. For this framework, breakpoint debugging would be a nice-to-have feature, but not a
-   must-have.
+    feature requires some modifications to the framework code, which may increase the complexity of using the framework.
+    We are looking for a lightweight solution to enable this feature. However, in general, breakpoint debugging is not
+    necessary for developing add-ons. Breakpoint debugging is helpful for complex add-ons features, but logging is
+    sufficient in most of the cases. For this framework, breakpoint debugging would be a nice-to-have feature, but not a
+    must-have.
+
+## Troubleshooting
+
+### Warning: "Add-on not loaded: 'xxx', cause: No module named 'xxx'"
+
+**This is normal and can be ignored.**
+
+When testing an addon, you may see warnings like:
+```
+Add-on not loaded: "sample_addon", cause: No module named 'sample_addon'
+Add-on not loaded: "amogus", cause: No module named 'amogus'
+```
+
+**Why this happens:**
+- Blender remembers which addons were enabled in previous sessions (stored in Blender's user preferences)
+- When you test a new addon, Blender tries to re-enable previously used addons
+- If those addon folders no longer exist, Blender shows these warnings
+- **Only your target addon (e.g., "subtitle_editor") will actually be loaded and tested**
+
+**Solution:**
+- These warnings are harmless and don't affect testing
+- To clear them, you can reset Blender to factory defaults: `File > Defaults > Load Factory Settings`
+- Or manually disable the missing addons in Blender's preferences
+
+### Error: "No addon name provided"
+
+If you see this error, you need to specify the addon name:
+```bash
+# Wrong
+uv run test
+
+# Correct
+uv run test my_addon
+```
+
+The command will now show you a list of available addons in the `addons/` folder.
 
 ## UV Commands Reference
 
