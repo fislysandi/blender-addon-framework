@@ -39,7 +39,7 @@
   - Per-addon UV support: `uv run addon-deps init/add/list/sync`
 
 ### 3. Subtitle Editor Addon Migration (COMPLETE)
-- **Location:** `addons/subtitle-editor/`
+- **Location:** `addons/subtitle_editor/`
 - **Status:** Migrated to use Blender Addon Framework
 - **Features:**
   - Auto-class loading via `common.class_loader.auto_load`
@@ -64,14 +64,14 @@ uv run addon-deps sync <addon>             # Sync dependencies
 ### Subtitle Editor Specific Commands
 ```bash
 # Test the addon with hot reload
-uv run test subtitle-editor
+uv run test subtitle_editor
 
 # Package for distribution
-uv run release subtitle-editor
+uv run release subtitle_editor
 
 # Manage dependencies
-uv run addon-deps list subtitle-editor
-uv run addon-deps sync subtitle-editor
+uv run addon-deps list subtitle_editor
+uv run addon-deps sync subtitle_editor
 ```
 
 ### Legacy Commands (Still Work)
@@ -93,11 +93,11 @@ python3 release.py <addon>
 - `common/uv_integration.py` - UV utilities
 
 ### Subtitle Editor Migration Files
-- `addons/subtitle-editor/config.py` - Addon configuration
-- `addons/subtitle-editor/i18n/` - Translation support
-- `addons/subtitle-editor/panels/` - UI panels (migrated from ui/)
-- `addons/subtitle-editor/pyproject.toml` - UV dependencies
-- `addons/subtitle-editor/uv.lock` - Locked dependencies
+- `addons/subtitle_editor/config.py` - Addon configuration
+- `addons/subtitle_editor/i18n/` - Translation support
+- `addons/subtitle_editor/panels/` - UI panels (migrated from ui/)
+- `addons/subtitle_editor/pyproject.toml` - UV dependencies
+- `addons/subtitle_editor/uv.lock` - Locked dependencies
 
 ## 📝 Next Tasks (TODO)
 
@@ -135,7 +135,7 @@ Or just paste this file content and say:
 
 **The following are USER PROJECTS and should NEVER be modified without the user explicitly saying so:**
 
-1. **`/addons/subtitle-editor/`** - User's personal addon project
+1. **`/addons/subtitle_editor/`** - User's personal addon project
    - This is NOT part of the framework
    - It has its own git repository (nested)
    - Any changes must be explicitly requested by the user
@@ -154,11 +154,11 @@ Or just paste this file content and say:
 - Add features to subtitle-editor
 - Delete subtitle-editor files
 
-### 📝 If User Wants to Modify subtitle-editor
+### 📝 If User Wants to Modify subtitle_editor
 User must explicitly say something like:
-- "Update my subtitle-editor addon to..."
-- "Fix bug in subtitle-editor..."
-- "Add feature X to subtitle-editor..."
+- "Update my subtitle_editor addon to..."
+- "Fix bug in subtitle_editor..."
+- "Add feature X to subtitle_editor..."
 
 **Default stance: HANDS OFF unless explicitly told otherwise.**
 
@@ -170,7 +170,7 @@ User must explicitly say something like:
 1. Read this file immediately
 2. Check `git branch -v` to confirm current state
 3. Check `git log --oneline -3` for recent commits
-4. **IMPORTANT:** Check if request involves subtitle-editor
+4. **IMPORTANT:** Check if request involves subtitle_editor
    - If YES: Ask for explicit confirmation before proceeding
    - If NO: Proceed normally
 5. Ask user: "What would you like to work on next?"

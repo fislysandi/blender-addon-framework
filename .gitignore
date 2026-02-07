@@ -161,5 +161,5 @@ config.ini
 
 # User addons - do not modify without explicit instruction
 # These are user projects, not part of the framework
-/addons/subtitle-editor/
-!/addons/subtitle-editor/.gitkeep
+/addons/subtitle_editor/
+!/addons/subtitle_editor/.gitkeep
