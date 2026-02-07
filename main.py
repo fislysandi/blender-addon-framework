@@ -17,7 +17,11 @@ from common.blender_launcher import detect_from_blender_launcher
 
 # The name of current active addon to be created, tested or released
 # 要创建、测试或发布的当前活动插件的名称
-ACTIVE_ADDON = "sample_addon"
+# IMPORTANT: This is just a default. You should specify the addon name when running commands:
+#   uv run test <addon_name>
+#   uv run release <addon_name>
+# Or update this value to your current working addon
+ACTIVE_ADDON = ""
 
 # The path of the blender executable. Blender2.93 is the minimum version required
 # Blender可执行文件的路径，Blender2.93是所需的最低版本

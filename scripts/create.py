@@ -20,6 +20,12 @@ def main():
     if not args.addon:
         print("Error: No addon name provided")
         print("Usage: uv run create <addon_name>")
+        print("\nExisting addons:")
+        addons_dir = Path(__file__).parent.parent / "addons"
+        if addons_dir.exists():
+            for addon in sorted(addons_dir.iterdir()):
+                if addon.is_dir() and not addon.name.startswith("."):
+                    print(f"  - {addon.name}")
         sys.exit(1)
 
     try:

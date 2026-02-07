@@ -22,6 +22,25 @@ def main():
     if not args.addon:
         print("Error: No addon name provided")
         print("Usage: uv run test <addon_name>")
+        print("\nAvailable addons:")
+        addons_dir = Path(__file__).parent.parent / "addons"
+        if addons_dir.exists():
+            for addon in sorted(addons_dir.iterdir()):
+                if addon.is_dir() and not addon.name.startswith("."):
+                    print(f"  - {addon.name}")
+        sys.exit(1)
+
+    # Validate addon exists
+    addon_path = Path(__file__).parent.parent / "addons" / args.addon
+    if not addon_path.exists():
+        print(f"Error: Addon '{args.addon}' not found in addons/")
+        print(f"Expected path: {addon_path}")
+        print("\nAvailable addons:")
+        addons_dir = Path(__file__).parent.parent / "addons"
+        if addons_dir.exists():
+            for addon in sorted(addons_dir.iterdir()):
+                if addon.is_dir() and not addon.name.startswith("."):
+                    print(f"  - {addon.name}")
         sys.exit(1)
 
     try:
