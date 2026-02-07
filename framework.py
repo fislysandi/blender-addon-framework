@@ -384,7 +384,6 @@ def start_test(init_file, addon_name, enable_watch=True, debug_mode=True):
         execute_blender_script(
             [
                 BLENDER_EXE_PATH,
-                "--factory-startup",  # Start with clean preferences to avoid loading previously enabled addons
                 "--python-use-system-env",
                 "--python-expr",
                 python_script,
