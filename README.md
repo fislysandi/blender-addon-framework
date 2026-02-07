@@ -63,6 +63,8 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```bash
 # Sync dependencies (creates .venv automatically)
 uv sync
+uv lock
+
 
 # Verify installation
 uv run python -c "import watchdog; print('✓ UV setup complete')"
@@ -158,7 +160,7 @@ addon_prefs.some_property
 1. Configure the name of the addon you want to create (ACTIVE_ADDON) in [main.py](main.py).
 1. Run create.py to create a new addon in your IDE. The first time you run this, it will download dependencies,
    including
-   watchdog and fake-bpy-module.
+   watchdog and fake-bpy-module into your virtual enviroment.
 1. Develop your addon in the newly created addon directory.
 1. Run test.py to test your addon in Blender.
 1. Run release.py to package your addon into an installable package. The packaged addon path will appears in the

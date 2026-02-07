@@ -5,7 +5,7 @@ requires-python = ">=3.10"
 [[package]]
 name = "blender-addon-framework"
 version = "1.0.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "fake-bpy-module-3-5" },
     { name = "toml" },
