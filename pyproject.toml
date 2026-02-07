@@ -22,11 +22,17 @@ dev = [
 ]
 
 [project.scripts]
-# Console scripts require 'package = true' - using 'uv run python scripts/x.py' instead
+create = "scripts.create:main"
+test = "scripts.test:main"
+release = "scripts.release:main"
+addon-deps = "scripts.addon_deps:main"
 
 [tool.uv]
-# Not a package to publish - this is an application/framework
-package = false
+# Enable package mode to install console scripts
+package = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["scripts", "common"]
 
 [build-system]
 requires = ["hatchling"]
