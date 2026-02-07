@@ -1,7 +1,7 @@
 # Blender Addon Framework - Project State
 
 **Last Updated:** 2025-02-07  
-**Current Session:** Subtitle Editor Addon Migration Complete
+**Current Session:** Framework Fix - Namespace Package Support
 
 ## 📍 Current Status
 
@@ -46,6 +46,15 @@
   - UV dependency management (faster-whisper, pysubs2, onnxruntime)
   - Hot-reload support during development
   - Framework integration complete
+
+### 4. Framework Fix: Namespace Package Support (COMPLETE)
+- **Issue:** Addons with `.venv` directories caused errors due to missing `__init__.py` in namespace packages
+- **Root Cause:** Framework was scanning/copying addon's `.venv` directory
+- **Solution:** 
+  - Modified `shutil.copytree` to ignore `.venv`, `venv`, `__pycache__`, `.git` directories
+  - Updated `search_files()` to exclude virtual environments and cache directories by default
+  - Files changed: `framework.py`, `common/io/FileManagerClient.py`
+- **Impact:** Framework now properly handles addons with complex dependencies
 
 ## 🚀 Available Commands
 
@@ -116,10 +125,11 @@ Or just paste this file content and say:
 ## 📊 Quick Stats
 
 - **Total Branches:** 5
-- **Commits on dev:** 11 (4 auto-detection + 7 UV)
+- **Commits on dev:** 12 (4 auto-detection + 7 UV + 1 fix)
 - **Files Modified/Created:** 15+
 - **Tests Passing:** All UV commands working ✓
 - **Subtitle Editor:** Migrated to Framework ✓
+- **Framework Fixes:** Namespace package support ✓
 
 ## 🔗 Important Links
 
