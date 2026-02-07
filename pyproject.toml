@@ -24,10 +24,14 @@ dev = [
 create = "scripts.create:main"
 test = "scripts.test:main"
 release = "scripts.release:main"
+addon-deps = "scripts.addon_deps:main"
 
 [tool.uv]
 # Not a package to publish - this is an application/framework
 package = false
+
+[tool.uv.workspace]
+members = ["addons/*"]
 
 [build-system]
 requires = ["hatchling"]
