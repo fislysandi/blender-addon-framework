@@ -43,18 +43,68 @@ manually:
 - https://github.com/nutti/fake-bpy-module
 - https://github.com/gorakhargosh/watchdog
 
+## UV Package Manager Setup
+
+This project uses [UV](https://docs.astral.sh/uv/) for dependency management and script execution.
+UV is an extremely fast Python package manager written in Rust.
+
+### Install UV
+
+```bash
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+### Setup Project
+
+```bash
+# Sync dependencies (creates .venv automatically)
+uv sync
+
+# Verify installation
+uv run python -c "import watchdog; print('✓ UV setup complete')"
+```
+
 ## Basic Framework
+
+### Quick Start with UV (Recommended)
+
+| File | UV Command | Legacy Command |
+|------|------------|----------------|
+| Create addon | `uv run create <addon>` | `python3 create.py <addon>` |
+| Test addon | `uv run test <addon>` | `python3 test.py <addon>` |
+| Release addon | `uv run release <addon>` | `python3 release.py <addon>` |
+
+### Framework Files
 
 - [main.py](main.py): Configures the Blender path, add-on installation path, default add-on, package ignore files, and
   add-on release path, among other settings.
-- [test.py](test.py): A testing tool to run and test add-ons.
-- [create.py](create.py): A tool to create add-ons, allowing you to quickly create an add-on based on the `sample_addon`
-  template.
-- [release.py](release.py): A packaging tool that packages add-ons into an installable package.
 - [framework.py](framework.py): The core business logic of the framework, which automates the development process.
-- [addons](addons): A directory to store add-ons, with each add-on in its own sub-directory. Use `create.py` to quickly
-  create a new add-on.
+- [addons](addons): A directory to store add-ons, with each add-on in its own sub-directory.
 - [common](common): A directory to store shared utilities.
+
+## Per-Addon Dependency Management
+
+You can manage dependencies for individual addons using UV:
+
+```bash
+# Initialize UV support for an addon
+uv run addon-deps init my_addon
+
+# Add a dependency to an addon
+uv run addon-deps add my_addon requests
+
+# List addon dependencies
+uv run addon-deps list my_addon
+
+# Sync/install addon dependencies
+uv run addon-deps sync my_addon
+```
+
+This creates a `pyproject.toml` in the addon directory, allowing each addon to have its own isolated dependencies.
 
 ## Framework Development Guidelines
 
@@ -113,6 +163,39 @@ addon_prefs.some_property
 1. Run test.py to test your addon in Blender.
 1. Run release.py to package your addon into an installable package. The packaged addon path will appears in the
    terminal when packaged successfully.
+
+### Create a New Addon
+
+```bash
+# Using UV (recommended)
+uv run create my_addon
+
+# Legacy method
+python3 create.py my_addon
+```
+
+### Test Your Addon
+
+```bash
+# Using UV
+uv run test my_addon
+
+# Without hot reload
+uv run test my_addon --disable-watch
+
+# Legacy method
+python3 test.py my_addon
+```
+
+### Package Your Addon
+
+```bash
+# Using UV
+uv run release my_addon
+
+# Legacy method
+python3 release.py my_addon
+```
 
 ## Features Provided by the Framework
 
@@ -182,6 +265,19 @@ test_release_dir = C:/path/to/test/release/dir
    necessary for developing add-ons. Breakpoint debugging is helpful for complex add-ons features, but logging is
    sufficient in most of the cases. For this framework, breakpoint debugging would be a nice-to-have feature, but not a
    must-have.
+
+## UV Commands Reference
+
+| Command | Description |
+|---------|-------------|
+| `uv sync` | Install all dependencies from uv.lock |
+| `uv run create <addon>` | Create a new addon from template |
+| `uv run test <addon>` | Test addon with hot reload |
+| `uv run release <addon>` | Package addon for distribution |
+| `uv run addon-deps init <addon>` | Initialize addon dependencies |
+| `uv run addon-deps add <addon> <pkg>` | Add dependency to addon |
+| `uv run addon-deps list <addon>` | List addon dependencies |
+| `uv run addon-deps sync <addon>` | Sync addon dependencies |
 
 # Blender 插件开发框架及打包工具
 
