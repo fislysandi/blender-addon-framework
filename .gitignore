@@ -81,9 +81,9 @@ target/
 profile_default/
 ipython_config.py
 
-# pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
+# UV
+#   UV creates a .venv directory for virtual environments
+#   We explicitly track .python-version for reproducibility
 # .python-version
 
 # pipenv

@@ -1,0 +1,32 @@
+[project]
+name = "blender-addon-framework"
+version = "1.0.0"
+description = "Blender Addon Development Framework with UV support"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Xinyu Zhu", email = ""},
+]
+dependencies = [
+    "fake-bpy-module-3.5>=20231118",
+    "watchdog>=4.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.6.0",
+    "mypy>=1.0.0",
+]
+
+[project.scripts]
+# Entry points will be added in Phase 2
+
+[tool.uv]
+# Not a package to publish - this is an application/framework
+package = false
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
