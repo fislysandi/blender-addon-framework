@@ -1,7 +1,7 @@
 # Blender Addon Framework - Project State
 
-**Last Updated:** 2025-02-07  
-**Current Session:** Addon Virtual Environment Support Complete
+**Last Updated:** 2025-02-07
+**Current Session:** Debug Mode Support for Addon Testing
 
 ## 📍 Current Status
 
@@ -12,7 +12,8 @@
 
 | Branch | Purpose | Contains |
 |--------|---------|----------|
-| `dev` | **Working branch** | Auto-detection + UV support + Subtitle Editor |
+| `dev` | **Working branch** | All features (Auto-detection + UV + Debug) |
+| `debug-mode-support` | **Feature branch** | Debug mode for addon testing |
 | `uv-support` | **Feature branch** | Auto-detection + UV (for PR) |
 | `automatic-blender-detection-support-v2` | **Base branch** | Auto-detection only |
 | `automatic-blender-detection-support` | Old branch | 4 commits |
@@ -58,6 +59,29 @@
 
 ### 5. Addon Virtual Environment Support (COMPLETE)
 - **Issue:** Blender couldn't find dependencies installed in addon's `.venv`
+- **Root Cause:** Blender runs with its own Python, not the addon's venv
+- **Solution:**
+  - Added `get_addon_venv_site_packages()` to detect addon venv
+  - Modified `execute_blender_script()` to set PYTHONPATH with addon venv
+  - Blender now uses addon's dependencies from `.venv`
+  - Files changed: `framework.py`
+- **Impact:** Addons with UV dependencies now work correctly in Blender
+- **Tested:** subtitle_editor with faster-whisper, onnxruntime ✓
+
+### 6. Debug Mode Support for Addon Testing (COMPLETE)
+- **Feature:** Comprehensive debugging for addon testing
+- **Branch:** `debug-mode-support`
+- **Features:**
+  - **Performance Tracking:** Load time, memory usage, import times
+  - **Import Tracking:** Shows what modules are imported and from where
+  - **Error Capture:** Full Python tracebacks for exceptions
+  - **Warning Capture:** All Python warnings with details
+  - **Output:** Displays in both terminal and Blender console
+- **Usage:**
+  - `uv run test <addon>` - Debug mode ON (default)
+  - `uv run test <addon> --no-debug` - Debug mode OFF
+- **Files Changed:** `scripts/test.py`, `framework.py`
+- **Status:** Tested and working ✓
 - **Root Cause:** Blender runs with its own Python, not the addon's venv
 - **Solution:**
   - Added `get_addon_venv_site_packages()` to detect addon venv
@@ -135,10 +159,12 @@ Or just paste this file content and say:
 
 ## 📊 Quick Stats
 
-- **Total Branches:** 5
+- **Total Branches:** 6
 - **Commits on dev:** 13 (4 auto-detection + 7 UV + 2 fixes)
+- **Commits on debug-mode-support:** 14 (includes debug mode feature)
 - **Files Modified/Created:** 15+
 - **Tests Passing:** All UV commands working ✓
+- **Debug Mode:** Tested and working ✓
 - **Subtitle Editor:** Migrated to Framework ✓
 - **Framework Fixes:** Namespace package support ✓
 - **Addon Venv Support:** Blender uses addon dependencies ✓
