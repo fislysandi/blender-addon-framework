@@ -11,9 +11,23 @@ from datetime import datetime
 from pathlib import Path
 
 from common.class_loader.module_installer import install_if_missing, install_fake_bpy
-from common.io.FileManagerClient import search_files, read_utf8, write_utf8, is_subdirectory, get_md5_folder, \
-    read_utf8_in_lines, write_utf8_in_lines
-from main import PROJECT_ROOT, BLENDER_ADDON_PATH, BLENDER_EXE_PATH, DEFAULT_RELEASE_DIR, TEST_RELEASE_DIR, IS_EXTENSION
+from common.io.FileManagerClient import (
+    search_files,
+    read_utf8,
+    write_utf8,
+    is_subdirectory,
+    get_md5_folder,
+    read_utf8_in_lines,
+    write_utf8_in_lines,
+)
+from main import (
+    PROJECT_ROOT,
+    BLENDER_ADDON_PATH,
+    BLENDER_EXE_PATH,
+    DEFAULT_RELEASE_DIR,
+    TEST_RELEASE_DIR,
+    IS_EXTENSION,
+)
 
 try:
     # added in python3.11
@@ -27,8 +41,8 @@ except ImportError:
 # the framework itself. Do not change them unless you know what you are doing.
 _addon_namespace_pattern = re.compile("^[a-zA-Z]+[a-zA-Z0-9_]*$")
 _import_module_pattern = re.compile("from ([a-zA-Z_][a-zA-Z0-9_.]*) import (.+)")
-_relative_import_pattern = re.compile(r'^\s*(from\s+(\.+))(.*)$')
-_absolute_import_pattern = re.compile(r'^\s*from\s+(\w+[\w.]*)\s+import\s+(.*)$')
+_relative_import_pattern = re.compile(r"^\s*(from\s+(\.+))(.*)$")
+_absolute_import_pattern = re.compile(r"^\s*from\s+(\w+[\w.]*)\s+import\s+(.*)$")
 _addon_md5__signature = "addon.txt"
 _ADDON_MANIFEST_FILE = "blender_manifest.toml"
 _WHEELS_PATH = "wheels"
@@ -48,7 +62,11 @@ def new_addon(addon_name: str):
     if os.path.exists(new_addon_path):
         raise ValueError("Addon already exists: " + addon_name)
     if not bool(_addon_namespace_pattern.match(addon_name)):
-        raise ValueError("Invalid addon name: " + addon_name + " Please name it as a python package name")
+        raise ValueError(
+            "Invalid addon name: "
+            + addon_name
+            + " Please name it as a python package name"
+        )
     shutil.copytree(os.path.join(_ADDON_ROOT, _ADDON_TEMPLATE), new_addon_path)
 
     all_template_file = search_files(new_addon_path, {".py", ".toml"})
@@ -60,7 +78,7 @@ def new_addon(addon_name: str):
 def test_addon(addon_name, enable_watch=True):
     init_file = get_init_file_path(addon_name)
     if not enable_watch:
-        print('Do not auto reload addon when file changed')
+        print("Do not auto reload addon when file changed")
     start_test(init_file, addon_name, enable_watch=enable_watch)
 
 
@@ -123,6 +141,7 @@ def start_test(init_file, addon_name, enable_watch=True):
     test_addon_path = os.path.normpath(os.path.join(BLENDER_ADDON_PATH, addon_name))
 
     if not enable_watch:
+
         def exit_handler():
             if os.path.exists(test_addon_path):
                 shutil.rmtree(test_addon_path)
@@ -130,15 +149,23 @@ def start_test(init_file, addon_name, enable_watch=True):
         atexit.register(exit_handler)
         try:
             execute_blender_script(
-                [BLENDER_EXE_PATH, "--python-use-system-env", "--python-expr",
-                 f"import bpy\nbpy.ops.preferences.addon_enable(module=\"{addon_name}\")"], test_addon_path)
+                [
+                    BLENDER_EXE_PATH,
+                    "--python-use-system-env",
+                    "--python-expr",
+                    f'import bpy\nbpy.ops.preferences.addon_enable(module="{addon_name}")',
+                ],
+                test_addon_path,
+            )
         finally:
             exit_handler()
         return
 
     # start_watch_for_update(init_file, addon_name)
     stop_event = threading.Event()
-    thread = threading.Thread(target=start_watch_for_update, args=(init_file, addon_name, stop_event))
+    thread = threading.Thread(
+        target=start_watch_for_update, args=(init_file, addon_name, stop_event)
+    )
     thread.start()
 
     def exit_handler():
@@ -149,13 +176,23 @@ def start_test(init_file, addon_name, enable_watch=True):
 
     atexit.register(exit_handler)
 
-    python_script = start_up_command.format(addon_name=addon_name,
-                                            addon_signature=os.path.join(test_addon_path,
-                                                                         _addon_md5__signature).replace("\\", "/"))
+    python_script = start_up_command.format(
+        addon_name=addon_name,
+        addon_signature=os.path.join(test_addon_path, _addon_md5__signature).replace(
+            "\\", "/"
+        ),
+    )
 
     try:
-        execute_blender_script([BLENDER_EXE_PATH, "--python-use-system-env", "--python-expr", python_script],
-                               test_addon_path)
+        execute_blender_script(
+            [
+                BLENDER_EXE_PATH,
+                "--python-use-system-env",
+                "--python-expr",
+                python_script,
+            ],
+            test_addon_path,
+        )
     finally:
         exit_handler()
 
@@ -165,7 +202,9 @@ _addon_on_init_file = os.path.abspath(os.path.join(PROJECT_ROOT, "__init__.py"))
 
 
 def execute_blender_script(args, addon_path):
-    process = subprocess.Popen(args, stderr=subprocess.PIPE, text=True, encoding="utf-8")
+    process = subprocess.Popen(
+        args, stderr=subprocess.PIPE, text=True, encoding="utf-8"
+    )
     try:
         for line in process.stderr:
             line: str
@@ -180,7 +219,7 @@ def execute_blender_script(args, addon_path):
 
 
 def read_ext_config(addon_config_file):
-    with open(addon_config_file, 'r', encoding='utf-8') as f:
+    with open(addon_config_file, "r", encoding="utf-8") as f:
         try:
             addon_config = tomllib.loads(f.read())
         except Exception as e:
@@ -188,20 +227,28 @@ def read_ext_config(addon_config_file):
     return addon_config
 
 
-def release_addon(target_init_file, addon_name,
-                  release_dir=DEFAULT_RELEASE_DIR,
-                  need_zip=True,
-                  is_extension=IS_EXTENSION,
-                  with_timestamp=False,
-                  with_version=False):
+def release_addon(
+    target_init_file,
+    addon_name,
+    release_dir=DEFAULT_RELEASE_DIR,
+    need_zip=True,
+    is_extension=IS_EXTENSION,
+    with_timestamp=False,
+    with_version=False,
+):
     # if release dir is under PROJECT_ROOT, it's not allowed
     if is_subdirectory(release_dir, PROJECT_ROOT):
         # 不要将插件发布目录设置在当前项目内
-        raise ValueError("Invalid release dir:", release_dir,
-                         "Please set a release/test dir outside the current workspace")
+        raise ValueError(
+            "Invalid release dir:",
+            release_dir,
+            "Please set a release/test dir outside the current workspace",
+        )
 
     if not bool(_addon_namespace_pattern.match(addon_name)):
-        raise ValueError("InValid addon_name:", addon_name, "Please name it as a python package name")
+        raise ValueError(
+            "InValid addon_name:", addon_name, "Please name it as a python package name"
+        )
 
     if is_extension:
         # 发布为扩展时，请确保您在config.py正确的定义了__addon_name__
@@ -220,7 +267,9 @@ def release_addon(target_init_file, addon_name,
         shutil.rmtree(release_folder)
     os.mkdir(release_folder)
 
-    bootstrap_init_file = generate_bootstrap_init_file(addon_name, get_addon_info(target_init_file))
+    bootstrap_init_file = generate_bootstrap_init_file(
+        addon_name, get_addon_info(target_init_file)
+    )
     write_utf8(os.path.join(release_folder, "__init__.py"), bootstrap_init_file)
 
     # shutil.copyfile(target_init_file, os.path.join(release_folder, "__init__.py"))
@@ -231,10 +280,18 @@ def release_addon(target_init_file, addon_name,
             continue
         shutil.copy(file_path, release_folder)
 
-    # 将插件文件夹复制到发布目录
-    shutil.copytree(os.path.join(_ADDON_ROOT, addon_name), os.path.join(release_folder, _ADDONS_FOLDER, addon_name))
-    shutil.copyfile(os.path.join(_ADDON_ROOT, "__init__.py"),
-                    os.path.join(release_folder, _ADDONS_FOLDER, "__init__.py"))
+    # 将插件文件夹复制到发布目录 (忽略.venv等目录)
+    shutil.copytree(
+        os.path.join(_ADDON_ROOT, addon_name),
+        os.path.join(release_folder, _ADDONS_FOLDER, addon_name),
+        ignore=shutil.ignore_patterns(
+            ".venv", "venv", "__pycache__", "*.pyc", ".git", ".gitignore"
+        ),
+    )
+    shutil.copyfile(
+        os.path.join(_ADDON_ROOT, "__init__.py"),
+        os.path.join(release_folder, _ADDONS_FOLDER, "__init__.py"),
+    )
 
     all_py_files = search_files(os.path.join(_ADDON_ROOT, addon_name), {".py"})
     # 对插件文件夹中的每一个py文件进行分析，找到每个py文件中依赖的其他py文件
@@ -250,10 +307,15 @@ def release_addon(target_init_file, addon_name,
         if dependency in visited_py_files:
             continue
         visited_py_files.add(dependency)
-        target_path = os.path.join(release_folder, os.path.relpath(dependency, PROJECT_ROOT))
+        target_path = os.path.join(
+            release_folder, os.path.relpath(dependency, PROJECT_ROOT)
+        )
         if not os.path.exists(os.path.dirname(target_path)):
             os.makedirs(os.path.dirname(target_path))
-        shutil.copy(dependency, os.path.join(release_folder, os.path.relpath(dependency, PROJECT_ROOT)))
+        shutil.copy(
+            dependency,
+            os.path.join(release_folder, os.path.relpath(dependency, PROJECT_ROOT)),
+        )
 
     remove_pyc_files(release_folder)
     removed_path = 1
@@ -288,11 +350,17 @@ def release_addon(target_init_file, addon_name,
                 for wheel_file in wheel_files:
                     # You much put the .whl file directly under the wheels folder, not in a subfolder
                     # 你必须将.whl文件直接放在wheels文件夹下，而不是在子文件夹中
-                    assert wheel_file.startswith("./wheels/") and wheel_file.count("/") == 2
+                    assert (
+                        wheel_file.startswith("./wheels/")
+                        and wheel_file.count("/") == 2
+                    )
                     wheel_source = os.path.join(PROJECT_ROOT, wheel_file)
                     if not os.path.exists(wheel_source):
-                        raise ValueError("Wheel file not found:", wheel_source,
-                                         ". Please download the required wheel file to the wheels folder.")
+                        raise ValueError(
+                            "Wheel file not found:",
+                            wheel_source,
+                            ". Please download the required wheel file to the wheels folder.",
+                        )
                     shutil.copy(wheel_source, wheel_folder)
 
     real_addon_name = "{addon_name}".format(addon_name=release_folder)
@@ -303,7 +371,7 @@ def release_addon(target_init_file, addon_name,
         if not is_extension:
             bl_info = get_addon_info(target_init_file)
             if bl_info is not None:
-                _version = '.'.join([str(x) for x in bl_info['version']])
+                _version = ".".join([str(x) for x in bl_info["version"]])
             else:
                 raise ValueError("bl_info not found in:", target_init_file)
         else:
@@ -316,7 +384,9 @@ def release_addon(target_init_file, addon_name,
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         real_addon_name = f"{real_addon_name}_{timestamp}"
 
-    released_addon_path = os.path.abspath(os.path.join(release_dir, real_addon_name) + ".zip")
+    released_addon_path = os.path.abspath(
+        os.path.join(release_dir, real_addon_name) + ".zip"
+    )
     # zip the addon
     if need_zip:
         zip_folder(release_folder, real_addon_name, is_extension)
@@ -351,14 +421,13 @@ def unregister():
 
     """
     bl_info_str = (
-            "{\n"
-            + ",\n".join(
-        f'    "{key}": {repr(value)}'
-        for key, value in bl_info.items()
+        "{\n"
+        + ",\n".join(f'    "{key}": {repr(value)}' for key, value in bl_info.items())
+        + "\n}"
     )
-            + "\n}"
+    return bootstrap_init_file_template.format(
+        addon_name=addon_name, bl_info=bl_info_str
     )
-    return bootstrap_init_file_template.format(addon_name=addon_name, bl_info=bl_info_str)
 
 
 # pyc files are auto generated, need to be removed before release
@@ -383,9 +452,14 @@ def remove_empty_folders(root_path):
 # Zip the folder in a way that blender can recognize it as an addon.
 def zip_folder(target_root, output_zip_file, is_extension):
     if is_extension:
-        shutil.make_archive(output_zip_file, 'zip', Path(target_root))
+        shutil.make_archive(output_zip_file, "zip", Path(target_root))
     else:
-        shutil.make_archive(output_zip_file, 'zip', Path(target_root).parent, base_dir=os.path.basename(target_root))
+        shutil.make_archive(
+            output_zip_file,
+            "zip",
+            Path(target_root).parent,
+            base_dir=os.path.basename(target_root),
+        )
 
 
 def find_imported_modules(file_path):
@@ -411,13 +485,13 @@ def find_imported_modules(file_path):
 def resolve_module_path(module_name, base_path, project_root):
     if not module_name.endswith(".*"):
         # Handle import all
-        module_path = module_name.replace('.', '/')
+        module_path = module_name.replace(".", "/")
         module_path = os.path.join(project_root, module_path)
         if os.path.isdir(module_path):
-            module_path = os.path.join(module_path, '__init__.py')
+            module_path = os.path.join(module_path, "__init__.py")
             return [module_path]
-        elif os.path.isfile(module_path + '.py'):
-            module_path = module_path + '.py'
+        elif os.path.isfile(module_path + ".py"):
+            module_path = module_path + ".py"
             return [module_path]
         else:
             if "." not in module_name:
@@ -428,43 +502,42 @@ def resolve_module_path(module_name, base_path, project_root):
                 search_path = os.path.dirname(base_path)
                 potential_result = []
                 while is_subdirectory(search_path, project_root):
-                    possible_path = os.path.join(search_path, module_name + '.py')
+                    possible_path = os.path.join(search_path, module_name + ".py")
                     if os.path.isfile(possible_path):
                         potential_result.append(possible_path)
                     search_path = os.path.dirname(search_path)
                 return potential_result
             current_search_dir = os.path.dirname(base_path)
             while is_subdirectory(current_search_dir, project_root):
-                module_path = module_name.replace('.', '/')
+                module_path = module_name.replace(".", "/")
                 module_path = os.path.join(current_search_dir, module_path)
                 if os.path.isdir(module_path):
-                    module_path = os.path.join(module_path, '__init__.py')
+                    module_path = os.path.join(module_path, "__init__.py")
                     return [module_path]
-                elif os.path.isfile(module_path + '.py'):
-                    module_path = module_path + '.py'
+                elif os.path.isfile(module_path + ".py"):
+                    module_path = module_path + ".py"
                     return [module_path]
                 current_search_dir = os.path.dirname(current_search_dir)
             return []
     else:
         module_name = module_name[:-2]
-        module_path = module_name.replace('.', '/')
+        module_path = module_name.replace(".", "/")
         possible_root_path = os.path.join(project_root, module_path)
         if os.path.isdir(possible_root_path):
-            possible_root_path = os.path.join(possible_root_path, '__init__.py')
+            possible_root_path = os.path.join(possible_root_path, "__init__.py")
             return [possible_root_path]
-        elif os.path.isfile(possible_root_path + '.py'):
-            possible_root_path = possible_root_path + '.py'
+        elif os.path.isfile(possible_root_path + ".py"):
+            possible_root_path = possible_root_path + ".py"
             return [possible_root_path]
         else:
             current_search_dir = os.path.dirname(base_path)
             while is_subdirectory(current_search_dir, project_root):
-
                 possible_root_path = os.path.join(current_search_dir, module_path)
                 if os.path.isdir(possible_root_path):
-                    possible_root_path = os.path.join(possible_root_path, '__init__.py')
+                    possible_root_path = os.path.join(possible_root_path, "__init__.py")
                     return [possible_root_path]
-                elif os.path.isfile(possible_root_path + '.py'):
-                    possible_root_path = possible_root_path + '.py'
+                elif os.path.isfile(possible_root_path + ".py"):
+                    possible_root_path = possible_root_path + ".py"
                     return [possible_root_path]
                 current_search_dir = os.path.dirname(current_search_dir)
             return []
@@ -531,8 +604,10 @@ def enhance_import_for_py_files(addon_dir: str):
             original_module_path = module_path.groups()[0]
             if original_module_path in all_py_modules:
                 hasUpdated = True
-                content = content.replace("from " + original_module_path + " import",
-                                          "from " + namespace + "." + original_module_path + " import")
+                content = content.replace(
+                    "from " + original_module_path + " import",
+                    "from " + namespace + "." + original_module_path + " import",
+                )
         if hasUpdated:
             write_utf8(py_file, content)
 
@@ -560,33 +635,40 @@ def convert_absolute_to_relative(file_path: str, project_root: str):
     for line in lines:
         # help skipping expensive path check
         stripped_line = line.strip()
-        if (not stripped_line.startswith("from ")) or stripped_line.startswith("from ."):
+        if (not stripped_line.startswith("from ")) or stripped_line.startswith(
+            "from ."
+        ):
             # Leave non-import lines unchanged
             modified_lines.append(line)
             continue
         match = _absolute_import_pattern.match(line)
         if match:
             # get whitespace before the import statement
-            leading_space = line[:line.index("from")]
+            leading_space = line[: line.index("from")]
             absolute_module = match.group(1)
             import_items = match.group(2)
             # Check if the absolute module is within the project
-            absolute_module_path = absolute_module.replace('.', os.sep)
+            absolute_module_path = absolute_module.replace(".", os.sep)
             full_module_path = os.path.join(project_root, absolute_module_path)
-            if os.path.exists(full_module_path) or os.path.exists(f"{full_module_path}.py"):
+            if os.path.exists(full_module_path) or os.path.exists(
+                f"{full_module_path}.py"
+            ):
                 # Calculate the relative import path
 
                 target_relative_path = os.path.relpath(
                     os.path.join(project_root, absolute_module_path),
-                    os.path.dirname(file_path)
+                    os.path.dirname(file_path),
                 )
                 # Count the levels for leading dots
                 levels_up = target_relative_path.count("..") + 1
-                leading_dots = '.' * levels_up
+                leading_dots = "." * levels_up
 
                 # Build the relative import line
                 target_relative_path = target_relative_path.strip("." + os.sep)
-                relative_import_line = leading_space + f"from {leading_dots}{target_relative_path.replace(os.sep, '.')} import {import_items}\n"
+                relative_import_line = (
+                    leading_space
+                    + f"from {leading_dots}{target_relative_path.replace(os.sep, '.')} import {import_items}\n"
+                )
                 if relative_import_line != line:
                     modified_lines.append(relative_import_line)
                     changed = True
@@ -609,7 +691,9 @@ def find_all_py_modules(root_dir: str) -> set:
     all_py_file = search_files(root_dir, {".py"})
     for py_file in all_py_file:
         rel_path = str(os.path.relpath(py_file, root_dir))
-        modules = rel_path.replace("__init__.py", "").replace(".py", "").split(os.path.sep)
+        modules = (
+            rel_path.replace("__init__.py", "").replace(".py", "").split(os.path.sep)
+        )
         if len(modules[-1]) == 0:
             modules = modules[0:-1]
 
@@ -655,7 +739,8 @@ def start_watch_for_update(init_file, addon_name, stop_event: threading.Event):
                     print(e)
                     print(
                         "Addon updated failed: Please make sure no other process is"
-                        " using the addon folder. You might need to restart the test to update the addon in Blender.")
+                        " using the addon folder. You might need to restart the test to update the addon in Blender."
+                    )
         print("Stop watching for update...")
 
     except KeyboardInterrupt:
@@ -667,10 +752,16 @@ def update_addon_for_test(init_file, addon_name):
     if BLENDER_ADDON_PATH is None:
         # 无法得到Blender插件路径 请检查在main.py或config.ini中的配置
         raise ValueError(
-            "Could not find Blender addon installation path. Please check the configuration in main.py or config.ini")
-    addon_path = release_addon(init_file, addon_name, with_timestamp=False,
-                               is_extension=IS_EXTENSION,
-                               release_dir=TEST_RELEASE_DIR, need_zip=False)
+            "Could not find Blender addon installation path. Please check the configuration in main.py or config.ini"
+        )
+    addon_path = release_addon(
+        init_file,
+        addon_name,
+        with_timestamp=False,
+        is_extension=IS_EXTENSION,
+        release_dir=TEST_RELEASE_DIR,
+        need_zip=False,
+    )
     executable_path = os.path.join(os.path.dirname(addon_path), addon_name)
 
     test_addon_path = os.path.join(BLENDER_ADDON_PATH, addon_name)

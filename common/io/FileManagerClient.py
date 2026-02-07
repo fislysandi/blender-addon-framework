@@ -5,13 +5,19 @@ from os import listdir
 
 def get_all_filename(folder_path: str) -> list:
     if os.path.exists(folder_path):
-        return [f for f in listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
+        return [
+            f
+            for f in listdir(folder_path)
+            if os.path.isfile(os.path.join(folder_path, f))
+        ]
     else:
         return []
 
 
 def get_all_subfolder(folder_path: str) -> list:
-    return [f for f in listdir(folder_path) if os.path.isdir(os.path.join(folder_path, f))]
+    return [
+        f for f in listdir(folder_path) if os.path.isdir(os.path.join(folder_path, f))
+    ]
 
 
 # return true if path_a is a subdirectory under path_b
@@ -31,14 +37,44 @@ def is_filename_postfix_in(filename: str, target_set: set):
 
 
 # 搜索文件夹下所有文件 post_filter为后缀名集合 全小写
-def search_files(folder_path: str, post_filter: set) -> list:
+# Directories to exclude from file search (e.g., virtual environments, cache, version control)
+_DEFAULT_EXCLUDE_DIRS = {
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".git",
+    ".pytest_cache",
+    ".mypy_cache",
+    "node_modules",
+    ".idea",
+    ".vscode",
+}
+
+
+def search_files(folder_path: str, post_filter: set, exclude_dirs: set = None) -> list:
+    """Search for files in folder_path matching post_filter, excluding certain directories.
+
+    Args:
+        folder_path: Root directory to search
+        post_filter: Set of file extensions to include (e.g., {'.py', '.txt'})
+        exclude_dirs: Set of directory names to exclude (defaults to _DEFAULT_EXCLUDE_DIRS)
+
+    Returns:
+        List of file paths matching the criteria
+    """
+    if exclude_dirs is None:
+        exclude_dirs = _DEFAULT_EXCLUDE_DIRS
+
     def __depth_first_search_files_helper__(current_folder: str, pre_result: list):
         for filename in get_all_filename(current_folder):
             if is_filename_postfix_in(filename, post_filter):
                 pre_result.append(os.path.join(current_folder, filename))
         all_folders = get_all_subfolder(current_folder)
         for folder in all_folders:
-            __depth_first_search_files_helper__(os.path.join(current_folder, folder), pre_result)
+            if folder not in exclude_dirs:
+                __depth_first_search_files_helper__(
+                    os.path.join(current_folder, folder), pre_result
+                )
 
     all_file = []
     __depth_first_search_files_helper__(folder_path, all_file)
@@ -46,7 +82,7 @@ def search_files(folder_path: str, post_filter: set) -> list:
 
 
 def get_md5(filename):
-    return hashlib.md5(open(filename, 'rb').read()).hexdigest()
+    return hashlib.md5(open(filename, "rb").read()).hexdigest()
 
 
 def get_md5_folder(folder_path: str) -> str:
