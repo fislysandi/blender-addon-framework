@@ -75,11 +75,11 @@ def new_addon(addon_name: str):
         write_utf8(py_file, content)
 
 
-def test_addon(addon_name, enable_watch=True):
+def test_addon(addon_name, enable_watch=True, debug_mode=True):
     init_file = get_init_file_path(addon_name)
     if not enable_watch:
         print("Do not auto reload addon when file changed")
-    start_test(init_file, addon_name, enable_watch=enable_watch)
+    start_test(init_file, addon_name, enable_watch=enable_watch, debug_mode=debug_mode)
 
 
 def get_init_file_path(addon_name):
@@ -135,13 +135,188 @@ register_watch_update_tick(None)
 bpy.app.handlers.load_post.append(register_watch_update_tick)
 """
 
+# Debug mode startup command with performance tracking and detailed error reporting
+debug_start_up_command = """
+import bpy
+from bpy.app.handlers import persistent
+import os
+import sys
+import time
+import traceback
+import warnings
 
-def start_test(init_file, addon_name, enable_watch=True):
+# Debug tracking structures
+_debug_start_time = time.time()
+_debug_import_times = {{}}
+_debug_import_stack = []
+_debug_memory_start = 0
+
+try:
+    import psutil
+    _debug_memory_start = psutil.Process().memory_info().rss / 1024 / 1024  # MB
+except:
+    _debug_memory_start = 0
+
+# Custom import hook to track import times and sources
+class DebugImportFinder:
+    def find_module(self, fullname, path=None):
+        if fullname.startswith("{addon_name}"):
+            return self
+        return None
+    
+    def load_module(self, fullname):
+        start = time.time()
+        _debug_import_stack.append(fullname)
+        
+        # Remove our finder temporarily to avoid recursion
+        sys.meta_path.remove(_debug_finder)
+        
+        try:
+            if fullname in sys.modules:
+                module = sys.modules[fullname]
+            else:
+                # Use standard import
+                __import__(fullname)
+                module = sys.modules[fullname]
+            
+            import_time = time.time() - start
+            _debug_import_times[fullname] = {{
+                'time': import_time,
+                'source': getattr(module, '__file__', 'built-in'),
+                'stack': _debug_import_stack.copy()
+            }}
+            
+            if fullname.startswith("{addon_name}"):
+                print(f"[DEBUG] Imported {{fullname}} in {{import_time:.3f}}s from {{getattr(module, '__file__', 'built-in')}}")
+            
+            return module
+        finally:
+            _debug_import_stack.pop()
+            sys.meta_path.insert(0, _debug_finder)
+
+_debug_finder = DebugImportFinder()
+sys.meta_path.insert(0, _debug_finder)
+
+# Capture warnings
+warnings.filterwarnings('always')
+original_showwarning = warnings.showwarning
+
+def debug_showwarning(message, category, filename, lineno, file=None, line=None):
+    print(f"[WARNING] {{category.__name__}}: {{message}}")
+    print(f"          at {{filename}}:{{lineno}}")
+    original_showwarning(message, category, filename, lineno, file, line)
+
+warnings.showwarning = debug_showwarning
+
+# Capture exceptions with full tracebacks
+original_excepthook = sys.excepthook
+
+def debug_excepthook(exc_type, exc_value, exc_traceback):
+    print("\\n" + "="*70)
+    print(f"[ERROR] {{exc_type.__name__}}: {{exc_value}}")
+    print("="*70)
+    traceback.print_exception(exc_type, exc_value, exc_traceback)
+    print("="*70 + "\\n")
+    original_excepthook(exc_type, exc_value, exc_traceback)
+
+sys.excepthook = debug_excepthook
+
+print("\\n" + "="*70)
+print(f"[DEBUG] Starting addon '{addon_name}' with debug mode enabled")
+print("="*70)
+print("[DEBUG] Performance tracking: ON")
+print("[DEBUG] Import tracking: ON")
+print("[DEBUG] Full tracebacks: ON")
+print("="*70 + "\\n")
+
+existing_addon_md5 = ""
+try:
+    addon_start = time.time()
+    bpy.ops.preferences.addon_enable(module="{addon_name}")
+    addon_load_time = time.time() - addon_start
+    
+    # Print performance summary
+    print("\\n" + "="*70)
+    print("[DEBUG] Performance Summary")
+    print("="*70)
+    print(f"Total addon load time: {{addon_load_time:.3f}}s")
+    
+    if _debug_import_times:
+        print(f"\\nImports ({{len(_debug_import_times)}} total):")
+        sorted_imports = sorted(_debug_import_times.items(), key=lambda x: x[1]['time'], reverse=True)
+        for name, info in sorted_imports[:10]:  # Top 10 slowest
+            print(f"  {{name}}: {{info['time']:.3f}}s - {{info['source']}}")
+    
+    if _debug_memory_start > 0:
+        try:
+            current_memory = psutil.Process().memory_info().rss / 1024 / 1024
+            memory_used = current_memory - _debug_memory_start
+            print(f"\\nMemory usage: {{memory_used:.2f}} MB")
+        except:
+            pass
+    
+    print("="*70 + "\\n")
+    
+except Exception as e:
+    print("\\n" + "="*70)
+    print(f"[ERROR] Addon enable failed: {{e}}")
+    print("="*70)
+    traceback.print_exc()
+    print("="*70 + "\\n")
+
+def watch_update_tick():
+    global existing_addon_md5
+    if os.path.exists("{addon_signature}"):
+        with open("{addon_signature}", "r") as f:
+            addon_md5 = f.read()
+        if existing_addon_md5 == "":
+            existing_addon_md5 = addon_md5
+        elif existing_addon_md5 != addon_md5:
+            print("\\n[DEBUG] Addon file changed, reloading...")
+            reload_start = time.time()
+            try:
+                bpy.ops.preferences.addon_disable(module="{addon_name}")
+                all_modules = sys.modules
+                all_modules = dict(sorted(all_modules.items(),key= lambda x:x[0]))
+                for k,v in all_modules.items():
+                    if k.startswith("{addon_name}"):
+                        del sys.modules[k]
+                bpy.ops.preferences.addon_enable(module="{addon_name}")
+                reload_time = time.time() - reload_start
+                print(f"[DEBUG] Reload completed in {{reload_time:.3f}}s\\n")
+            except Exception as e:
+                print(f"[ERROR] Reload failed: {{e}}")
+                traceback.print_exc()
+            existing_addon_md5 = addon_md5
+    return 1.0
+
+@persistent
+def register_watch_update_tick(dummy):
+    print("[DEBUG] Watching for addon updates...")
+    bpy.app.timers.register(watch_update_tick)
+
+register_watch_update_tick(None)
+bpy.app.handlers.load_post.append(register_watch_update_tick)
+"""
+
+
+def start_test(init_file, addon_name, enable_watch=True, debug_mode=True):
     update_addon_for_test(init_file, addon_name)
     test_addon_path = os.path.normpath(os.path.join(BLENDER_ADDON_PATH, addon_name))
 
     # Check if addon has a virtual environment
     addon_venv_path = get_addon_venv_site_packages(addon_name)
+
+    # Select appropriate startup command based on debug mode
+    if debug_mode:
+        startup_cmd = debug_start_up_command.format(
+            addon_name=addon_name,
+            addon_signature=os.path.join(
+                test_addon_path, _addon_md5__signature
+            ).replace("\\", "/"),
+        )
+    else:
+        startup_cmd = None  # Will use simple enable command
 
     if not enable_watch:
 
@@ -151,16 +326,30 @@ def start_test(init_file, addon_name, enable_watch=True):
 
         atexit.register(exit_handler)
         try:
-            execute_blender_script(
-                [
-                    BLENDER_EXE_PATH,
-                    "--python-use-system-env",
-                    "--python-expr",
-                    f'import bpy\nbpy.ops.preferences.addon_enable(module="{addon_name}")',
-                ],
-                test_addon_path,
-                addon_venv_path,
-            )
+            if debug_mode and startup_cmd:
+                # Use debug startup command with performance tracking
+                execute_blender_script(
+                    [
+                        BLENDER_EXE_PATH,
+                        "--python-use-system-env",
+                        "--python-expr",
+                        startup_cmd,
+                    ],
+                    test_addon_path,
+                    addon_venv_path,
+                )
+            else:
+                # Use simple addon enable (no debug)
+                execute_blender_script(
+                    [
+                        BLENDER_EXE_PATH,
+                        "--python-use-system-env",
+                        "--python-expr",
+                        f'import bpy\nbpy.ops.preferences.addon_enable(module="{addon_name}")',
+                    ],
+                    test_addon_path,
+                    addon_venv_path,
+                )
         finally:
             exit_handler()
         return
@@ -180,12 +369,16 @@ def start_test(init_file, addon_name, enable_watch=True):
 
     atexit.register(exit_handler)
 
-    python_script = start_up_command.format(
-        addon_name=addon_name,
-        addon_signature=os.path.join(test_addon_path, _addon_md5__signature).replace(
-            "\\", "/"
-        ),
-    )
+    # Select appropriate script based on debug mode
+    if debug_mode:
+        python_script = startup_cmd  # Already formatted with debug command
+    else:
+        python_script = start_up_command.format(
+            addon_name=addon_name,
+            addon_signature=os.path.join(
+                test_addon_path, _addon_md5__signature
+            ).replace("\\", "/"),
+        )
 
     try:
         execute_blender_script(
