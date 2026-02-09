@@ -528,7 +528,13 @@ def execute_blender_script(
         print(f"Using addon venv: {addon_venv_path}")
 
     process = subprocess.Popen(
-        args, stderr=subprocess.PIPE, text=True, encoding="utf-8", env=env
+        args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=env,
     )
     session_id, log_path = _record_debug_session(process, args, addon_name, debug_mode)
     metadata_rel = os.path.relpath(
@@ -539,10 +545,10 @@ def execute_blender_script(
     )
     log_file = open(log_path, "w", encoding="utf-8")
     try:
-        for line in process.stderr:
-            line: str
-            if line.lstrip().startswith("File"):
-                line = line.replace(addon_path, PROJECT_ROOT)
+        if process.stdout is None:
+            raise RuntimeError("Failed to capture Blender output stream")
+        for line in process.stdout:
+            line = line.replace(addon_path, PROJECT_ROOT)
             sys.stderr.write(line)
             log_file.write(line)
             log_file.flush()
