@@ -24,6 +24,11 @@ def main():
         action="store_true",
         help="Disable debug mode (default: debug enabled)",
     )
+    parser.add_argument(
+        "--with-wheels",
+        action="store_true",
+        help="Install wheels from blender_manifest.toml before testing",
+    )
     args = parser.parse_args()
 
     if not args.addon:
@@ -63,7 +68,10 @@ def main():
 
     try:
         test_addon(
-            args.addon, enable_watch=not args.disable_watch, debug_mode=debug_mode
+            args.addon,
+            enable_watch=not args.disable_watch,
+            debug_mode=debug_mode,
+            install_wheels=args.with_wheels,
         )
     except Exception as e:
         print(f"✗ Error: {e}")

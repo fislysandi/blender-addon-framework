@@ -23,6 +23,12 @@ To solve that, you need to install them manually using `pip install` or `python 
 Blender python environment. This could also be done in the IDE if you choose to use the same python environment for
 developing.
 
+## Testing with wheels installed
+
+Use the new `--with-wheels` flag when running `uv run test` so the framework installs every wheel declared in
+`blender_manifest.toml` before launching Blender. This keeps ModuleNotFoundErrors from appearing in the test log and
+matches the behavior you would get after packaging the extension.
+
 []:
 
 # 如何给Blender 4.2及以后的插件添加 Python wheels
@@ -46,4 +52,3 @@ wheels = [
 错误，即使你已经在项目中包含了这些whl文件。
 为此你需要手动使用 `pip install` 或 `python -m pip install` 命令
 将这些whl文件安装到你进行测试的Blender python环境中。如果你恰巧选择在IDE中使用相同的python环境进行开发，你也可以通过IDE中安装这些whl文件。
-

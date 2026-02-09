@@ -185,9 +185,14 @@ uv run test my_addon
 # Without hot reload
 uv run test my_addon --disable-watch
 
+# Install wheels declared in blender_manifest.toml before running tests
+uv run test my_addon --with-wheels
+
 # Legacy method
 python3 test.py my_addon
 ```
+
+Each test run now prints a `[DEBUG] Blender PID: ... (session <id>)` line and writes a session file under `.tmp/debugger_sessions/<id>.json` plus a matching `.log`. Agents can inspect the JSON for the PID, command, and duration, and tail the log file to read the latest Blender output while the debugger is running.
 
 ### Package Your Addon
 
@@ -198,6 +203,8 @@ uv run release my_addon
 # Legacy method
 python3 release.py my_addon
 ```
+
+By default the packaged zip lands in `Releases/` at the project root (the folder exists in Git history but its contents stay ignored). Use `config.ini` or `--release-dir` to point releases elsewhere.
 
 ## Features Provided by the Framework
 
@@ -290,6 +297,15 @@ Add-on not loaded: "amogus", cause: No module named 'amogus'
 - These warnings are harmless and don't affect testing
 - To clear them, you can reset Blender to factory defaults: `File > Defaults > Load Factory Settings`
 - Or manually disable the missing addons in Blender's preferences
+
+### Command: `uv run audit-stale-addons`
+
+Run this helper to reproduce the warning list without opening Blender's preferences. It launches Blender in the background, interrogates `bpy.context.preferences.addons`, and reports every enabled module that currently raises `ModuleNotFoundError` (the same modules that cause the `DebugImportFinder.exec_module` fallback). The command accepts two switches:
+
+- `--disable-missing`: disable each stale module automatically so Blender stops re-loading it
+- `--reset-prefs`: reset Blender to factory defaults and save the clean state
+
+Use this command whenever stale addon warnings block your logs—pair it with `uv run test <addon>` to keep the workflow quiet.
 
 ### Error: "No addon name provided"
 

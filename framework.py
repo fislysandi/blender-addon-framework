@@ -1,12 +1,16 @@
 import ast
 import atexit
+import json
 import os
 import re
 import shutil
+import shlex
 import subprocess
 import sys
 import threading
 import time
+import textwrap
+import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -50,6 +54,7 @@ _WHEELS_PATH = "wheels"
 _ADDON_TEMPLATE = "sample_addon"
 _ADDONS_FOLDER = "addons"
 _ADDON_ROOT = os.path.join(PROJECT_ROOT, _ADDONS_FOLDER)
+_DEBUG_SESSION_DIR = os.path.join(PROJECT_ROOT, ".tmp", "debugger_sessions")
 
 # Install fake bpy module only when user have configured the blender executable path
 # 仅在用户配置了Blender可执行文件路径时安装fake bpy模块 避免在非Blender环境下安装fake bpy模块(如CICD流程中)
@@ -75,8 +80,10 @@ def new_addon(addon_name: str):
         write_utf8(py_file, content)
 
 
-def test_addon(addon_name, enable_watch=True, debug_mode=True):
+def test_addon(addon_name, enable_watch=True, debug_mode=True, install_wheels=False):
     init_file = get_init_file_path(addon_name)
+    if install_wheels:
+        install_manifest_wheels(addon_name)
     if not enable_watch:
         print("Do not auto reload addon when file changed")
     start_test(init_file, addon_name, enable_watch=enable_watch, debug_mode=debug_mode)
@@ -351,7 +358,9 @@ def start_test(init_file, addon_name, enable_watch=True, debug_mode=True):
                         startup_cmd,
                     ],
                     test_addon_path,
-                    addon_venv_path,
+                    addon_name,
+                    debug_mode=True,
+                    addon_venv_path=addon_venv_path,
                 )
             else:
                 # Use simple addon enable (no debug)
@@ -363,7 +372,9 @@ def start_test(init_file, addon_name, enable_watch=True, debug_mode=True):
                         f'import bpy\nbpy.ops.preferences.addon_enable(module="{addon_name}")',
                     ],
                     test_addon_path,
-                    addon_venv_path,
+                    addon_name,
+                    debug_mode=False,
+                    addon_venv_path=addon_venv_path,
                 )
         finally:
             exit_handler()
@@ -404,7 +415,9 @@ def start_test(init_file, addon_name, enable_watch=True, debug_mode=True):
                 python_script,
             ],
             test_addon_path,
-            addon_venv_path,
+            addon_name,
+            debug_mode=debug_mode,
+            addon_venv_path=addon_venv_path,
         )
     finally:
         exit_handler()
@@ -453,7 +466,46 @@ def get_addon_venv_site_packages(addon_name):
     return None
 
 
-def execute_blender_script(args, addon_path, addon_venv_path=None):
+def _ensure_debug_session_dir():
+    os.makedirs(_DEBUG_SESSION_DIR, exist_ok=True)
+    return _DEBUG_SESSION_DIR
+
+
+def _record_debug_session(process, args, addon_name, debug_mode):
+    session_id = uuid.uuid4().hex
+    debug_dir = _ensure_debug_session_dir()
+    log_path = os.path.join(debug_dir, f"{session_id}.log")
+    metadata_path = os.path.join(debug_dir, f"{session_id}.json")
+    metadata = {
+        "session_id": session_id,
+        "addon_name": addon_name,
+        "pid": process.pid,
+        "debug_mode": bool(debug_mode),
+        "command": shlex.join(args),
+        "log_path": os.path.relpath(log_path, PROJECT_ROOT),
+        "started_at": datetime.utcnow().isoformat() + "Z",
+    }
+    write_utf8(metadata_path, json.dumps(metadata, indent=2))
+    return session_id, log_path
+
+
+def _update_debug_session_metadata(session_id, exit_code, duration):
+    metadata_path = os.path.join(_ensure_debug_session_dir(), f"{session_id}.json")
+    if not os.path.isfile(metadata_path):
+        return
+    try:
+        payload = json.loads(read_utf8(metadata_path))
+    except Exception:
+        return
+    payload["ended_at"] = datetime.utcnow().isoformat() + "Z"
+    payload["exit_code"] = exit_code
+    payload["duration_seconds"] = duration
+    write_utf8(metadata_path, json.dumps(payload, indent=2))
+
+
+def execute_blender_script(
+    args, addon_path, addon_name, debug_mode=False, addon_venv_path=None
+):
     """
     Execute Blender with optional addon venv in PYTHONPATH.
 
@@ -462,6 +514,7 @@ def execute_blender_script(args, addon_path, addon_venv_path=None):
         addon_path: Path to the addon for error message path replacement
         addon_venv_path: Optional path to addon's venv site-packages
     """
+    start_time = time.monotonic()
     # Copy environment to avoid modifying global env
     env = os.environ.copy()
 
@@ -477,17 +530,221 @@ def execute_blender_script(args, addon_path, addon_venv_path=None):
     process = subprocess.Popen(
         args, stderr=subprocess.PIPE, text=True, encoding="utf-8", env=env
     )
+    session_id, log_path = _record_debug_session(process, args, addon_name, debug_mode)
+    metadata_rel = os.path.relpath(
+        os.path.join(_DEBUG_SESSION_DIR, f"{session_id}.json"), PROJECT_ROOT
+    )
+    print(
+        f"[DEBUG] Blender PID: {process.pid} (session {session_id}, metadata: {metadata_rel}, log: {os.path.relpath(log_path, PROJECT_ROOT)})"
+    )
+    log_file = open(log_path, "w", encoding="utf-8")
     try:
         for line in process.stderr:
             line: str
             if line.lstrip().startswith("File"):
                 line = line.replace(addon_path, PROJECT_ROOT)
             sys.stderr.write(line)
+            log_file.write(line)
+            log_file.flush()
     except KeyboardInterrupt:
         sys.stderr.write("interrupted, terminating the child process...\n")
     finally:
-        process.terminate()
-        process.wait()
+        if process.poll() is None:
+            process.terminate()
+        exit_code = process.wait()
+        duration = time.monotonic() - start_time
+        _update_debug_session_metadata(session_id, exit_code, duration)
+        log_file.close()
+
+
+_BLENDER_JSON_BEGIN = "__OpenCode_Audit_JSON_BEGIN__"
+_BLENDER_JSON_END = "__OpenCode_Audit_JSON_END__"
+_BLENDER_JSON_TIMEOUT = 60
+
+
+def _ensure_blender_executable():
+    if not os.path.isfile(BLENDER_EXE_PATH):
+        raise FileNotFoundError(f"Blender executable not found: {BLENDER_EXE_PATH}")
+
+
+def _prepare_blender_env(addon_venv_path=None):
+    env = os.environ.copy()
+    if addon_venv_path:
+        current_pythonpath = env.get("PYTHONPATH", "")
+        if current_pythonpath:
+            env["PYTHONPATH"] = f"{addon_venv_path}{os.pathsep}{current_pythonpath}"
+        else:
+            env["PYTHONPATH"] = addon_venv_path
+    return env
+
+
+def _run_blender_python_with_output(
+    script, addon_venv_path=None, timeout=_BLENDER_JSON_TIMEOUT
+):
+    _ensure_blender_executable()
+    args = [
+        BLENDER_EXE_PATH,
+        "--background",
+        "--python-use-system-env",
+        "--python-expr",
+        script,
+    ]
+    env = _prepare_blender_env(addon_venv_path)
+    result = subprocess.run(
+        args,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=timeout,
+    )
+    if result.returncode != 0:
+        error_msg = result.stderr.strip() or result.stdout.strip()
+        raise RuntimeError(
+            f"Blender script failed (exit {result.returncode}): {error_msg}"
+        )
+    return result.stdout, result.stderr
+
+
+def _extract_json_payload(stream: str) -> str:
+    start = stream.find(_BLENDER_JSON_BEGIN)
+    end = stream.find(_BLENDER_JSON_END, start + len(_BLENDER_JSON_BEGIN))
+    if start == -1 or end == -1:
+        raise RuntimeError("Could not read JSON payload from Blender output")
+    return stream[start + len(_BLENDER_JSON_BEGIN) : end].strip()
+
+
+def _run_blender_script_and_parse_json(script, addon_venv_path=None):
+    stdout, stderr = _run_blender_python_with_output(
+        script, addon_venv_path=addon_venv_path
+    )
+    combined = f"{stdout}\n{stderr}"
+    payload = _extract_json_payload(combined)
+    return json.loads(payload)
+
+
+def _render_json_report(script_body: str) -> dict:
+    script = textwrap.dedent(script_body)
+    return _run_blender_script_and_parse_json(script)
+
+
+def collect_enabled_addons():
+    script = f"""
+        import bpy
+        import importlib
+        import json
+
+        enabled = sorted(bpy.context.preferences.addons.keys())
+        missing = []
+        errors = []
+
+        for module in enabled:
+            try:
+                importlib.import_module(module)
+            except ModuleNotFoundError:
+                missing.append(module)
+            except Exception as exc:
+                errors.append({{"module": module, "message": str(exc)}})
+
+        payload = {{
+            "enabled": enabled,
+            "missing": missing,
+            "errors": errors,
+        }}
+        print("{_BLENDER_JSON_BEGIN}")
+        print(json.dumps(payload))
+        print("{_BLENDER_JSON_END}")
+    """
+    return _render_json_report(script)
+
+
+def disable_addons_in_blender(modules):
+    if not modules:
+        return {"disabled": [], "failed": {}}
+
+    modules_json = json.dumps(modules)
+    script = f"""
+        import bpy
+        import json
+
+        modules = {modules_json}
+        disabled = []
+        failed = {{}}
+
+        for module in modules:
+            try:
+                bpy.ops.preferences.addon_disable(module=module)
+                disabled.append(module)
+            except Exception as exc:
+                failed[module] = str(exc)
+
+        if disabled:
+            bpy.ops.wm.save_userpref()
+
+        print("{_BLENDER_JSON_BEGIN}")
+        print(json.dumps({{"disabled": disabled, "failed": failed}}))
+        print("{_BLENDER_JSON_END}")
+    """
+    return _render_json_report(script)
+
+
+def reset_blender_preferences():
+    script = f"""
+        import bpy
+        import json
+
+        bpy.ops.wm.read_factory_settings(use_empty=True)
+        bpy.ops.wm.save_userpref()
+
+        print("{_BLENDER_JSON_BEGIN}")
+        print(json.dumps({{"reset": true}}))
+        print("{_BLENDER_JSON_END}")
+    """
+    return _render_json_report(script)
+
+
+def audit_stale_addons(disable_missing=False, reset_preferences=False):
+    report = collect_enabled_addons()
+    enabled = report.get("enabled", [])
+    missing = report.get("missing", [])
+    errors = report.get("errors", [])
+
+    print(f"Checked {len(enabled)} enabled addon(s).")
+    if missing:
+        print("Missing modules (likely stale):")
+        for module in missing:
+            print(f"  - {module}")
+        print(
+            "Blender remembers previously enabled addons. Run `uv run audit-stale-addons --disable-missing` or reset preferences."
+        )
+    else:
+        print("No missing addons detected.")
+
+    if errors:
+        print("Errors encountered while probing addons:")
+        for entry in errors:
+            print(f"  - {entry['module']}: {entry['message']}")
+
+    disable_summary = None
+    if disable_missing and missing:
+        disable_summary = disable_addons_in_blender(missing)
+        disabled = disable_summary.get("disabled", [])
+        failed = disable_summary.get("failed", {})
+        print(f"Disabled {len(disabled)} addon(s) in Blender preferences.")
+        if failed:
+            print("Failed to disable:")
+            for module, reason in failed.items():
+                print(f"  - {module}: {reason}")
+
+    reset_summary = None
+    if reset_preferences:
+        reset_summary = reset_blender_preferences()
+        print("Blender preferences reset to factory defaults.")
+
+    return {
+        "report": report,
+        "disable": disable_summary,
+        "reset": reset_summary,
+    }
 
 
 def read_ext_config(addon_config_file):
@@ -499,6 +756,43 @@ def read_ext_config(addon_config_file):
     return addon_config
 
 
+def install_manifest_wheels(addon_name: str):
+    manifest_path = os.path.join(_ADDON_ROOT, addon_name, _ADDON_MANIFEST_FILE)
+    if not os.path.isfile(manifest_path):
+        print(
+            f"No {_ADDON_MANIFEST_FILE} found for '{addon_name}'; skipping wheel installation."
+        )
+        return []
+
+    addon_config = read_ext_config(manifest_path)
+    wheel_files = addon_config.get("wheels", [])
+    if not wheel_files:
+        print("No wheels declared in blender_manifest.toml; skipping.")
+        return []
+
+    installed = []
+    for wheel_file in wheel_files:
+        wheel_path = os.path.normpath(os.path.join(PROJECT_ROOT, wheel_file))
+        if not os.path.isfile(wheel_path):
+            raise FileNotFoundError(
+                f"Wheel file not found: {wheel_path}. Please download it into the wheels/ folder."
+            )
+        print(f"Installing wheel for tests: {wheel_path}")
+        try:
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "--upgrade", wheel_path],
+                check=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(
+                f"Failed to install wheel {wheel_path}: {exc.stderr or exc}".strip()
+            ) from exc
+        installed.append(wheel_path)
+
+    print(f"Installed {len(installed)} wheel(s) before running tests.")
+    return installed
+
+
 def release_addon(
     target_init_file,
     addon_name,
@@ -508,15 +802,12 @@ def release_addon(
     with_timestamp=False,
     with_version=False,
 ):
-    # if release dir is under PROJECT_ROOT, it's not allowed
     if is_subdirectory(release_dir, PROJECT_ROOT):
-        # 不要将插件发布目录设置在当前项目内
         raise ValueError(
             "Invalid release dir:",
             release_dir,
             "Please set a release/test dir outside the current workspace",
         )
-
     if not bool(_addon_namespace_pattern.match(addon_name)):
         raise ValueError(
             "InValid addon_name:", addon_name, "Please name it as a python package name"
@@ -539,9 +830,10 @@ def release_addon(
         shutil.rmtree(release_folder)
     os.mkdir(release_folder)
 
-    bootstrap_init_file = generate_bootstrap_init_file(
-        addon_name, get_addon_info(target_init_file)
-    )
+    bl_info = get_addon_info(target_init_file)
+    if bl_info is None:
+        raise ValueError(f"bl_info not found in: {target_init_file}")
+    bootstrap_init_file = generate_bootstrap_init_file(addon_name, bl_info)
     write_utf8(os.path.join(release_folder, "__init__.py"), bootstrap_init_file)
 
     # shutil.copyfile(target_init_file, os.path.join(release_folder, "__init__.py"))
@@ -1014,8 +1306,9 @@ def start_watch_for_update(init_file, addon_name, stop_event: threading.Event):
                         " using the addon folder. You might need to restart the test to update the addon in Blender."
                     )
         print("Stop watching for update...")
-
     except KeyboardInterrupt:
+        print("Stop watching for update...")
+    finally:
         observer.stop()
         observer.join()
 
