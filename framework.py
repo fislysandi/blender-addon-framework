@@ -268,7 +268,11 @@ _debug_eval_active_depth = 0
 _debug_eval_format = os.environ.get("SUBTITLE_DEBUG_EVAL_FORMAT", "lisp").strip().lower()
 if _debug_eval_format not in {{"lisp", "kv"}}:
     _debug_eval_format = "lisp"
-_debug_eval_compact = os.environ.get("SUBTITLE_DEBUG_COMPACT", "0").strip().lower() in {{
+_debug_eval_compact_value = os.environ.get(
+    "DEBUG_TRACE_COMPACT",
+    os.environ.get("SUBTITLE_DEBUG_COMPACT", "0"),
+)
+_debug_eval_compact = _debug_eval_compact_value.strip().lower() in {{
     "1",
     "true",
     "yes",
