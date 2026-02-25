@@ -25,6 +25,25 @@
 - [ ] **REPL tooling**
   - [ ] Live trace feed script (tails latest session, emits JSON events)
   - [ ] Interactive command loop: filter, trace, where, last N
+  - [ ] Runtime test commands in test mode to catch non-evaluation bugs
+  - [ ] REPL assertions against live addon state (selection, strips, channels, props)
+  - [ ] On-demand test execution hooks while addon remains loaded
+  - [ ] Impurity/mutation warnings when evaluated functions mutate state
+  - [ ] REPL controls to enable/disable impurity warnings at runtime
+  - [ ] `config.toml` controls to set default impurity-warning behavior
+  - [ ] Precedence rules: REPL runtime toggle overrides `config.toml` defaults
+  - [ ] REPL self-configuration commands for all REPL settings at runtime
+  - [ ] Add REPL settings introspection command (show active settings + source)
+  - [ ] Persist REPL setting profiles and load/switch profiles from REPL
+  - [ ] Keep REPL process alive when Blender child process crashes
+  - [ ] Add REPL command to re-initialize Blender with selected addon from addon list
+
+- [ ] **Crash resilience**
+  - [ ] On Blender crash, always write crash artifacts under `.tmp/{addon-name}/`
+  - [ ] Auto-create `.tmp/{addon-name}/` crash directory if missing
+  - [ ] Save crash metadata (`session`, `pid`, `exit_code`, timestamp, command)
+  - [ ] Save crash logs/backtrace references in addon-scoped crash report file
+  - [ ] Expose last-crash summary in REPL for quick recovery workflow
 
 ---
 
@@ -32,6 +51,10 @@
 
 - [ ] Test framework improvements
 - [ ] Debug session replay / record
+- [ ] Catch evaluation issues upfront during addon load in test mode
+  - [ ] Run startup evaluation checks immediately after addon registration
+  - [ ] Emit early warning/fail events before user interaction
+  - [ ] Fail fast in test mode for critical evaluation regressions
 
 ---
 
@@ -87,6 +110,25 @@
 - [ ] Define `src/` nested conventions (e.g. `src/panels/` for UI)
 - [ ] Migration guidance for existing addons
 - [ ] Write to `docs/addon-structure-standard.md`
+- [ ] **Default addon template v1**
+  - [ ] Generate addon tree:
+    - [ ] `{addon_name}/blender_manifest.toml`
+    - [ ] `{addon_name}/src/__init__.py`
+    - [ ] `{addon_name}/src/config.py`
+    - [ ] `{addon_name}/src/ui/`
+    - [ ] `{addon_name}/src/operators/`
+    - [ ] `{addon_name}/src/preferences/__init__.py`
+    - [ ] `{addon_name}/src/preferences/config.py`
+    - [ ] `{addon_name}/src/preferences/addon_preferences.py`
+    - [ ] `{addon_name}/docs/`
+    - [ ] `{addon_name}/tests/`
+
+- [ ] **Addon dependency environment standard (UV at addon root)**
+  - [ ] Include `{addon_name}/pyproject.toml` for addon-scoped dependencies
+  - [ ] Include `{addon_name}/uv.lock` for reproducible installs
+  - [ ] Support addon-local `.venv/` (not committed)
+  - [ ] Define dependency groups for `dev` and `test`
+  - [ ] Optional: support `.python-version` per addon when needed
 
 ---
 
