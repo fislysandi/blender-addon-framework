@@ -149,8 +149,16 @@ from bpy.app.handlers import persistent
 import os
 import sys
 import time
+import json
+import uuid
 import traceback
 import warnings
+
+try:
+    sys.stdout.reconfigure(line_buffering=True)
+    sys.stderr.reconfigure(line_buffering=True)
+except Exception:
+    pass
 
 # Debug tracking structures
 _debug_start_time = time.time()
@@ -243,11 +251,322 @@ def debug_excepthook(exc_type, exc_value, exc_traceback):
 
 sys.excepthook = debug_excepthook
 
+_debug_eval_clock = {{}}
+_debug_eval_allowlist = {{
+    "invoke",
+    "execute",
+    "load_model",
+    "transcribe",
+    "_transcribe_worker",
+    "_drain_queue",
+    "_finalize",
+    "check_dependencies",
+    "_install_thread",
+}}
+_debug_eval_active_root = None
+_debug_eval_active_depth = 0
+_debug_eval_format = os.environ.get("SUBTITLE_DEBUG_EVAL_FORMAT", "lisp").strip().lower()
+if _debug_eval_format not in {{"lisp", "kv"}}:
+    _debug_eval_format = "lisp"
+_debug_eval_compact = os.environ.get("SUBTITLE_DEBUG_COMPACT", "0").strip().lower() in {{
+    "1",
+    "true",
+    "yes",
+    "on",
+}}
+_debug_eval_compact_noisy = {{
+    "_get_sequence_collection",
+    "_collect_selected_text",
+}}
+_debug_eval_sid = os.environ.get("SUBTITLE_DEBUG_SESSION_ID", uuid.uuid4().hex)
+_debug_eval_eid = 0
+
+
+def _debug_eval_sanitize_value(value):
+    if isinstance(value, (bool, int, float)) or value is None:
+        return value
+    if isinstance(value, str):
+        compact = " ".join(value.strip().split())
+        if len(compact) > 120:
+            return compact[:117] + "..."
+        return compact
+    if isinstance(value, (list, tuple)):
+        return [_debug_eval_sanitize_value(v) for v in value[:8]]
+    if isinstance(value, dict):
+        safe = {{}}
+        for key, item in list(value.items())[:8]:
+            safe[str(key)] = _debug_eval_sanitize_value(item)
+        return safe
+    text = " ".join(str(value).split())
+    if len(text) > 120:
+        return text[:117] + "..."
+    return text
+
+
+def _debug_eval_sanitize_context(context):
+    safe = {{}}
+    for key, value in context.items():
+        if value is None:
+            continue
+        key_text = str(key)
+        if key_text in {{"filepath", "audio_path", "video_path", "path"}} and isinstance(value, str):
+            safe[key_text] = os.path.basename(value)
+            continue
+        safe[key_text] = _debug_eval_sanitize_value(value)
+    return safe
+
+
+def _debug_eval_log(action, phase, outcome, reason, context=None):
+    global _debug_eval_eid
+    payload = _debug_eval_sanitize_context(context or {{}})
+
+    if _debug_eval_compact:
+        function_name = str(payload.get("function", ""))
+        depth = int(payload.get("depth", 0) or 0)
+        result_value = str(payload.get("result", ""))
+        if function_name in _debug_eval_compact_noisy and depth >= 2:
+            return
+        if phase == "success" and depth >= 2 and function_name.startswith("_") and result_value in {{"none", "list", "dict"}}:
+            return
+
+    _debug_eval_eid += 1
+
+    def _to_keyword(value):
+        text = str(value).strip().lower()
+        if not text:
+            return ":unknown"
+        normalized = []
+        for char in text:
+            if char.isalnum() or char in {{"-", "_", ".", "/"}}:
+                normalized.append(char)
+            else:
+                normalized.append("-")
+        symbol = "".join(normalized).strip("-")
+        if not symbol:
+            symbol = "unknown"
+        if symbol[0].isdigit():
+            symbol = f"n-{{symbol}}"
+        return f":{{symbol}}"
+
+    def _to_lisp_atom(value, as_keyword=False):
+        if as_keyword and isinstance(value, str):
+            return _to_keyword(value)
+        if value is None:
+            return "nil"
+        if isinstance(value, bool):
+            return "t" if value else "nil"
+        if isinstance(value, (int, float)):
+            return str(value)
+        if isinstance(value, str):
+            escaped = value.replace('"', '\\"')
+            return f'"{{escaped}}"'
+        if isinstance(value, dict):
+            parts = []
+            for key, item in value.items():
+                keyword_value = str(key) in {{"phase", "outcome", "reason"}}
+                parts.append(
+                    f"{{_to_keyword(key)}} {{_to_lisp_atom(item, as_keyword=keyword_value)}}"
+                )
+            return f"({{' '.join(parts)}})"
+        if isinstance(value, (list, tuple)):
+            return f"({{' '.join(_to_lisp_atom(item) for item in value)}})"
+        escaped = str(value).replace('"', '\\"')
+        return f'"{{escaped}}"'
+
+    if _debug_eval_format == "lisp":
+        event = {{
+            "sid": _debug_eval_sid,
+            "eid": _debug_eval_eid,
+            "ts": round(time.time(), 6),
+            "phase": phase,
+            "action": action,
+            "outcome": outcome,
+            "reason": reason,
+            "context": payload,
+        }}
+        print(f"(eval {{_to_lisp_atom(event)}})", flush=True)
+        return
+
+    payload_text = json.dumps(payload, separators=(",", ":"), ensure_ascii=True)
+    print(
+        f"[Subtitle Studio][EVAL] action={{action}} phase={{phase}} "
+        f"outcome={{outcome}} reason={{reason}} sid={{_debug_eval_sid}} "
+        f"eid={{_debug_eval_eid}} context={{payload_text}}",
+        flush=True,
+    )
+
+
+def _debug_eval_is_target(frame):
+    module_name = str(frame.f_globals.get("__name__", ""))
+    if not _debug_eval_is_addon_module(module_name):
+        return False
+    func_name = frame.f_code.co_name
+    if func_name in {{"<module>", "<listcomp>", "<dictcomp>", "<setcomp>", "<genexpr>"}}:
+        return False
+    if _debug_eval_active_root is not None:
+        return True
+    target_context = _debug_eval_target_context(frame)
+    is_operator_entry = func_name in {{"invoke", "execute"}} and bool(
+        target_context.get("operator_id") or target_context.get("target")
+    )
+    if is_operator_entry:
+        return True
+    return func_name in _debug_eval_allowlist
+
+
+def _debug_eval_action(frame):
+    self_obj = frame.f_locals.get("self")
+    func_name = frame.f_code.co_name
+    if self_obj is not None:
+        if func_name == "execute":
+            return "operator.execute"
+        if func_name == "invoke":
+            return "operator.invoke"
+    module_name = str(frame.f_globals.get("__name__", "unknown"))
+    short_module = module_name.replace("{addon_name}.", "", 1)
+    return f"{{short_module}}.{{func_name}}"
+
+
+def _debug_eval_target_context(frame):
+    context = {{}}
+    self_obj = frame.f_locals.get("self")
+    if self_obj is not None:
+        class_name = self_obj.__class__.__name__
+        if class_name:
+            context["target"] = class_name
+        class_dict = getattr(self_obj.__class__, "__dict__", {{}})
+        class_bl_idname = class_dict.get("bl_idname")
+        instance_bl_idname = getattr(self_obj, "bl_idname", None)
+        bl_idname = class_bl_idname or instance_bl_idname
+        if bl_idname:
+            context["operator_id"] = bl_idname
+    return context
+
+
+def _debug_eval_result_text(value):
+    if isinstance(value, set):
+        return "|".join(sorted(str(item) for item in value))
+    if isinstance(value, tuple):
+        return "|".join(str(item) for item in value)
+    if isinstance(value, dict):
+        return "dict"
+    if isinstance(value, list):
+        return "list"
+    if value is None:
+        return "none"
+    return str(value)
+
+
+def _debug_eval_is_addon_module(module_name):
+    return module_name.startswith("{addon_name}.")
+
+
+def _debug_eval_tracer(frame, event, arg):
+    global _debug_eval_active_root
+    global _debug_eval_active_depth
+    module_name = str(frame.f_globals.get("__name__", ""))
+    is_target = _debug_eval_is_target(frame)
+    if event == "call":
+        if not is_target:
+            return
+        frame_id = id(frame)
+        _debug_eval_clock[frame_id] = time.perf_counter()
+        target_context = _debug_eval_target_context(frame)
+        is_root_operator = (
+            frame.f_code.co_name in {{"invoke", "execute"}}
+            and bool(target_context.get("operator_id") or target_context.get("target"))
+            and _debug_eval_is_addon_module(module_name)
+        )
+        if is_root_operator:
+            _debug_eval_active_root = frame_id
+            _debug_eval_active_depth = 0
+        elif _debug_eval_active_root is not None and _debug_eval_is_addon_module(module_name):
+            _debug_eval_active_depth += 1
+        _debug_eval_log(
+            _debug_eval_action(frame),
+            "start",
+            "ok",
+            "call",
+            {{
+                "module": frame.f_globals.get("__name__"),
+                "function": frame.f_code.co_name,
+                "line": frame.f_lineno,
+                "file": os.path.basename(frame.f_code.co_filename),
+                "depth": _debug_eval_active_depth,
+                **target_context,
+            }},
+        )
+        return
+
+    if not is_target:
+        return
+
+    frame_id = id(frame)
+    started_at = _debug_eval_clock.pop(frame_id, None)
+    duration_ms = None
+    if started_at is not None:
+        duration_ms = round((time.perf_counter() - started_at) * 1000.0, 3)
+
+    if event == "return":
+        target_context = _debug_eval_target_context(frame)
+        _debug_eval_log(
+            _debug_eval_action(frame),
+            "success",
+            "ok",
+            "return",
+            {{
+                "module": frame.f_globals.get("__name__"),
+                "function": frame.f_code.co_name,
+                "duration_ms": duration_ms,
+                "result": _debug_eval_result_text(arg),
+                "depth": _debug_eval_active_depth,
+                **target_context,
+            }},
+        )
+        if frame_id == _debug_eval_active_root:
+            _debug_eval_active_root = None
+            _debug_eval_active_depth = 0
+        elif _debug_eval_active_root is not None and _debug_eval_active_depth > 0:
+            _debug_eval_active_depth -= 1
+        return
+
+    if event == "exception":
+        exc_type = None
+        if isinstance(arg, tuple) and len(arg) > 0 and arg[0] is not None:
+            exc_type = getattr(arg[0], "__name__", str(arg[0]))
+        target_context = _debug_eval_target_context(frame)
+        _debug_eval_log(
+            _debug_eval_action(frame),
+            "fail",
+            "error",
+            "exception",
+            {{
+                "module": frame.f_globals.get("__name__"),
+                "function": frame.f_code.co_name,
+                "exception": exc_type,
+                "duration_ms": duration_ms,
+                "depth": _debug_eval_active_depth,
+                **target_context,
+            }},
+        )
+        if frame_id == _debug_eval_active_root:
+            _debug_eval_active_root = None
+            _debug_eval_active_depth = 0
+        elif _debug_eval_active_root is not None and _debug_eval_active_depth > 0:
+            _debug_eval_active_depth -= 1
+        return
+
+
+sys.setprofile(_debug_eval_tracer)
+
 print("\\n" + "="*70)
 print(f"[DEBUG] Starting addon '{addon_name}' with debug mode enabled")
 print("="*70)
 print("[DEBUG] Performance tracking: ON")
 print("[DEBUG] Import tracking: ON")
+print("[DEBUG] Evaluation tracing: ON")
+print(f"[DEBUG] Evaluation format: {{_debug_eval_format}}")
+print(f"[DEBUG] Evaluation compact mode: {{'ON' if _debug_eval_compact else 'OFF'}}")
 print("[DEBUG] Full tracebacks: ON")
 print("="*70 + "\\n")
 
@@ -471,8 +790,8 @@ def _ensure_debug_session_dir():
     return _DEBUG_SESSION_DIR
 
 
-def _record_debug_session(process, args, addon_name, debug_mode):
-    session_id = uuid.uuid4().hex
+def _record_debug_session(process, args, addon_name, debug_mode, session_id=None):
+    session_id = session_id or uuid.uuid4().hex
     debug_dir = _ensure_debug_session_dir()
     log_path = os.path.join(debug_dir, f"{session_id}.log")
     metadata_path = os.path.join(debug_dir, f"{session_id}.json")
@@ -517,6 +836,9 @@ def execute_blender_script(
     start_time = time.monotonic()
     # Copy environment to avoid modifying global env
     env = os.environ.copy()
+    env["PYTHONUNBUFFERED"] = "1"
+    debug_session_id = uuid.uuid4().hex
+    env["SUBTITLE_DEBUG_SESSION_ID"] = debug_session_id
 
     if addon_venv_path:
         # Prepend addon venv to PYTHONPATH
@@ -536,7 +858,13 @@ def execute_blender_script(
         errors="replace",
         env=env,
     )
-    session_id, log_path = _record_debug_session(process, args, addon_name, debug_mode)
+    session_id, log_path = _record_debug_session(
+        process,
+        args,
+        addon_name,
+        debug_mode,
+        session_id=debug_session_id,
+    )
     metadata_rel = os.path.relpath(
         os.path.join(_DEBUG_SESSION_DIR, f"{session_id}.json"), PROJECT_ROOT
     )
@@ -808,12 +1136,6 @@ def release_addon(
     with_timestamp=False,
     with_version=False,
 ):
-    if is_subdirectory(release_dir, PROJECT_ROOT):
-        raise ValueError(
-            "Invalid release dir:",
-            release_dir,
-            "Please set a release/test dir outside the current workspace",
-        )
     if not bool(_addon_namespace_pattern.match(addon_name)):
         raise ValueError(
             "InValid addon_name:", addon_name, "Please name it as a python package name"
