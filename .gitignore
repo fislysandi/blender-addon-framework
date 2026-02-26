@@ -166,3 +166,8 @@ config.ini
 # These are user projects, not part of the framework
 /addons/subtitle_editor/
 !/addons/subtitle_editor/.gitkeep
+
+# BDocGen generated artifacts
+/bdocgen/.cpcache/
+/bdocgen/docs/_build/
+/bdocgen/target/
