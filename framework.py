@@ -1647,9 +1647,9 @@ def start_watch_for_update(init_file, addon_name, stop_event: threading.Event):
 
 def update_addon_for_test(init_file, addon_name):
     if BLENDER_ADDON_PATH is None:
-        # 无法得到Blender插件路径 请检查在main.py或config.ini中的配置
+        # 无法得到Blender插件路径 请检查在main.py或config.toml中的配置
         raise ValueError(
-            "Could not find Blender addon installation path. Please check the configuration in main.py or config.ini"
+            "Could not find Blender addon installation path. Please check the configuration in main.py or config.toml"
         )
     addon_path = release_addon(
         init_file,

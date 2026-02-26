@@ -151,7 +151,7 @@ def install_fake_bpy(blender_path: str):
                 print("=" * 60)
                 print("\nBlender executable not found. Please configure it by:")
                 print("\n1. Setting BLENDER_EXE_PATH in main.py")
-                print("2. Or creating config.ini in project root")
+                print("2. Or creating config.toml in project root")
                 print("3. Or install Blender Launcher")
                 print("\nInstalling latest fake-bpy-module as fallback...")
                 print("=" * 60 + "\n")

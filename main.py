@@ -2,7 +2,8 @@
 # Copyright (C) 2024 Xinyu Zhu
 
 import os
-from configparser import ConfigParser
+
+import toml
 
 from common.class_loader.module_installer import (
     default_blender_addon_path,
@@ -44,7 +45,7 @@ BLENDER_EXE_PATH = "C:/software/general/Blender/blender-3.6.0-windows-x64/blende
 IS_EXTENSION = False
 
 # You can override the default path by setting the path manually
-# 您可以通过手动设置路径来覆盖默认插件安装路径 或者在config.ini中设置
+# 您可以通过手动设置路径来覆盖默认插件安装路径 或者在config.toml中设置
 # BLENDER_ADDON_PATH = "C:/software/general/Blender/Blender3.5/3.5/scripts/addons/"
 BLENDER_ADDON_PATH = None
 if os.path.exists(BLENDER_EXE_PATH):
@@ -52,16 +53,29 @@ if os.path.exists(BLENDER_EXE_PATH):
 
 PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 
-# 若存在config.ini则从其中中读取配置
-CONFIG_FILEPATH = os.path.join(PROJECT_ROOT, "config.ini")
+# 若存在config.toml则从其中中读取配置
+CONFIG_FILEPATH = os.path.join(PROJECT_ROOT, "config.toml")
 
-# The default release dir. Must not within the current workspace
-# 插件发布的默认目录，不能在当前工作空间内
-DEFAULT_RELEASE_DIR = os.path.join(PROJECT_ROOT, "../addon_release/")
+# The default release dir inside the repo so builds can land in Releases/ by default
+# 插件发布的默认目录，默认放在仓库内的 Releases/ 目录
+DEFAULT_RELEASE_DIR = os.path.join(PROJECT_ROOT, "Releases")
 
 # The default test release dir. Must not within the current workspace
 # 测试插件发布的默认目录，不能在当前工作空间内
 TEST_RELEASE_DIR = os.path.join(PROJECT_ROOT, "../addon_test/")
+USE_UV_BY_DEFAULT = True
+
+
+def _coerce_bool(value, default):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"1", "true", "yes", "on"}:
+            return True
+        if lowered in {"0", "false", "no", "off"}:
+            return False
+    return default
 
 
 def _detect_blender_with_priority():
@@ -90,23 +104,22 @@ def _detect_blender_with_priority():
 
 
 def _save_blender_path_to_config(path):
-    """Save detected Blender path to config.ini"""
+    """Save detected Blender path to config.toml."""
     try:
-        config = ConfigParser()
+        config = {}
         if os.path.isfile(CONFIG_FILEPATH):
-            config.read(CONFIG_FILEPATH, encoding="utf-8")
+            config = toml.load(CONFIG_FILEPATH)
 
-        if not config.has_section("blender"):
-            config.add_section("blender")
+        blender_config = config.get("blender", {})
+        blender_config["exe_path"] = path
+        config["blender"] = blender_config
 
-        config.set("blender", "exe_path", path)
-
-        with open(CONFIG_FILEPATH, "w", encoding="utf-8") as f:
-            config.write(f)
+        with open(CONFIG_FILEPATH, "w", encoding="utf-8") as file:
+            toml.dump(config, file)
 
         print(f"✓ Saved Blender path to {CONFIG_FILEPATH}")
     except Exception as e:
-        print(f"⚠ Could not save to config.ini: {e}")
+        print(f"⚠ Could not save to config.toml: {e}")
 
 
 def _configure_blender_auto():
@@ -119,7 +132,7 @@ def _configure_blender_auto():
         print("\n❌ No Blender installation found automatically.")
         print("\nPlease configure manually by setting BLENDER_EXE_PATH in:")
         print("  - main.py (ACTIVE_ADDON setting section)")
-        print("  - config.ini in the project root")
+        print("  - config.toml in the project root")
         print("\nStandard installation locations:")
         print("  Windows: C:\\Program Files\\Blender Foundation\\Blender*\\")
         print("  macOS: /Applications/Blender.app")
@@ -136,7 +149,7 @@ def _configure_blender_auto():
         selected = select_blender_installation(installations)
 
     if selected:
-        # Save to config.ini
+        # Save to config.toml
         _save_blender_path_to_config(selected["path"])
         return selected["path"]
 
@@ -144,39 +157,40 @@ def _configure_blender_auto():
 
 
 if os.path.isfile(CONFIG_FILEPATH):
-    configParser = ConfigParser()
-    configParser.read(CONFIG_FILEPATH, encoding="utf-8")
+    config = toml.load(CONFIG_FILEPATH)
+    blender_config = config.get("blender", {})
+    default_config = config.get("default", {})
 
-    if configParser.has_option("blender", "exe_path"):
-        BLENDER_EXE_PATH = configParser.get("blender", "exe_path")
+    exe_path = blender_config.get("exe_path")
+    if exe_path:
+        BLENDER_EXE_PATH = exe_path
         # The path of the blender addon folder
         # 同时更改Blender插件文件夹的路径
         BLENDER_ADDON_PATH = default_blender_addon_path(BLENDER_EXE_PATH)
 
-    if configParser.has_option("blender", "addon_path") and configParser.get(
-        "blender", "addon_path"
-    ):
-        BLENDER_ADDON_PATH = configParser.get("blender", "addon_path")
+    addon_path = blender_config.get("addon_path")
+    if addon_path:
+        BLENDER_ADDON_PATH = addon_path
 
-    if configParser.has_option("default", "addon") and configParser.get(
-        "default", "addon"
-    ):
-        ACTIVE_ADDON = configParser.get("default", "addon")
+    addon_name = default_config.get("addon")
+    if addon_name:
+        ACTIVE_ADDON = addon_name
 
-    if configParser.has_option("default", "is_extension") and configParser.get(
-        "default", "is_extension"
-    ):
-        IS_EXTENSION = configParser.getboolean("default", "is_extension")
+    is_extension = default_config.get("is_extension")
+    if is_extension is not None:
+        IS_EXTENSION = bool(is_extension)
 
-    if configParser.has_option("default", "release_dir") and configParser.get(
-        "default", "release_dir"
-    ):
-        DEFAULT_RELEASE_DIR = configParser.get("default", "release_dir")
+    release_dir = default_config.get("release_dir")
+    if release_dir:
+        DEFAULT_RELEASE_DIR = release_dir
 
-    if configParser.has_option("default", "test_release_dir") and configParser.get(
-        "default", "test_release_dir"
-    ):
-        TEST_RELEASE_DIR = configParser.get("default", "test_release_dir")
+    test_release_dir = default_config.get("test_release_dir")
+    if test_release_dir:
+        TEST_RELEASE_DIR = test_release_dir
+
+    use_uv_by_default = default_config.get("use_uv_by_default")
+    if use_uv_by_default is not None:
+        USE_UV_BY_DEFAULT = _coerce_bool(use_uv_by_default, USE_UV_BY_DEFAULT)
 
 BLENDER_EXE_PATH = normalize_blender_path_by_system(BLENDER_EXE_PATH)
 
@@ -194,7 +208,7 @@ if not os.path.exists(BLENDER_EXE_PATH):
     else:
         raise ValueError(
             f"Blender not found at: {BLENDER_EXE_PATH}\n"
-            "Please configure BLENDER_EXE_PATH in main.py or config.ini"
+            "Please configure BLENDER_EXE_PATH in main.py or config.toml"
         )
 elif not BLENDER_ADDON_PATH or not os.path.exists(BLENDER_ADDON_PATH):
     # Blender exists but addon path couldn't be determined
@@ -203,5 +217,5 @@ elif not BLENDER_ADDON_PATH or not os.path.exists(BLENDER_ADDON_PATH):
         addon_path_str = BLENDER_ADDON_PATH if BLENDER_ADDON_PATH else "<unknown>"
         raise ValueError(
             f"Blender addon path not found: {addon_path_str}\n"
-            "Please set the correct path in config.ini"
+            "Please set the correct path in config.toml"
         )
