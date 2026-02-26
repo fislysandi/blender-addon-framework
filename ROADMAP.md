@@ -76,11 +76,27 @@
 > Design direction: follow the standard Blender documentation UI/UX for consistent docs across addons.
 > Product principle: prioritize user experience over UI styling.
 
+- [ ] **Implementation language decision**
+  - [ ] Implement BDocGen in **Clojure**
+  - [ ] Use Clojure's native JVM interop for Java ecosystem libraries
+  - [ ] Use Clojure's Python interop path where needed for Python ecosystem access
+  - [ ] Keep BDocGen architecture Lisp-friendly for composable document transforms
+
 - [ ] **UX-first acceptance criteria**
+  - [ ] Mirror the Blender 5.0 Reference Manual visual style and information architecture (left navigation rail, central content column, right "On This Page" TOC)
+  - [ ] Match the reference manual's dark documentation look-and-feel (contrast, spacing rhythm, typography scale, link and card treatment)
   - [ ] Documentation tasks are completable in <= 3 clicks from addon UI
   - [ ] Offline search returns relevant pages in <= 1 second on bundled docs
   - [ ] Every page follows clear `what / why / how` structure with actionable examples
   - [ ] Keyboard navigation and readable defaults work without theme tweaks
+
+- [ ] **Visual parity checklist (Blender manual reference)**
+  - [ ] Define and lock core tokens: color palette, spacing scale, typography scale, border radius, shadow intensity
+  - [ ] Implement responsive behavior parity for desktop/tablet/mobile breakpoints (left nav collapse/expand + stable content width)
+  - [ ] Match link, card, and section-header states (default/hover/active/focus-visible) with accessible contrast
+  - [ ] Implement right-side "On This Page" behavior parity (anchor highlighting + sticky positioning)
+  - [ ] Reproduce search UX parity (search field placement, keyboard focus behavior, result item hierarchy)
+  - [ ] Add visual regression snapshots for key templates (home, section index, article page)
 
 - [ ] **BDocGen core**
   - [ ] Scan addon's `docs/` folder for markdown files
