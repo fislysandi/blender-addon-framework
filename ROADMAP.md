@@ -7,6 +7,8 @@
 ## Config Migration
 
 - [ ] Switch config file format from `.ini` to `config.toml`
+- [ ] Add `config.toml` option to control UV preference in venv (`use_uv_by_default = true/false`)
+- [ ] Define behavior when UV is unavailable (fallback strategy + clear diagnostics)
 
 ---
 
@@ -23,6 +25,9 @@
   - [ ] Verbosity levels: `basic` / `detailed` / `forensic`
 
 - [ ] **REPL tooling**
+  - [ ] Add dedicated `repl` command entrypoint (`uv run repl <addon_name>`) to enter interactive REPL mode
+  - [ ] Keep addon context sticky in REPL (addon, session, trace verbosity, filters)
+  - [ ] Command dispatcher in REPL to run normal framework commands without leaving session
   - [ ] Live trace feed script (tails latest session, emits JSON events)
   - [ ] Interactive command loop: filter, trace, where, last N
   - [ ] Runtime test commands in test mode to catch non-evaluation bugs
@@ -41,7 +46,7 @@
 - [ ] **Crash resilience**
   - [ ] On Blender crash, always write crash artifacts under `.tmp/{addon-name}/`
   - [ ] Auto-create `.tmp/{addon-name}/` crash directory if missing
-  - [ ] Save crash metadata (`session`, `pid`, `exit_code`, timestamp, command)
+  - [ ] Save crash metadata (`session`, `pid`, `exit_code`, timestamp, `backtrace`, command)
   - [ ] Save crash logs/backtrace references in addon-scoped crash report file
   - [ ] Expose last-crash summary in REPL for quick recovery workflow
 
@@ -179,6 +184,13 @@
 
 ## Backlog
 
+- [ ] Gitlab Release Workflow
+- [ ] Github Release Workflow
 - [ ] Release automation improvements
 - [ ] CI/CD integration
 - [ ] Documentation site generation
+- [ ] Official editor integrations
+  - [ ] Build official Neovim plugin for blender-addon-framework workflows
+  - [ ] Build official VS Code extension for blender-addon-framework workflows
+  - [ ] Expose common commands (test, compile, repl, docs) through editor UI/commands
+  - [ ] Surface debugger/repl session status and quick actions in editor panels
