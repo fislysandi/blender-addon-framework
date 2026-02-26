@@ -263,11 +263,32 @@ _debug_eval_allowlist = {{
     "check_dependencies",
     "_install_thread",
 }}
+_debug_eval_phase_codes = {{"start", "decision", "delta", "success", "fail", "summary"}}
+_debug_eval_reason_codes = {{
+    "call",
+    "return",
+    "exception",
+    "skip-not-target",
+    "branch-operator-entry",
+    "branch-active-root",
+    "branch-allowlist",
+    "state-changed",
+    "state-unchanged",
+    "operator-complete",
+    "operator-failed",
+    "unknown-reason",
+}}
 _debug_eval_active_root = None
 _debug_eval_active_depth = 0
+_debug_eval_frame_meta = {{}}
+_debug_eval_operator_seq = 0
+_debug_eval_operator_stats = {{}}
 _debug_eval_format = os.environ.get("SUBTITLE_DEBUG_EVAL_FORMAT", "lisp").strip().lower()
 if _debug_eval_format not in {{"lisp", "kv"}}:
     _debug_eval_format = "lisp"
+_debug_eval_verbosity = os.environ.get("SUBTITLE_DEBUG_EVAL_VERBOSITY", "detailed").strip().lower()
+if _debug_eval_verbosity not in {{"basic", "detailed", "forensic"}}:
+    _debug_eval_verbosity = "detailed"
 _debug_eval_compact_value = os.environ.get(
     "DEBUG_TRACE_COMPACT",
     os.environ.get("SUBTITLE_DEBUG_COMPACT", "0"),
@@ -320,20 +341,144 @@ def _debug_eval_sanitize_context(context):
     return safe
 
 
-def _debug_eval_log(action, phase, outcome, reason, context=None):
+def _debug_eval_level_value(level):
+    ranking = {{"basic": 0, "detailed": 1, "forensic": 2}}
+    return ranking.get(str(level), 0)
+
+
+def _debug_eval_should_emit(level):
+    return _debug_eval_level_value(_debug_eval_verbosity) >= _debug_eval_level_value(level)
+
+
+def _debug_eval_phase_code(phase):
+    code = str(phase).strip().lower()
+    return code if code in _debug_eval_phase_codes else "unknown-phase"
+
+
+def _debug_eval_reason_code(reason):
+    code = str(reason).strip().lower()
+    return code if code in _debug_eval_reason_codes else "unknown-reason"
+
+
+def _debug_eval_extract_domain_state(frame):
+    state = {{}}
+    context_obj = frame.f_locals.get("context")
+    selected_count = None
+    active_strip_name = None
+
+    try:
+        if context_obj is not None:
+            selected_sequences = getattr(context_obj, "selected_sequences", None)
+            if selected_sequences is not None:
+                selected_count = 0
+                for strip in selected_sequences:
+                    strip_type = getattr(strip, "type", "")
+                    if strip_type == "TEXT":
+                        selected_count += 1
+
+            scene = getattr(context_obj, "scene", None)
+            if scene is not None:
+                sequence_editor = getattr(scene, "sequence_editor", None)
+                if sequence_editor is not None:
+                    active_strip = getattr(sequence_editor, "active_strip", None)
+                    if active_strip is not None:
+                        active_strip_name = getattr(active_strip, "name", None)
+    except Exception:
+        pass
+
+    if selected_count is not None:
+        state["selected-text-strips"] = selected_count
+    if active_strip_name:
+        state["active-strip"] = active_strip_name
+    return state
+
+
+def _debug_eval_result_meta(value):
+    if isinstance(value, set):
+        return {{"result-kind": "set", "result-size": len(value)}}
+    if isinstance(value, tuple):
+        return {{"result-kind": "tuple", "result-size": len(value)}}
+    if isinstance(value, dict):
+        return {{"result-kind": "dict", "result-size": len(value)}}
+    if isinstance(value, list):
+        return {{"result-kind": "list", "result-size": len(value)}}
+    if value is None:
+        return {{"result-kind": "none"}}
+    return {{
+        "result-kind": type(value).__name__,
+        "result-value": _debug_eval_sanitize_value(value),
+    }}
+
+
+def _debug_eval_emit_decision(action, reason, context, opid=None, parent_eid=None, level="detailed"):
+    if opid and opid in _debug_eval_operator_stats:
+        _debug_eval_operator_stats[opid]["decision_count"] += 1
+    return _debug_eval_log(
+        action,
+        "decision",
+        "ok",
+        reason,
+        context=context,
+        level=level,
+        event_type="decision",
+        opid=opid,
+        parent_eid=parent_eid,
+    )
+
+
+def _debug_eval_emit_delta(action, before, after, opid=None, parent_eid=None):
+    before_keys = set(before.keys())
+    after_keys = set(after.keys())
+    changed = []
+    for key in sorted(before_keys | after_keys):
+        if before.get(key) != after.get(key):
+            changed.append(key)
+    if not changed and not _debug_eval_should_emit("forensic"):
+        return None
+    reason = "state-changed" if changed else "state-unchanged"
+    return _debug_eval_log(
+        action,
+        "delta",
+        "ok",
+        reason,
+        context={{"before": before, "after": after, "changed-keys": changed}},
+        level="detailed",
+        event_type="delta",
+        opid=opid,
+        parent_eid=parent_eid,
+    )
+
+
+def _debug_eval_log(
+    action,
+    phase,
+    outcome,
+    reason,
+    context=None,
+    level="basic",
+    event_type="event",
+    opid=None,
+    parent_eid=None,
+):
     global _debug_eval_eid
+    if not _debug_eval_should_emit(level):
+        return None
+
+    phase_code = _debug_eval_phase_code(phase)
+    reason_code = _debug_eval_reason_code(reason)
     payload = _debug_eval_sanitize_context(context or {{}})
 
-    if _debug_eval_compact:
+    if _debug_eval_compact and event_type == "event":
         function_name = str(payload.get("function", ""))
         depth = int(payload.get("depth", 0) or 0)
-        result_value = str(payload.get("result", ""))
+        result_value = str(payload.get("result-kind", payload.get("result", "")))
         if function_name in _debug_eval_compact_noisy and depth >= 2:
-            return
-        if phase == "success" and depth >= 2 and function_name.startswith("_") and result_value in {{"none", "list", "dict"}}:
-            return
+            return None
+        if phase_code == "success" and depth >= 2 and function_name.startswith("_") and result_value in {{"none", "list", "dict"}}:
+            return None
 
     _debug_eval_eid += 1
+    event_id = _debug_eval_eid
 
     def _to_keyword(value):
         text = str(value).strip().lower()
@@ -367,7 +512,7 @@ def _debug_eval_log(action, phase, outcome, reason, context=None):
         if isinstance(value, dict):
             parts = []
             for key, item in value.items():
-                keyword_value = str(key) in {{"phase", "outcome", "reason"}}
+                keyword_value = str(key) in {{"phase", "outcome", "reason", "event"}}
                 parts.append(
                     f"{{_to_keyword(key)}} {{_to_lisp_atom(item, as_keyword=keyword_value)}}"
                 )
@@ -380,24 +525,28 @@ def _debug_eval_log(action, phase, outcome, reason, context=None):
     if _debug_eval_format == "lisp":
         event = {{
             "sid": _debug_eval_sid,
-            "eid": _debug_eval_eid,
+            "eid": event_id,
+            "opid": opid,
+            "parent-eid": parent_eid,
             "ts": round(time.time(), 6),
-            "phase": phase,
+            "event": event_type,
+            "phase": phase_code,
             "action": action,
             "outcome": outcome,
-            "reason": reason,
+            "reason": reason_code,
             "context": payload,
         }}
         print(f"(eval {{_to_lisp_atom(event)}})", flush=True)
-        return
+        return event_id
 
     payload_text = json.dumps(payload, separators=(",", ":"), ensure_ascii=True)
     print(
         f"[Subtitle Studio][EVAL] action={{action}} phase={{phase}} "
         f"outcome={{outcome}} reason={{reason}} sid={{_debug_eval_sid}} "
-        f"eid={{_debug_eval_eid}} context={{payload_text}}",
+        f"eid={{event_id}} opid={{opid}} parent_eid={{parent_eid}} context={{payload_text}}",
         flush=True,
     )
+    return event_id
 
 
 def _debug_eval_is_target(frame):
@@ -447,20 +596,6 @@ def _debug_eval_target_context(frame):
     return context
 
 
-def _debug_eval_result_text(value):
-    if isinstance(value, set):
-        return "|".join(sorted(str(item) for item in value))
-    if isinstance(value, tuple):
-        return "|".join(str(item) for item in value)
-    if isinstance(value, dict):
-        return "dict"
-    if isinstance(value, list):
-        return "list"
-    if value is None:
-        return "none"
-    return str(value)
-
-
 def _debug_eval_is_addon_module(module_name):
     return module_name.startswith("{addon_name}.")
 
@@ -468,65 +603,190 @@ def _debug_eval_is_addon_module(module_name):
 def _debug_eval_tracer(frame, event, arg):
     global _debug_eval_active_root
     global _debug_eval_active_depth
+    global _debug_eval_operator_seq
+
     module_name = str(frame.f_globals.get("__name__", ""))
+    func_name = frame.f_code.co_name
+    target_context = _debug_eval_target_context(frame)
+    frame_id = id(frame)
+
+    compared = {{
+        "in-addon-module": _debug_eval_is_addon_module(module_name),
+        "allowlisted": func_name in _debug_eval_allowlist,
+        "has-active-root": _debug_eval_active_root is not None,
+        "operator-entry": func_name in {{"invoke", "execute"}} and bool(
+            target_context.get("operator_id") or target_context.get("target")
+        ),
+    }}
+
     is_target = _debug_eval_is_target(frame)
+
     if event == "call":
         if not is_target:
+            _debug_eval_emit_decision(
+                "trace.filter",
+                "skip-not-target",
+                {{
+                    "module": frame.f_globals.get("__name__"),
+                    "function": func_name,
+                    "chosen": "skip",
+                    "compared": compared,
+                    **target_context,
+                }},
+                level="forensic",
+            )
             return
-        frame_id = id(frame)
+
         _debug_eval_clock[frame_id] = time.perf_counter()
-        target_context = _debug_eval_target_context(frame)
+        parent_meta = _debug_eval_frame_meta.get(id(frame.f_back), {{}})
+        parent_call_eid = parent_meta.get("call_eid")
+        opid = parent_meta.get("opid")
+
         is_root_operator = (
-            frame.f_code.co_name in {{"invoke", "execute"}}
+            func_name in {{"invoke", "execute"}}
             and bool(target_context.get("operator_id") or target_context.get("target"))
             and _debug_eval_is_addon_module(module_name)
         )
         if is_root_operator:
+            _debug_eval_operator_seq += 1
+            opid = f"op-{{_debug_eval_operator_seq:06d}}"
+            _debug_eval_operator_stats[opid] = {{
+                "started_perf": time.perf_counter(),
+                "call_count": 0,
+                "decision_count": 0,
+                "warning_count": 0,
+            }}
             _debug_eval_active_root = frame_id
             _debug_eval_active_depth = 0
         elif _debug_eval_active_root is not None and _debug_eval_is_addon_module(module_name):
             _debug_eval_active_depth += 1
-        _debug_eval_log(
+
+        if opid and opid in _debug_eval_operator_stats:
+            _debug_eval_operator_stats[opid]["call_count"] += 1
+
+        decision_reason = "branch-allowlist"
+        if is_root_operator:
+            decision_reason = "branch-operator-entry"
+        elif _debug_eval_active_root is not None:
+            decision_reason = "branch-active-root"
+
+        _debug_eval_emit_decision(
+            _debug_eval_action(frame),
+            decision_reason,
+            {{
+                "module": frame.f_globals.get("__name__"),
+                "function": func_name,
+                "chosen": "trace",
+                "compared": compared,
+                "depth": _debug_eval_active_depth,
+                **target_context,
+            }},
+            opid=opid,
+            parent_eid=parent_call_eid,
+            level="detailed",
+        )
+
+        domain_before = _debug_eval_extract_domain_state(frame)
+        call_eid = _debug_eval_log(
             _debug_eval_action(frame),
             "start",
             "ok",
             "call",
             {{
                 "module": frame.f_globals.get("__name__"),
-                "function": frame.f_code.co_name,
+                "function": func_name,
                 "line": frame.f_lineno,
                 "file": os.path.basename(frame.f_code.co_filename),
                 "depth": _debug_eval_active_depth,
+                **domain_before,
                 **target_context,
             }},
+            level="basic",
+            event_type="event",
+            opid=opid,
+            parent_eid=parent_call_eid,
         )
+
+        _debug_eval_frame_meta[frame_id] = {{
+            "opid": opid,
+            "call_eid": call_eid,
+            "before_state": domain_before,
+            "target_context": target_context,
+            "action": _debug_eval_action(frame),
+        }}
         return
 
     if not is_target:
         return
 
-    frame_id = id(frame)
+    frame_meta = _debug_eval_frame_meta.pop(frame_id, {{}})
+    opid = frame_meta.get("opid")
+    call_eid = frame_meta.get("call_eid")
+    domain_before = frame_meta.get("before_state", {{}})
+    action = frame_meta.get("action", _debug_eval_action(frame))
+
     started_at = _debug_eval_clock.pop(frame_id, None)
     duration_ms = None
     if started_at is not None:
         duration_ms = round((time.perf_counter() - started_at) * 1000.0, 3)
 
+    domain_after = _debug_eval_extract_domain_state(frame)
+    _debug_eval_emit_delta(
+        action,
+        domain_before,
+        domain_after,
+        opid=opid,
+        parent_eid=call_eid,
+    )
+
     if event == "return":
-        target_context = _debug_eval_target_context(frame)
         _debug_eval_log(
-            _debug_eval_action(frame),
+            action,
             "success",
             "ok",
             "return",
             {{
                 "module": frame.f_globals.get("__name__"),
-                "function": frame.f_code.co_name,
+                "function": func_name,
                 "duration_ms": duration_ms,
-                "result": _debug_eval_result_text(arg),
+                **_debug_eval_result_meta(arg),
                 "depth": _debug_eval_active_depth,
+                **domain_after,
                 **target_context,
             }},
+            level="basic",
+            event_type="event",
+            opid=opid,
+            parent_eid=call_eid,
         )
+
+        is_root_end = frame_id == _debug_eval_active_root
+
+        if is_root_end and opid in _debug_eval_operator_stats:
+            stats = _debug_eval_operator_stats.pop(opid)
+            total_duration_ms = round(
+                (time.perf_counter() - stats["started_perf"]) * 1000.0,
+                3,
+            )
+            _debug_eval_log(
+                action,
+                "summary",
+                "ok",
+                "operator-complete",
+                context={{
+                    "total-duration-ms": total_duration_ms,
+                    "call-count": stats.get("call_count", 0),
+                    "decision-count": stats.get("decision_count", 0),
+                    "warning-count": stats.get("warning_count", 0),
+                    "final-outcome": "ok",
+                    **target_context,
+                }},
+                level="basic",
+                event_type="summary",
+                opid=opid,
+                parent_eid=call_eid,
+            )
+
         if frame_id == _debug_eval_active_root:
             _debug_eval_active_root = None
             _debug_eval_active_depth = 0
@@ -536,23 +796,62 @@ def _debug_eval_tracer(frame, event, arg):
 
     if event == "exception":
         exc_type = None
+        exc_message = None
         if isinstance(arg, tuple) and len(arg) > 0 and arg[0] is not None:
             exc_type = getattr(arg[0], "__name__", str(arg[0]))
-        target_context = _debug_eval_target_context(frame)
+        if isinstance(arg, tuple) and len(arg) > 1 and arg[1] is not None:
+            exc_message = str(arg[1])
+
         _debug_eval_log(
-            _debug_eval_action(frame),
+            action,
             "fail",
             "error",
             "exception",
             {{
                 "module": frame.f_globals.get("__name__"),
-                "function": frame.f_code.co_name,
-                "exception": exc_type,
+                "function": func_name,
+                "error-type": exc_type,
+                "message": exc_message,
+                "recoverable": False,
+                "next-action": "inspect-debug-log-and-stacktrace",
                 "duration_ms": duration_ms,
                 "depth": _debug_eval_active_depth,
+                **domain_after,
                 **target_context,
             }},
+            level="basic",
+            event_type="error",
+            opid=opid,
+            parent_eid=call_eid,
         )
+
+        is_root_end = frame_id == _debug_eval_active_root
+        if is_root_end and opid in _debug_eval_operator_stats:
+            stats = _debug_eval_operator_stats.pop(opid)
+            total_duration_ms = round(
+                (time.perf_counter() - stats["started_perf"]) * 1000.0,
+                3,
+            )
+            _debug_eval_log(
+                action,
+                "summary",
+                "error",
+                "operator-failed",
+                context={{
+                    "total-duration-ms": total_duration_ms,
+                    "call-count": stats.get("call_count", 0),
+                    "decision-count": stats.get("decision_count", 0),
+                    "warning-count": stats.get("warning_count", 0),
+                    "final-outcome": "error",
+                    "error-type": exc_type,
+                    **target_context,
+                }},
+                level="basic",
+                event_type="summary",
+                opid=opid,
+                parent_eid=call_eid,
+            )
+
         if frame_id == _debug_eval_active_root:
             _debug_eval_active_root = None
             _debug_eval_active_depth = 0
@@ -570,6 +869,7 @@ print("[DEBUG] Performance tracking: ON")
 print("[DEBUG] Import tracking: ON")
 print("[DEBUG] Evaluation tracing: ON")
 print(f"[DEBUG] Evaluation format: {{_debug_eval_format}}")
+print(f"[DEBUG] Evaluation verbosity: {{_debug_eval_verbosity}}")
 print(f"[DEBUG] Evaluation compact mode: {{'ON' if _debug_eval_compact else 'OFF'}}")
 print("[DEBUG] Full tracebacks: ON")
 print("="*70 + "\\n")

@@ -206,6 +206,39 @@ python3 test.py my_addon
 
 Each test run now prints a `[DEBUG] Blender PID: ... (session <id>)` line and writes a session file under `.tmp/debugger_sessions/<id>.json` plus a matching `.log`. Agents can inspect the JSON for the PID, command, and duration, and tail the log file to read the latest Blender output while the debugger is running.
 
+### Eval Tracer Controls
+
+You can tune Lisp/KV eval tracing with environment variables:
+
+```bash
+# Output format: lisp (default) or kv
+SUBTITLE_DEBUG_EVAL_FORMAT=lisp
+
+# Verbosity: basic | detailed (default) | forensic
+SUBTITLE_DEBUG_EVAL_VERBOSITY=detailed
+
+# Optional compact filtering for noisy internals
+DEBUG_TRACE_COMPACT=1
+```
+
+Eval events include correlation and structured diagnostics fields:
+- `sid`, `eid`, `opid`, `parent-eid`
+- controlled `phase` / `reason` codes
+- decision events with `compared` and `chosen`
+- delta events with `before` / `after`
+- error envelopes with `error-type`, `message`, `recoverable`, `next-action`
+- operator summary events (`total-duration-ms`, `call-count`, `decision-count`, `warning-count`, `final-outcome`)
+
+You can inspect compact per-operator timelines from debugger logs:
+
+```bash
+# Group events by opid and print decisions/deltas/summaries
+python scripts/analyze_eval_timeline.py .tmp/debugger_sessions/<id>.log
+
+# Focus one operator run
+python scripts/analyze_eval_timeline.py .tmp/debugger_sessions/<id>.log --opid op-000001
+```
+
 ### Package Your Addon
 
 ```bash
