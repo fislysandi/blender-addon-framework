@@ -55,6 +55,7 @@ _ADDON_TEMPLATE = "sample_addon"
 _ADDONS_FOLDER = "addons"
 _ADDON_ROOT = os.path.join(PROJECT_ROOT, _ADDONS_FOLDER)
 _DEBUG_SESSION_DIR = os.path.join(PROJECT_ROOT, ".tmp", "debugger_sessions")
+_BDOCGEN_ROOT = os.path.join(PROJECT_ROOT, "bdocgen")
 
 # Install fake bpy module only when user have configured the blender executable path
 # 仅在用户配置了Blender可执行文件路径时安装fake bpy模块 避免在非Blender环境下安装fake bpy模块(如CICD流程中)
@@ -1431,6 +1432,107 @@ def install_manifest_wheels(addon_name: str):
     return installed
 
 
+def _edn_string(value: str) -> str:
+    return json.dumps(str(value))
+
+
+def _run_bdocgen(addon_name: str, docs_root_rel: str, output_dir_rel: str):
+    if not os.path.isdir(_BDOCGEN_ROOT):
+        raise RuntimeError(f"BDocGen project not found: {_BDOCGEN_ROOT}")
+
+    command = [
+        "clj",
+        "-X:run",
+        ":scope",
+        ":project",
+        ":project-root",
+        _edn_string(".."),
+        ":docs-root",
+        _edn_string(docs_root_rel),
+        ":output-dir",
+        _edn_string(output_dir_rel),
+        ":addon-name",
+        _edn_string(addon_name),
+    ]
+
+    result = subprocess.run(
+        command,
+        cwd=_BDOCGEN_ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        details = (result.stderr or result.stdout).strip()
+        raise RuntimeError(
+            f"BDocGen failed for addon '{addon_name}' (exit {result.returncode}): {details}"
+        )
+
+
+def _validate_bdocgen_contract(output_dir_rel: str):
+    output_dir_abs = os.path.join(PROJECT_ROOT, output_dir_rel)
+    index_path = os.path.join(output_dir_abs, "index.html")
+    manifest_path = os.path.join(output_dir_abs, "manifest.json")
+
+    if not os.path.isfile(index_path):
+        raise RuntimeError(
+            f"BDocGen contract invalid: missing index.html at {index_path}"
+        )
+    if not os.path.isfile(manifest_path):
+        raise RuntimeError(
+            f"BDocGen contract invalid: missing manifest.json at {manifest_path}"
+        )
+
+    manifest = json.loads(read_utf8(manifest_path))
+    required_keys = {"status", "scope", "page_count", "errors", "pages"}
+    missing = [key for key in required_keys if key not in manifest]
+    if missing:
+        raise RuntimeError(
+            f"BDocGen contract invalid: manifest missing keys {missing} ({manifest_path})"
+        )
+
+    if manifest["status"] != "ok":
+        raise RuntimeError(
+            f"BDocGen contract invalid: status={manifest['status']} errors={manifest.get('errors')}"
+        )
+
+    if manifest.get("errors"):
+        raise RuntimeError(f"BDocGen reported errors: {manifest['errors']}")
+
+    page_count = manifest.get("page_count")
+    pages = manifest.get("pages")
+    if not isinstance(page_count, int) or page_count < 0:
+        raise RuntimeError(f"BDocGen contract invalid: page_count={page_count}")
+    if not isinstance(pages, list):
+        raise RuntimeError("BDocGen contract invalid: pages must be a list")
+    if page_count != len(pages):
+        raise RuntimeError(
+            f"BDocGen contract invalid: page_count={page_count} but pages={len(pages)}"
+        )
+
+    return {
+        "index_path": index_path,
+        "manifest_path": manifest_path,
+        "page_count": page_count,
+    }
+
+
+def build_docs_for_addon(addon_name: str):
+    docs_root_rel = os.path.join(_ADDONS_FOLDER, addon_name, "docs")
+    docs_root_abs = os.path.join(PROJECT_ROOT, docs_root_rel)
+    if not os.path.isdir(docs_root_abs):
+        print(f"No docs directory for addon '{addon_name}', skipping BDocGen.")
+        return {"status": "skipped", "page_count": 0}
+
+    output_dir_rel = os.path.join(docs_root_rel, "_build")
+    _run_bdocgen(addon_name, docs_root_rel, output_dir_rel)
+    contract = _validate_bdocgen_contract(output_dir_rel)
+    print(
+        f"BDocGen generated {contract['page_count']} page(s) for '{addon_name}' at {output_dir_rel}"
+    )
+    return {"status": "ok", **contract}
+
+
 def release_addon(
     target_init_file,
     addon_name,
@@ -1439,6 +1541,7 @@ def release_addon(
     is_extension=IS_EXTENSION,
     with_timestamp=False,
     with_version=False,
+    skip_docs=False,
 ):
     if not bool(_addon_namespace_pattern.match(addon_name)):
         raise ValueError(
@@ -1455,6 +1558,15 @@ def release_addon(
 
     if not os.path.isdir(release_dir):
         Path(release_dir).mkdir(parents=True, exist_ok=True)
+
+    if skip_docs:
+        print("Skipping docs generation (--skip-docs).")
+    else:
+        docs_build_result = build_docs_for_addon(addon_name)
+        if docs_build_result.get("status") == "ok":
+            print(
+                f"Docs contract validated: {docs_build_result['manifest_path']} (pages={docs_build_result['page_count']})"
+            )
 
     # remove the folder if already exists
     release_folder = os.path.join(release_dir, addon_name)

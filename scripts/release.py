@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from framework import release_addon, get_init_file_path
-from main import ACTIVE_ADDON, DEFAULT_RELEASE_DIR, IS_EXTENSION
+from main import ACTIVE_ADDON, DEFAULT_RELEASE_DIR, IS_EXTENSION, SKIP_DOCS_BY_DEFAULT
 
 
 def main():
@@ -29,6 +29,18 @@ def main():
     )
     parser.add_argument(
         "--with-timestamp", action="store_true", help="Append timestamp to zip filename"
+    )
+    parser.add_argument(
+        "--skip-docs",
+        action="store_true",
+        default=SKIP_DOCS_BY_DEFAULT,
+        help="Skip BDocGen docs generation before packaging",
+    )
+    parser.add_argument(
+        "--with-docs",
+        action="store_false",
+        dest="skip_docs",
+        help="Force docs generation even if skip_docs_by_default is enabled",
     )
     args = parser.parse_args()
 
@@ -66,6 +78,7 @@ def main():
             is_extension=args.extension,
             with_version=args.with_version,
             with_timestamp=args.with_timestamp,
+            skip_docs=args.skip_docs,
         )
         print(f"✓ Released addon: {args.addon}")
     except Exception as e:

@@ -23,7 +23,7 @@
             "bdocgen/docs/getting-started.md"
             "bdocgen/docs/guide.markdown"
             "bdocgen/docs/windows-path.md"]
-           (discovery/select-doc-paths :self candidates)))))
+           (discovery/select-doc-paths :self nil candidates)))))
 
 (deftest select-doc-paths-project-scope
   (let [candidates ["docs/overview.md"
@@ -36,10 +36,18 @@
     (is (= ["bdocgen/docs/architecture.md"
             "docs/overview.md"
             "docs/reference/api.md"]
-           (discovery/select-doc-paths :project candidates)))))
+           (discovery/select-doc-paths :project nil candidates)))))
+
+(deftest select-doc-paths-custom-root
+  (let [candidates ["addons/demo/docs/index.md"
+                    "addons/demo/docs/guide/usage.md"
+                    "docs/index.md"]]
+    (is (= ["addons/demo/docs/guide/usage.md"
+            "addons/demo/docs/index.md"]
+           (discovery/select-doc-paths :project ["addons/demo/docs"] candidates)))))
 
 (deftest build-discovery-plan-shape
-  (let [plan (discovery/build-discovery-plan :project)]
+  (let [plan (discovery/build-discovery-plan :project nil)]
     (is (= :project (:scope plan)))
     (is (= ["docs" "bdocgen/docs"] (:roots plan)))
     (is (= [".md" ".markdown"] (:accepted-extensions plan)))

@@ -64,6 +64,7 @@ DEFAULT_RELEASE_DIR = os.path.join(PROJECT_ROOT, "Releases")
 # 测试插件发布的默认目录，不能在当前工作空间内
 TEST_RELEASE_DIR = os.path.join(PROJECT_ROOT, "../addon_test/")
 USE_UV_BY_DEFAULT = True
+SKIP_DOCS_BY_DEFAULT = False
 
 
 def _coerce_bool(value, default):
@@ -191,6 +192,10 @@ if os.path.isfile(CONFIG_FILEPATH):
     use_uv_by_default = default_config.get("use_uv_by_default")
     if use_uv_by_default is not None:
         USE_UV_BY_DEFAULT = _coerce_bool(use_uv_by_default, USE_UV_BY_DEFAULT)
+
+    skip_docs_by_default = default_config.get("skip_docs_by_default")
+    if skip_docs_by_default is not None:
+        SKIP_DOCS_BY_DEFAULT = _coerce_bool(skip_docs_by_default, SKIP_DOCS_BY_DEFAULT)
 
 BLENDER_EXE_PATH = normalize_blender_path_by_system(BLENDER_EXE_PATH)
 

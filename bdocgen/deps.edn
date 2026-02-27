@@ -1,7 +1,9 @@
 {:paths ["src" "resources"]
  :deps {org.clojure/clojure {:mvn/version "1.12.0"}
         org.clojure/spec.alpha {:mvn/version "0.5.238"}
-        com.brunobonacci/mulog {:mvn/version "0.9.0"}}
+        com.brunobonacci/mulog {:mvn/version "0.9.0"}
+        org.clojure/data.json {:mvn/version "2.5.1"}
+        org.commonmark/commonmark {:mvn/version "0.22.0"}}
  :aliases
  {:run {:exec-fn bdocgen.cli/run}
   :test {:extra-paths ["test"]

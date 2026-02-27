@@ -75,16 +75,19 @@
 > Subproject: Generate offline static documentation website from addon's `docs/` folder.
 > Design direction: follow the standard Blender documentation UI/UX for consistent docs across addons.
 > Product principle: prioritize user experience over UI styling.
+> Engineering goal: keep the dependency surface minimal and prefer standard-library-first implementations.
 
 - [ ] **Implementation language decision**
   - [ ] Implement BDocGen in **Clojure**
+  - [ ] Keep runtime dependencies as small as possible (evaluate each new dependency against a clear build/runtime benefit)
   - [ ] Use Clojure's native JVM interop for Java ecosystem libraries
   - [ ] Use Clojure's Python interop path where needed for Python ecosystem access
   - [ ] Keep BDocGen architecture Lisp-friendly for composable document transforms
 
 - [ ] **UX-first acceptance criteria**
-  - [ ] Mirror the Blender 5.0 Reference Manual visual style and information architecture (left navigation rail, central content column, right "On This Page" TOC)
-  - [ ] Match the reference manual's dark documentation look-and-feel (contrast, spacing rhythm, typography scale, link and card treatment)
+  - [x] Mirror the Blender 5.0 Reference Manual visual style and information architecture (left navigation rail, central content column, right "On This Page" TOC)
+  - [x] Match the reference manual's dark documentation look-and-feel (contrast, spacing rhythm, typography scale, link and card treatment)
+  - [ ] polish up the ui so it will look good without javascript.
   - [ ] Documentation tasks are completable in <= 3 clicks from addon UI
   - [ ] Offline search returns relevant pages in <= 1 second on bundled docs
   - [ ] Every page follows clear `what / why / how` structure with actionable examples

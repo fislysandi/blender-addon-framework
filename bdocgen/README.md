@@ -9,6 +9,11 @@ It is designed as a pure data-transformation pipeline with explicit boundary ada
 - Spec-based validation at boundaries
 - Python interop reserved for adapter modules
 
+## Project Goals
+- Build an offline docs generator with deterministic outputs.
+- Keep side effects at boundaries and core transforms pure.
+- Keep dependencies minimal and add new ones only when there is clear, measurable value.
+
 ## Requirements
 - JDK 17+
 - Clojure CLI (`clj`)
