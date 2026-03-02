@@ -1,12 +1,7 @@
 #!/usr/bin/env python3
-"""Backward-compatible alias for compile command."""
+"""Legacy wrapper for release alias command."""
 
-from scripts.compile import main as compile_main
-
-
-def main():
-    print("Warning: 'uv run release' is deprecated. Use 'uv run compile'.")
-    return compile_main()
+from src.commands.release import main
 
 
 if __name__ == "__main__":

@@ -22,19 +22,19 @@ dev = [
 ]
 
 [project.scripts]
-create = "scripts.create:main"
-test = "scripts.test:main"
-audit-stale-addons = "scripts.audit_stale_addons:main"
-compile = "scripts.compile:main"
-release = "scripts.release:main"
-addon-deps = "scripts.addon_deps:main"
+create = "src.commands.create:main"
+test = "src.commands.test:main"
+audit-stale-addons = "src.commands.audit_stale_addons:main"
+compile = "src.commands.compile:main"
+release = "src.commands.release:main"
+addon-deps = "src.commands.addon_deps:main"
 
 [tool.uv]
 # Enable package mode to install console scripts
 package = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["scripts", "common"]
+packages = ["src", "scripts", "common"]
 
 [build-system]
 requires = ["hatchling"]

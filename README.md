@@ -259,7 +259,7 @@ python3 compile.py my_addon
 
 `uv run release` and `python3 release.py` remain available as deprecated aliases during the migration window.
 
-By default the packaged zip lands in `Releases/` at the project root (the folder exists in Git history but its contents stay ignored). Use `config.toml` or `--release-dir` to point releases elsewhere.
+By default the packaged zip lands in `releases/` at the project root. Use `config.toml` or `--release-dir` to point releases elsewhere.
 
 ## Features Provided by the Framework
 

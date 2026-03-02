@@ -57,9 +57,9 @@ PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 # 若存在config.toml则从其中中读取配置
 CONFIG_FILEPATH = os.path.join(PROJECT_ROOT, "config.toml")
 
-# The default release dir inside the repo so builds can land in Releases/ by default
-# 插件发布的默认目录，默认放在仓库内的 Releases/ 目录
-DEFAULT_RELEASE_DIR = os.path.join(PROJECT_ROOT, "Releases")
+# The default release dir inside the repo so builds can land in releases/ by default
+# 插件发布的默认目录，默认放在仓库内的 releases/ 目录
+DEFAULT_RELEASE_DIR = os.path.join(PROJECT_ROOT, "releases")
 
 # The default test release dir. Must not within the current workspace
 # 测试插件发布的默认目录，不能在当前工作空间内
