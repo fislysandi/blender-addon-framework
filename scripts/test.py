@@ -11,6 +11,35 @@ from framework import test_addon
 from main import ACTIVE_ADDON
 
 
+def _list_addons(addons_dir: Path) -> list[str]:
+    if not addons_dir.exists():
+        return []
+    return sorted(
+        [
+            entry.name
+            for entry in addons_dir.iterdir()
+            if entry.is_dir() and not entry.name.startswith(".")
+        ]
+    )
+
+
+def _validate_addon_name(
+    addon_name: str, addons_dir: Path
+) -> tuple[bool, str, list[str]]:
+    addon_names = _list_addons(addons_dir)
+    if not addon_name:
+        return False, "No addon name provided", addon_names
+    if not (addons_dir / addon_name).exists():
+        return False, f"Addon '{addon_name}' not found in addons/", addon_names
+    return True, "", addon_names
+
+
+def _print_available_addons(addon_names: list[str]):
+    print("\nAvailable addons:")
+    for addon_name in addon_names:
+        print(f"  - {addon_name}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Test a Blender addon with debug information"
@@ -31,28 +60,19 @@ def main():
     )
     args = parser.parse_args()
 
-    if not args.addon:
-        print("Error: No addon name provided")
+    addons_dir = Path(__file__).parent.parent / "addons"
+    is_valid, error_message, addon_names = _validate_addon_name(args.addon, addons_dir)
+    if not is_valid and error_message == "No addon name provided":
+        print(f"Error: {error_message}")
         print("Usage: uv run test <addon_name>")
-        print("\nAvailable addons:")
-        addons_dir = Path(__file__).parent.parent / "addons"
-        if addons_dir.exists():
-            for addon in sorted(addons_dir.iterdir()):
-                if addon.is_dir() and not addon.name.startswith("."):
-                    print(f"  - {addon.name}")
+        _print_available_addons(addon_names)
         sys.exit(1)
 
-    # Validate addon exists
-    addon_path = Path(__file__).parent.parent / "addons" / args.addon
-    if not addon_path.exists():
-        print(f"Error: Addon '{args.addon}' not found in addons/")
+    addon_path = addons_dir / args.addon
+    if not is_valid:
+        print(f"Error: {error_message}")
         print(f"Expected path: {addon_path}")
-        print("\nAvailable addons:")
-        addons_dir = Path(__file__).parent.parent / "addons"
-        if addons_dir.exists():
-            for addon in sorted(addons_dir.iterdir()):
-                if addon.is_dir() and not addon.name.startswith("."):
-                    print(f"  - {addon.name}")
+        _print_available_addons(addon_names)
         sys.exit(1)
 
     # Debug mode is ON by default, --no-debug disables it

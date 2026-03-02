@@ -2,6 +2,7 @@
 # Copyright (C) 2024 Xinyu Zhu
 
 import os
+from copy import deepcopy
 
 import toml
 
@@ -79,41 +80,87 @@ def _coerce_bool(value, default):
     return default
 
 
+def _merge_unique_installations(primary, secondary):
+    existing_paths = {item["path"] for item in primary}
+    return primary + [item for item in secondary if item["path"] not in existing_paths]
+
+
+def _safe_detect(detect_func):
+    try:
+        return detect_func()
+    except Exception:
+        return []
+
+
 def _detect_blender_with_priority():
     """Detect Blender with priority: Launcher > Standard > Environment"""
-    all_installations = []
+    launcher_installs = _safe_detect(detect_from_blender_launcher)
+    standard_installs = _safe_detect(detect_blender_installations)
+    return _merge_unique_installations(launcher_installs, standard_installs)
 
-    # Try Blender Launcher first
-    try:
-        launcher_installs = detect_from_blender_launcher()
-        all_installations.extend(launcher_installs)
-    except Exception:
-        pass
 
-    # Try standard detection
-    try:
-        standard_installs = detect_blender_installations()
-        # Filter out duplicates (same path)
-        existing_paths = {i["path"] for i in all_installations}
-        for install in standard_installs:
-            if install["path"] not in existing_paths:
-                all_installations.append(install)
-    except Exception:
-        pass
+def _build_config_with_blender_path(config, path):
+    next_config = deepcopy(config)
+    next_config.setdefault("blender", {})["exe_path"] = path
+    return next_config
 
-    return all_installations
+
+def _load_project_config(config_path):
+    if not os.path.isfile(config_path):
+        return {}
+    return toml.load(config_path)
+
+
+def _apply_config_overrides(current_state, config):
+    next_state = dict(current_state)
+    blender_config = config.get("blender", {})
+    default_config = config.get("default", {})
+
+    exe_path = blender_config.get("exe_path")
+    if exe_path:
+        next_state["BLENDER_EXE_PATH"] = exe_path
+        next_state["BLENDER_ADDON_PATH"] = default_blender_addon_path(exe_path)
+
+    addon_path = blender_config.get("addon_path")
+    if addon_path:
+        next_state["BLENDER_ADDON_PATH"] = addon_path
+
+    addon_name = default_config.get("addon")
+    if addon_name:
+        next_state["ACTIVE_ADDON"] = addon_name
+
+    is_extension = default_config.get("is_extension")
+    if is_extension is not None:
+        next_state["IS_EXTENSION"] = bool(is_extension)
+
+    release_dir = default_config.get("release_dir")
+    if release_dir:
+        next_state["DEFAULT_RELEASE_DIR"] = release_dir
+
+    test_release_dir = default_config.get("test_release_dir")
+    if test_release_dir:
+        next_state["TEST_RELEASE_DIR"] = test_release_dir
+
+    use_uv_by_default = default_config.get("use_uv_by_default")
+    if use_uv_by_default is not None:
+        next_state["USE_UV_BY_DEFAULT"] = _coerce_bool(
+            use_uv_by_default, next_state["USE_UV_BY_DEFAULT"]
+        )
+
+    skip_docs_by_default = default_config.get("skip_docs_by_default")
+    if skip_docs_by_default is not None:
+        next_state["SKIP_DOCS_BY_DEFAULT"] = _coerce_bool(
+            skip_docs_by_default, next_state["SKIP_DOCS_BY_DEFAULT"]
+        )
+
+    return next_state
 
 
 def _save_blender_path_to_config(path):
     """Save detected Blender path to config.toml."""
     try:
-        config = {}
-        if os.path.isfile(CONFIG_FILEPATH):
-            config = toml.load(CONFIG_FILEPATH)
-
-        blender_config = config.get("blender", {})
-        blender_config["exe_path"] = path
-        config["blender"] = blender_config
+        config = _load_project_config(CONFIG_FILEPATH)
+        config = _build_config_with_blender_path(config, path)
 
         with open(CONFIG_FILEPATH, "w", encoding="utf-8") as file:
             toml.dump(config, file)
@@ -157,45 +204,28 @@ def _configure_blender_auto():
     return None
 
 
-if os.path.isfile(CONFIG_FILEPATH):
-    config = toml.load(CONFIG_FILEPATH)
-    blender_config = config.get("blender", {})
-    default_config = config.get("default", {})
+_runtime_state = {
+    "ACTIVE_ADDON": ACTIVE_ADDON,
+    "BLENDER_EXE_PATH": BLENDER_EXE_PATH,
+    "BLENDER_ADDON_PATH": BLENDER_ADDON_PATH,
+    "IS_EXTENSION": IS_EXTENSION,
+    "DEFAULT_RELEASE_DIR": DEFAULT_RELEASE_DIR,
+    "TEST_RELEASE_DIR": TEST_RELEASE_DIR,
+    "USE_UV_BY_DEFAULT": USE_UV_BY_DEFAULT,
+    "SKIP_DOCS_BY_DEFAULT": SKIP_DOCS_BY_DEFAULT,
+}
+_runtime_state = _apply_config_overrides(
+    _runtime_state, _load_project_config(CONFIG_FILEPATH)
+)
 
-    exe_path = blender_config.get("exe_path")
-    if exe_path:
-        BLENDER_EXE_PATH = exe_path
-        # The path of the blender addon folder
-        # 同时更改Blender插件文件夹的路径
-        BLENDER_ADDON_PATH = default_blender_addon_path(BLENDER_EXE_PATH)
-
-    addon_path = blender_config.get("addon_path")
-    if addon_path:
-        BLENDER_ADDON_PATH = addon_path
-
-    addon_name = default_config.get("addon")
-    if addon_name:
-        ACTIVE_ADDON = addon_name
-
-    is_extension = default_config.get("is_extension")
-    if is_extension is not None:
-        IS_EXTENSION = bool(is_extension)
-
-    release_dir = default_config.get("release_dir")
-    if release_dir:
-        DEFAULT_RELEASE_DIR = release_dir
-
-    test_release_dir = default_config.get("test_release_dir")
-    if test_release_dir:
-        TEST_RELEASE_DIR = test_release_dir
-
-    use_uv_by_default = default_config.get("use_uv_by_default")
-    if use_uv_by_default is not None:
-        USE_UV_BY_DEFAULT = _coerce_bool(use_uv_by_default, USE_UV_BY_DEFAULT)
-
-    skip_docs_by_default = default_config.get("skip_docs_by_default")
-    if skip_docs_by_default is not None:
-        SKIP_DOCS_BY_DEFAULT = _coerce_bool(skip_docs_by_default, SKIP_DOCS_BY_DEFAULT)
+ACTIVE_ADDON = _runtime_state["ACTIVE_ADDON"]
+BLENDER_EXE_PATH = _runtime_state["BLENDER_EXE_PATH"]
+BLENDER_ADDON_PATH = _runtime_state["BLENDER_ADDON_PATH"]
+IS_EXTENSION = _runtime_state["IS_EXTENSION"]
+DEFAULT_RELEASE_DIR = _runtime_state["DEFAULT_RELEASE_DIR"]
+TEST_RELEASE_DIR = _runtime_state["TEST_RELEASE_DIR"]
+USE_UV_BY_DEFAULT = _runtime_state["USE_UV_BY_DEFAULT"]
+SKIP_DOCS_BY_DEFAULT = _runtime_state["SKIP_DOCS_BY_DEFAULT"]
 
 BLENDER_EXE_PATH = normalize_blender_path_by_system(BLENDER_EXE_PATH)
 

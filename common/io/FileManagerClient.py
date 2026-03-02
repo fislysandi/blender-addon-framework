@@ -1,6 +1,7 @@
 import hashlib
 import os
 from os import listdir
+from typing import Optional
 
 
 def get_all_filename(folder_path: str) -> list:
@@ -51,7 +52,9 @@ _DEFAULT_EXCLUDE_DIRS = {
 }
 
 
-def search_files(folder_path: str, post_filter: set, exclude_dirs: set = None) -> list:
+def search_files(
+    folder_path: str, post_filter: set, exclude_dirs: Optional[set] = None
+) -> list:
     """Search for files in folder_path matching post_filter, excluding certain directories.
 
     Args:
@@ -65,20 +68,25 @@ def search_files(folder_path: str, post_filter: set, exclude_dirs: set = None) -
     if exclude_dirs is None:
         exclude_dirs = _DEFAULT_EXCLUDE_DIRS
 
-    def __depth_first_search_files_helper__(current_folder: str, pre_result: list):
-        for filename in get_all_filename(current_folder):
-            if is_filename_postfix_in(filename, post_filter):
-                pre_result.append(os.path.join(current_folder, filename))
-        all_folders = get_all_subfolder(current_folder)
-        for folder in all_folders:
-            if folder not in exclude_dirs:
-                __depth_first_search_files_helper__(
-                    os.path.join(current_folder, folder), pre_result
-                )
+    def _depth_first_search(current_folder: str) -> list[str]:
+        current_files = [
+            os.path.join(current_folder, filename)
+            for filename in get_all_filename(current_folder)
+            if is_filename_postfix_in(filename, post_filter)
+        ]
+        child_folders = [
+            os.path.join(current_folder, folder)
+            for folder in get_all_subfolder(current_folder)
+            if folder not in exclude_dirs
+        ]
+        nested_files = [
+            file_path
+            for child_folder in child_folders
+            for file_path in _depth_first_search(child_folder)
+        ]
+        return current_files + nested_files
 
-    all_file = []
-    __depth_first_search_files_helper__(folder_path, all_file)
-    return all_file
+    return _depth_first_search(folder_path)
 
 
 def get_md5(filename):
