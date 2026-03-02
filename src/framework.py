@@ -959,11 +959,11 @@ def start_test(init_file, addon_name, enable_watch=True, debug_mode=True):
 
     startup_cmd = _build_debug_startup_command(addon_name, test_addon_path)
 
-    def exit_handler():
+    def single_run_exit_handler():
         _cleanup_test_addon_path(test_addon_path)
 
     if not enable_watch:
-        atexit.register(exit_handler)
+        atexit.register(single_run_exit_handler)
         try:
             python_script = _single_run_python_script(
                 addon_name=addon_name,
@@ -978,16 +978,16 @@ def start_test(init_file, addon_name, enable_watch=True, debug_mode=True):
                 addon_venv_path=addon_venv_path,
             )
         finally:
-            exit_handler()
+            single_run_exit_handler()
         return
 
     stop_event, thread = _start_watch_thread(init_file, addon_name)
 
-    def exit_handler():
+    def watch_exit_handler():
         _stop_watch_thread(stop_event, thread)
         _cleanup_test_addon_path(test_addon_path)
 
-    atexit.register(exit_handler)
+    atexit.register(watch_exit_handler)
 
     python_script = _watch_mode_python_script(
         addon_name=addon_name,
@@ -1005,7 +1005,7 @@ def start_test(init_file, addon_name, enable_watch=True, debug_mode=True):
             addon_venv_path=addon_venv_path,
         )
     finally:
-        exit_handler()
+        watch_exit_handler()
 
 
 def _addon_signature_path(test_addon_path: str) -> str:
@@ -1152,6 +1152,47 @@ def _update_debug_session_metadata(session_id, exit_code, duration):
     write_utf8(metadata_path, json.dumps(payload, indent=2))
 
 
+def _build_exec_environment(addon_venv_path, debug_session_id):
+    env = _prepare_blender_env(addon_venv_path)
+    env["PYTHONUNBUFFERED"] = "1"
+    env["SUBTITLE_DEBUG_SESSION_ID"] = debug_session_id
+    return env
+
+
+def _open_blender_process(args, env):
+    return subprocess.Popen(
+        args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=env,
+    )
+
+
+def _debug_session_metadata_relpath(session_id):
+    return os.path.relpath(
+        os.path.join(_DEBUG_SESSION_DIR, f"{session_id}.json"), PROJECT_ROOT
+    )
+
+
+def _print_debug_session_banner(process, session_id, log_path):
+    print(
+        f"[DEBUG] Blender PID: {process.pid} (session {session_id}, metadata: {_debug_session_metadata_relpath(session_id)}, log: {os.path.relpath(log_path, PROJECT_ROOT)})"
+    )
+
+
+def _stream_process_output(process, addon_path, output_handle):
+    if process.stdout is None:
+        raise RuntimeError("Failed to capture Blender output stream")
+    for line in process.stdout:
+        normalized_line = line.replace(addon_path, PROJECT_ROOT)
+        sys.stderr.write(normalized_line)
+        output_handle.write(normalized_line)
+        output_handle.flush()
+
+
 def execute_blender_script(
     args, addon_path, addon_name, debug_mode=False, addon_venv_path=None
 ):
@@ -1163,31 +1204,13 @@ def execute_blender_script(
         addon_path: Path to the addon for error message path replacement
         addon_venv_path: Optional path to addon's venv site-packages
     """
-    start_time = time.monotonic()
-    # Copy environment to avoid modifying global env
-    env = os.environ.copy()
-    env["PYTHONUNBUFFERED"] = "1"
     debug_session_id = uuid.uuid4().hex
-    env["SUBTITLE_DEBUG_SESSION_ID"] = debug_session_id
-
+    start_time = time.monotonic()
+    env = _build_exec_environment(addon_venv_path, debug_session_id)
     if addon_venv_path:
-        # Prepend addon venv to PYTHONPATH
-        current_pythonpath = env.get("PYTHONPATH", "")
-        if current_pythonpath:
-            env["PYTHONPATH"] = f"{addon_venv_path}{os.pathsep}{current_pythonpath}"
-        else:
-            env["PYTHONPATH"] = addon_venv_path
         print(f"Using addon venv: {addon_venv_path}")
 
-    process = subprocess.Popen(
-        args,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        env=env,
-    )
+    process = _open_blender_process(args, env)
     session_id, log_path = _record_debug_session(
         process,
         args,
@@ -1195,30 +1218,18 @@ def execute_blender_script(
         debug_mode,
         session_id=debug_session_id,
     )
-    metadata_rel = os.path.relpath(
-        os.path.join(_DEBUG_SESSION_DIR, f"{session_id}.json"), PROJECT_ROOT
-    )
-    print(
-        f"[DEBUG] Blender PID: {process.pid} (session {session_id}, metadata: {metadata_rel}, log: {os.path.relpath(log_path, PROJECT_ROOT)})"
-    )
-    log_file = open(log_path, "w", encoding="utf-8")
-    try:
-        if process.stdout is None:
-            raise RuntimeError("Failed to capture Blender output stream")
-        for line in process.stdout:
-            line = line.replace(addon_path, PROJECT_ROOT)
-            sys.stderr.write(line)
-            log_file.write(line)
-            log_file.flush()
-    except KeyboardInterrupt:
-        sys.stderr.write("interrupted, terminating the child process...\n")
-    finally:
-        if process.poll() is None:
-            process.terminate()
-        exit_code = process.wait()
-        duration = time.monotonic() - start_time
-        _update_debug_session_metadata(session_id, exit_code, duration)
-        log_file.close()
+    _print_debug_session_banner(process, session_id, log_path)
+    with open(log_path, "w", encoding="utf-8") as log_file:
+        try:
+            _stream_process_output(process, addon_path, log_file)
+        except KeyboardInterrupt:
+            sys.stderr.write("interrupted, terminating the child process...\n")
+        finally:
+            if process.poll() is None:
+                process.terminate()
+            exit_code = process.wait()
+            duration = time.monotonic() - start_time
+            _update_debug_session_metadata(session_id, exit_code, duration)
 
 
 _BLENDER_JSON_BEGIN = "__OpenCode_Audit_JSON_BEGIN__"
