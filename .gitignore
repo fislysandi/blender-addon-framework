@@ -166,6 +166,7 @@ config.toml
 # These are user projects, not part of the framework
 /addons/subtitle_editor/
 !/addons/subtitle_editor/.gitkeep
+/addons/font_selector/
 
 # BDocGen generated artifacts
 /bdocgen/.cpcache/
