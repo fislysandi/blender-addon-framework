@@ -11,6 +11,10 @@ from src.framework import test_addon
 from src.main import ACTIVE_ADDON
 
 
+def _project_root() -> Path:
+    return Path(__file__).parent.parent.parent
+
+
 def _list_addons(addons_dir: Path) -> list[str]:
     if not addons_dir.exists():
         return []
@@ -18,7 +22,9 @@ def _list_addons(addons_dir: Path) -> list[str]:
         [
             entry.name
             for entry in addons_dir.iterdir()
-            if entry.is_dir() and not entry.name.startswith(".")
+            if entry.is_dir()
+            and not entry.name.startswith(".")
+            and entry.name != "__pycache__"
         ]
     )
 
@@ -38,6 +44,23 @@ def _print_available_addons(addon_names: list[str]):
     print("\nAvailable addons:")
     for addon_name in addon_names:
         print(f"  - {addon_name}")
+
+
+def _build_test_kwargs(args) -> dict:
+    return {
+        "enable_watch": not args.disable_watch,
+        "debug_mode": not args.no_debug,
+        "install_wheels": args.with_wheels,
+    }
+
+
+def _debug_status_text(addon_name: str, debug_mode: bool) -> tuple[str, str | None]:
+    if debug_mode:
+        return (
+            f"🔍 Debug mode enabled for '{addon_name}'",
+            "   Performance metrics, import tracking, and detailed errors will be shown",
+        )
+    return (f"⏩ Debug mode disabled for '{addon_name}'", None)
 
 
 def main():
@@ -60,7 +83,7 @@ def main():
     )
     args = parser.parse_args()
 
-    addons_dir = Path(__file__).parent.parent / "addons"
+    addons_dir = _project_root() / "addons"
     is_valid, error_message, addon_names = _validate_addon_name(args.addon, addons_dir)
     if not is_valid and error_message == "No addon name provided":
         print(f"Error: {error_message}")
@@ -75,24 +98,16 @@ def main():
         _print_available_addons(addon_names)
         sys.exit(1)
 
-    # Debug mode is ON by default, --no-debug disables it
-    debug_mode = not args.no_debug
-
-    if debug_mode:
-        print(f"🔍 Debug mode enabled for '{args.addon}'")
-        print(
-            "   Performance metrics, import tracking, and detailed errors will be shown"
-        )
-    else:
-        print(f"⏩ Debug mode disabled for '{args.addon}'")
+    test_kwargs = _build_test_kwargs(args)
+    status_headline, status_detail = _debug_status_text(
+        args.addon, test_kwargs["debug_mode"]
+    )
+    print(status_headline)
+    if status_detail:
+        print(status_detail)
 
     try:
-        test_addon(
-            args.addon,
-            enable_watch=not args.disable_watch,
-            debug_mode=debug_mode,
-            install_wheels=args.with_wheels,
-        )
+        test_addon(args.addon, **test_kwargs)
     except Exception as e:
         print(f"✗ Error: {e}")
         sys.exit(1)
