@@ -245,6 +245,11 @@ Target milestone: complete Python-first BDocGen MVP before REPL docs-command int
 - [ ] Release automation improvements
 - [ ] CI/CD integration
 - [ ] Documentation site generation
+- [ ] **Automatic Python API docs (PyDoc-style)**
+  - [ ] Add command to generate API docs from docstrings/signatures (framework + addon code)
+  - [ ] Output browsable docs under `docs/api/` with search/index support
+  - [ ] Add quick lookup integration for IDE/editor plugins (Emacs-like function help flow)
+  - [ ] Keep docs generation incremental and fast for local development
 - [ ] Official editor integrations
   - [ ] Define shared extension architecture and protocol for tight framework integration
   - [ ] Define repository policy: all official IDE extensions live under `ide_extensions/` at project root
