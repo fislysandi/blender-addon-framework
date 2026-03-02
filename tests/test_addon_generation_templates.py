@@ -61,10 +61,18 @@ def test_new_addon_routes_to_unified_template_by_default(monkeypatch):
         "_create_legacy_addon",
         lambda addon_name, addon_path: calls.append(("legacy", addon_name, addon_path)),
     )
+    monkeypatch.setattr(
+        framework,
+        "_initialize_addon_git_repo",
+        lambda addon_path: calls.append(("git", addon_path)),
+    )
 
     framework.new_addon("demo_addon")
 
-    assert calls == [("unified", "demo_addon", "/tmp/addons/demo_addon")]
+    assert calls == [
+        ("unified", "demo_addon", "/tmp/addons/demo_addon"),
+        ("git", "/tmp/addons/demo_addon"),
+    ]
 
 
 def test_new_addon_legacy_mode_routes_to_legacy_template(monkeypatch):
@@ -88,10 +96,50 @@ def test_new_addon_legacy_mode_routes_to_legacy_template(monkeypatch):
         "_create_legacy_addon",
         lambda addon_name, addon_path: calls.append(("legacy", addon_name, addon_path)),
     )
+    monkeypatch.setattr(
+        framework,
+        "_initialize_addon_git_repo",
+        lambda addon_path: calls.append(("git", addon_path)),
+    )
 
     framework.new_addon("demo_addon", template_mode="legacy")
 
-    assert calls == [("legacy", "demo_addon", "/tmp/addons/demo_addon")]
+    assert calls == [
+        ("legacy", "demo_addon", "/tmp/addons/demo_addon"),
+        ("git", "/tmp/addons/demo_addon"),
+    ]
+
+
+def test_new_addon_can_skip_git_init(monkeypatch):
+    calls = []
+
+    monkeypatch.setattr(framework, "_assert_valid_addon_name", lambda _name: None)
+    monkeypatch.setattr(framework, "_assert_valid_template_mode", lambda _mode: None)
+    monkeypatch.setattr(
+        framework, "_addon_path", lambda _name: "/tmp/addons/demo_addon"
+    )
+    monkeypatch.setattr(framework, "_assert_addon_absent", lambda _path, _name: None)
+    monkeypatch.setattr(
+        framework,
+        "_create_unified_addon",
+        lambda addon_name, addon_path: calls.append(
+            ("unified", addon_name, addon_path)
+        ),
+    )
+    monkeypatch.setattr(
+        framework,
+        "_create_legacy_addon",
+        lambda addon_name, addon_path: calls.append(("legacy", addon_name, addon_path)),
+    )
+    monkeypatch.setattr(
+        framework,
+        "_initialize_addon_git_repo",
+        lambda addon_path: calls.append(("git", addon_path)),
+    )
+
+    framework.new_addon("demo_addon", initialize_git_repo=False)
+
+    assert calls == [("unified", "demo_addon", "/tmp/addons/demo_addon")]
 
 
 def test_new_addon_rejects_unknown_template_mode():

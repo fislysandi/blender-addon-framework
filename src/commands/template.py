@@ -51,6 +51,11 @@ def main():
         action="store_true",
         help="Show apply plan without writing files",
     )
+    apply_parser.add_argument(
+        "--no-git-commit",
+        action="store_true",
+        help="Skip auto-commit in addon git repository after template apply",
+    )
 
     extract_parser = subparsers.add_parser(
         "extract", help="Extract code from addon into a reusable template"
@@ -104,6 +109,7 @@ def main():
                 addon_name,
                 on_conflict=args.on_conflict,
                 dry_run=args.dry_run,
+                auto_git_commit=not args.no_git_commit,
             )
         except Exception as error:
             print(f"✗ Error: {error}")

@@ -66,6 +66,8 @@ _LEGACY_TEMPLATE_MODE = "legacy"
 _CODE_TEMPLATE_METADATA_FILE = "template.toml"
 _CODE_TEMPLATE_ADDON_TOKEN = "{{addon_name}}"
 _CODE_TEMPLATE_COMPATIBILITY = "unified-v1"
+_INITIAL_ADDON_COMMIT_MESSAGE = "chore: initial addon scaffold"
+_RENAME_ADDON_COMMIT_MESSAGE = "chore: rename addon scaffold"
 
 _RUNTIME_READY = False
 
@@ -88,7 +90,11 @@ def _ensure_framework_runtime(*, warn_on_fake_bpy_mismatch: bool = True):
     _RUNTIME_READY = True
 
 
-def new_addon(addon_name: str, template_mode: str = _UNIFIED_TEMPLATE_MODE):
+def new_addon(
+    addon_name: str,
+    template_mode: str = _UNIFIED_TEMPLATE_MODE,
+    initialize_git_repo: bool = True,
+):
     _assert_valid_addon_name(addon_name)
     _assert_valid_template_mode(template_mode)
     new_addon_path = _addon_path(addon_name)
@@ -96,9 +102,11 @@ def new_addon(addon_name: str, template_mode: str = _UNIFIED_TEMPLATE_MODE):
 
     if template_mode == _LEGACY_TEMPLATE_MODE:
         _create_legacy_addon(addon_name, new_addon_path)
-        return
+    else:
+        _create_unified_addon(addon_name, new_addon_path)
 
-    _create_unified_addon(addon_name, new_addon_path)
+    if initialize_git_repo:
+        _initialize_addon_git_repo(new_addon_path)
 
 
 def _assert_valid_template_mode(template_mode: str):
@@ -107,6 +115,51 @@ def _assert_valid_template_mode(template_mode: str):
     raise ValueError(
         f"Invalid template mode: {template_mode}. Use '{_UNIFIED_TEMPLATE_MODE}' or '{_LEGACY_TEMPLATE_MODE}'."
     )
+
+
+def _initialize_addon_git_repo(addon_path: str):
+    if shutil.which("git") is None:
+        raise ValueError(
+            "Git executable not found. Install Git or run create with --no-git-init."
+        )
+    _run_git_command(["git", "init"], addon_path)
+    _run_git_command(["git", "add", "."], addon_path)
+    _run_git_command(["git", "commit", "-m", _INITIAL_ADDON_COMMIT_MESSAGE], addon_path)
+
+
+def _run_git_command(args: list[str], cwd: str):
+    result = subprocess.run(args, cwd=cwd, capture_output=True, text=True)
+    if result.returncode == 0:
+        return
+    details = (result.stderr or result.stdout).strip()
+    raise ValueError(f"Failed to run {' '.join(args)} in {cwd}: {details}")
+
+
+def _has_git_repo(path: str) -> bool:
+    return os.path.isdir(os.path.join(path, ".git"))
+
+
+def _is_git_worktree_dirty(path: str) -> bool:
+    result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=path,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return False
+    return bool(result.stdout.strip())
+
+
+def _commit_addon_changes_if_git_repo(addon_path: str, message: str):
+    if shutil.which("git") is None:
+        return
+    if not _has_git_repo(addon_path):
+        return
+    if not _is_git_worktree_dirty(addon_path):
+        return
+    _run_git_command(["git", "add", "."], addon_path)
+    _run_git_command(["git", "commit", "-m", message], addon_path)
 
 
 def _create_legacy_addon(addon_name: str, addon_path: str):
@@ -254,6 +307,7 @@ def rename_addon(
     *,
     dry_run: bool = False,
     validate: bool = True,
+    auto_git_commit: bool = True,
 ) -> dict:
     _assert_valid_addon_name(old_name)
     _assert_valid_addon_name(new_name)
@@ -281,6 +335,8 @@ def rename_addon(
         _rewrite_name_references(new_path, rewrite_plan)
         if validate:
             _validate_renamed_addon(new_name)
+        if auto_git_commit:
+            _commit_addon_changes_if_git_repo(new_path, _RENAME_ADDON_COMMIT_MESSAGE)
         return {
             "status": "ok",
             "old_name": old_name,
@@ -361,6 +417,7 @@ def apply_code_template(
     *,
     on_conflict: str = "skip",
     dry_run: bool = False,
+    auto_git_commit: bool = True,
 ) -> dict:
     _assert_valid_addon_name(addon_name)
     _assert_valid_conflict_mode(on_conflict)
@@ -412,6 +469,10 @@ def apply_code_template(
         _ensure_directory(os.path.dirname(target_path))
         write_utf8(target_path, content)
         applied += 1
+
+    if auto_git_commit and applied > 0:
+        template_commit_message = f"chore: apply template {template_name}"
+        _commit_addon_changes_if_git_repo(addon_root, template_commit_message)
 
     return {
         "status": "ok",

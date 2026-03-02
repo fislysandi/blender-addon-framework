@@ -83,6 +83,69 @@ def test_apply_code_template_writes_file_with_token_replacement(tmp_path, monkey
     assert "demo_addon" in written
 
 
+def test_apply_code_template_triggers_git_commit_hook_by_default(tmp_path, monkeypatch):
+    templates_root = str(tmp_path / "code_templates")
+    addons_root = str(tmp_path / "addons")
+    _create_template(
+        templates_root,
+        "ui/basic_panel",
+        "panel.py",
+        "class {{addon_name}}Panel:\n    pass\n",
+    )
+    _create_addon(addons_root, "demo_addon")
+    monkeypatch.setattr(framework, "_CODE_TEMPLATES_ROOT", templates_root)
+    monkeypatch.setattr(framework, "_ADDON_ROOT", addons_root)
+
+    calls = []
+    monkeypatch.setattr(
+        framework,
+        "_commit_addon_changes_if_git_repo",
+        lambda addon_path, message: calls.append((addon_path, message)),
+    )
+
+    framework.apply_code_template(
+        "ui/basic_panel", "demo_addon", on_conflict="skip", dry_run=False
+    )
+
+    assert calls == [
+        (
+            os.path.join(addons_root, "demo_addon"),
+            "chore: apply template ui/basic_panel",
+        )
+    ]
+
+
+def test_apply_code_template_can_skip_git_commit_hook(tmp_path, monkeypatch):
+    templates_root = str(tmp_path / "code_templates")
+    addons_root = str(tmp_path / "addons")
+    _create_template(
+        templates_root,
+        "ui/basic_panel",
+        "panel.py",
+        "class {{addon_name}}Panel:\n    pass\n",
+    )
+    _create_addon(addons_root, "demo_addon")
+    monkeypatch.setattr(framework, "_CODE_TEMPLATES_ROOT", templates_root)
+    monkeypatch.setattr(framework, "_ADDON_ROOT", addons_root)
+
+    calls = []
+    monkeypatch.setattr(
+        framework,
+        "_commit_addon_changes_if_git_repo",
+        lambda addon_path, message: calls.append((addon_path, message)),
+    )
+
+    framework.apply_code_template(
+        "ui/basic_panel",
+        "demo_addon",
+        on_conflict="skip",
+        dry_run=False,
+        auto_git_commit=False,
+    )
+
+    assert calls == []
+
+
 def test_apply_code_template_rename_conflict_strategy(tmp_path, monkeypatch):
     templates_root = str(tmp_path / "code_templates")
     addons_root = str(tmp_path / "addons")

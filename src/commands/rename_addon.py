@@ -24,6 +24,11 @@ def main():
         action="store_true",
         help="Skip post-rename validation checks",
     )
+    parser.add_argument(
+        "--no-git-commit",
+        action="store_true",
+        help="Skip auto-commit in addon git repository after rename",
+    )
     args = parser.parse_args()
 
     try:
@@ -32,6 +37,7 @@ def main():
             args.new_name,
             dry_run=args.dry_run,
             validate=not args.no_validate,
+            auto_git_commit=not args.no_git_commit,
         )
     except Exception as error:
         print(f"✗ Error: {error}")

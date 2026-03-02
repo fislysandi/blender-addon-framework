@@ -62,6 +62,51 @@ def test_rename_addon_updates_files_and_manifest(tmp_path, monkeypatch):
     assert 'id = "new_addon"' in manifest_content
 
 
+def test_rename_addon_triggers_git_commit_hook_by_default(tmp_path, monkeypatch):
+    addons_root = str(tmp_path / "addons")
+    _create_minimal_addon(addons_root, "old_addon")
+    monkeypatch.setattr(framework, "_ADDON_ROOT", addons_root)
+
+    calls = []
+    monkeypatch.setattr(
+        framework,
+        "_commit_addon_changes_if_git_repo",
+        lambda addon_path, message: calls.append((addon_path, message)),
+    )
+
+    framework.rename_addon("old_addon", "new_addon", dry_run=False, validate=False)
+
+    assert calls == [
+        (
+            os.path.join(addons_root, "new_addon"),
+            "chore: rename addon scaffold",
+        )
+    ]
+
+
+def test_rename_addon_can_skip_git_commit_hook(tmp_path, monkeypatch):
+    addons_root = str(tmp_path / "addons")
+    _create_minimal_addon(addons_root, "old_addon")
+    monkeypatch.setattr(framework, "_ADDON_ROOT", addons_root)
+
+    calls = []
+    monkeypatch.setattr(
+        framework,
+        "_commit_addon_changes_if_git_repo",
+        lambda addon_path, message: calls.append((addon_path, message)),
+    )
+
+    framework.rename_addon(
+        "old_addon",
+        "new_addon",
+        dry_run=False,
+        validate=False,
+        auto_git_commit=False,
+    )
+
+    assert calls == []
+
+
 def test_rename_addon_rolls_back_on_failure(tmp_path, monkeypatch):
     addons_root = str(tmp_path / "addons")
     _create_minimal_addon(addons_root, "old_addon")

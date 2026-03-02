@@ -68,6 +68,11 @@ def main():
         action="store_true",
         help="Use legacy flat template (alias for --template legacy)",
     )
+    parser.add_argument(
+        "--no-git-init",
+        action="store_true",
+        help="Skip git init and initial commit in the new addon folder",
+    )
     args = parser.parse_args()
 
     addons_dir = _project_root() / "addons"
@@ -80,7 +85,11 @@ def main():
 
     try:
         template_mode = _resolve_template_mode(args.template, args.legacy)
-        new_addon(args.addon, template_mode=template_mode)
+        new_addon(
+            args.addon,
+            template_mode=template_mode,
+            initialize_git_repo=not args.no_git_init,
+        )
         print(f"✓ Created addon: {args.addon} ({template_mode})")
     except ValueError as e:
         print(f"✗ Error: {e}")
