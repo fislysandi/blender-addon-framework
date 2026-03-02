@@ -6,7 +6,7 @@ Windows, macOS, and Linux platforms. It searches standard installation paths,
 environment variables, and PATH for Blender executables.
 
 Usage:
-    from common.blender_detection import detect_blender_installations, get_detected_blender_path
+    from src.common.blender_detection import detect_blender_installations, get_detected_blender_path
 
     # Get all detected installations
     installations = detect_blender_installations()
