@@ -8,6 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.framework import apply_code_template, list_code_templates
+from src.commands.context import resolve_addon_name, resolve_framework_root
 
 
 def _print_templates(templates: list[str]):
@@ -21,6 +22,11 @@ def _print_templates(templates: list[str]):
 
 def main():
     parser = argparse.ArgumentParser(description="Manage reusable code templates")
+    parser.add_argument(
+        "--framework-root",
+        default=None,
+        help="Framework root path override",
+    )
     subparsers = parser.add_subparsers(dest="command", help="Template command")
 
     subparsers.add_parser("list", help="List templates from code_templates/")
@@ -29,7 +35,7 @@ def main():
     apply_parser.add_argument(
         "template", help="Template name (relative to code_templates)"
     )
-    apply_parser.add_argument("addon", help="Target addon name")
+    apply_parser.add_argument("addon", nargs="?", help="Target addon name")
     apply_parser.add_argument(
         "--on-conflict",
         choices=["skip", "overwrite", "rename"],
@@ -43,6 +49,8 @@ def main():
     )
 
     args = parser.parse_args()
+    framework_root = resolve_framework_root(args.framework_root)
+    addons_dir = framework_root / "addons"
 
     if args.command == "list":
         _print_templates(list_code_templates())
@@ -50,9 +58,14 @@ def main():
 
     if args.command == "apply":
         try:
+            addon_name = resolve_addon_name(args.addon, addons_dir)
+            if not addon_name:
+                raise ValueError(
+                    "No addon name provided and addon could not be detected from cwd"
+                )
             result = apply_code_template(
                 args.template,
-                args.addon,
+                addon_name,
                 on_conflict=args.on_conflict,
                 dry_run=args.dry_run,
             )

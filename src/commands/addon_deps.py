@@ -14,6 +14,14 @@ from src.common.uv_integration import (
     list_addon_dependencies,
     sync_addon_dependencies,
 )
+from src.commands.context import resolve_addon_name, resolve_framework_root
+
+
+def _resolve_command_addon(args, addons_dir: Path) -> str:
+    addon_name = resolve_addon_name(getattr(args, "addon", None), addons_dir)
+    if addon_name:
+        return addon_name
+    raise ValueError("No addon name provided and addon could not be detected from cwd")
 
 
 def resolve_uv_override(args) -> bool | None:
@@ -27,17 +35,22 @@ def resolve_uv_override(args) -> bool | None:
 
 def main():
     parser = argparse.ArgumentParser(description="Manage addon dependencies")
+    parser.add_argument(
+        "--framework-root",
+        default=None,
+        help="Framework root path override",
+    )
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
     # init command
     init_parser = subparsers.add_parser(
         "init", help="Initialize pyproject.toml for addon"
     )
-    init_parser.add_argument("addon", help="Addon name")
+    init_parser.add_argument("addon", nargs="?", help="Addon name")
 
     # add command
     add_parser = subparsers.add_parser("add", help="Add dependency to addon")
-    add_parser.add_argument("addon", help="Addon name")
+    add_parser.add_argument("addon", nargs="?", help="Addon name")
     add_parser.add_argument("package", help="Package to add")
     add_uv_group = add_parser.add_mutually_exclusive_group()
     add_uv_group.add_argument(
@@ -53,11 +66,11 @@ def main():
 
     # list command
     list_parser = subparsers.add_parser("list", help="List addon dependencies")
-    list_parser.add_argument("addon", help="Addon name")
+    list_parser.add_argument("addon", nargs="?", help="Addon name")
 
     # sync command
     sync_parser = subparsers.add_parser("sync", help="Sync addon dependencies")
-    sync_parser.add_argument("addon", help="Addon name")
+    sync_parser.add_argument("addon", nargs="?", help="Addon name")
     sync_uv_group = sync_parser.add_mutually_exclusive_group()
     sync_uv_group.add_argument(
         "--use-uv",
@@ -71,6 +84,8 @@ def main():
     )
 
     args = parser.parse_args()
+    framework_root = resolve_framework_root(args.framework_root)
+    addons_dir = framework_root / "addons"
 
     if not args.command:
         parser.print_help()
@@ -78,24 +93,28 @@ def main():
 
     try:
         if args.command == "init":
-            init_addon_pyproject(args.addon)
+            addon_name = _resolve_command_addon(args, addons_dir)
+            init_addon_pyproject(addon_name)
         elif args.command == "add":
+            addon_name = _resolve_command_addon(args, addons_dir)
             add_addon_dependency(
-                args.addon,
+                addon_name,
                 args.package,
                 use_uv_override=resolve_uv_override(args),
             )
         elif args.command == "list":
-            deps = list_addon_dependencies(args.addon)
+            addon_name = _resolve_command_addon(args, addons_dir)
+            deps = list_addon_dependencies(addon_name)
             if deps:
-                print(f"Dependencies for {args.addon}:")
+                print(f"Dependencies for {addon_name}:")
                 for dep in deps:
                     print(f"  - {dep}")
             else:
-                print(f"No dependencies for {args.addon}")
+                print(f"No dependencies for {addon_name}")
         elif args.command == "sync":
+            addon_name = _resolve_command_addon(args, addons_dir)
             sync_addon_dependencies(
-                args.addon,
+                addon_name,
                 use_uv_override=resolve_uv_override(args),
             )
     except subprocess.CalledProcessError as e:

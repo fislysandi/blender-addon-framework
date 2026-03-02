@@ -8,16 +8,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.framework import compile_addon, get_init_file_path
+from src.commands.context import resolve_addon_name, resolve_framework_root
 from src.main import (
     ACTIVE_ADDON,
     DEFAULT_RELEASE_DIR,
     IS_EXTENSION,
     SKIP_DOCS_BY_DEFAULT,
 )
-
-
-def _project_root() -> Path:
-    return Path(__file__).parent.parent.parent
 
 
 def _list_addon_names(addons_dir: Path) -> list[str]:
@@ -72,7 +69,12 @@ def _build_compile_kwargs(args, init_file: str) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(description="Compile a Blender addon")
-    parser.add_argument("addon", nargs="?", default=ACTIVE_ADDON, help="Addon name")
+    parser.add_argument("addon", nargs="?", default=None, help="Addon name")
+    parser.add_argument(
+        "--framework-root",
+        default=None,
+        help="Framework root path override",
+    )
     parser.add_argument(
         "--release-dir", default=DEFAULT_RELEASE_DIR, help="Output directory"
     )
@@ -103,9 +105,11 @@ def main():
     )
     args = parser.parse_args()
 
-    addons_dir = _project_root() / "addons"
+    framework_root = resolve_framework_root(args.framework_root)
+    addons_dir = framework_root / "addons"
+    addon_name = resolve_addon_name(args.addon, addons_dir, ACTIVE_ADDON)
     is_valid, error_message, addon_path, addon_names = _validate_addon_name(
-        args.addon, addons_dir
+        addon_name, addons_dir
     )
     if not is_valid and error_message == "No addon name provided":
         print(f"Error: {error_message}")
@@ -120,9 +124,10 @@ def main():
         sys.exit(1)
 
     try:
-        init_file = get_init_file_path(args.addon)
+        args.addon = addon_name
+        init_file = get_init_file_path(addon_name)
         compile_addon(**_build_compile_kwargs(args, init_file))
-        print(f"✓ Compiled addon: {args.addon}")
+        print(f"✓ Compiled addon: {addon_name}")
     except Exception as e:
         print(f"✗ Error: {e}")
         sys.exit(1)

@@ -223,6 +223,8 @@ uv run test my_addon --with-wheels
 python3 -m src.commands.test my_addon
 ```
 
+If you run commands inside `addons/<addon_name>/`, addon name autodetection is supported for `test`, `compile`, `template apply`, and `addon-deps` subcommands.
+
 ### Rename an Addon
 
 ```bash

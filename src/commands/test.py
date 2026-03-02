@@ -8,11 +8,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.framework import test_addon
+from src.commands.context import resolve_addon_name, resolve_framework_root
 from src.main import ACTIVE_ADDON
-
-
-def _project_root() -> Path:
-    return Path(__file__).parent.parent.parent
 
 
 def _list_addons(addons_dir: Path) -> list[str]:
@@ -67,7 +64,12 @@ def main():
     parser = argparse.ArgumentParser(
         description="Test a Blender addon with debug information"
     )
-    parser.add_argument("addon", nargs="?", default=ACTIVE_ADDON, help="Addon name")
+    parser.add_argument("addon", nargs="?", default=None, help="Addon name")
+    parser.add_argument(
+        "--framework-root",
+        default=None,
+        help="Framework root path override",
+    )
     parser.add_argument(
         "--disable-watch", action="store_true", help="Disable hot reload"
     )
@@ -83,15 +85,17 @@ def main():
     )
     args = parser.parse_args()
 
-    addons_dir = _project_root() / "addons"
-    is_valid, error_message, addon_names = _validate_addon_name(args.addon, addons_dir)
+    framework_root = resolve_framework_root(args.framework_root)
+    addons_dir = framework_root / "addons"
+    addon_name = resolve_addon_name(args.addon, addons_dir, ACTIVE_ADDON)
+    is_valid, error_message, addon_names = _validate_addon_name(addon_name, addons_dir)
     if not is_valid and error_message == "No addon name provided":
         print(f"Error: {error_message}")
         print("Usage: uv run test <addon_name>")
         _print_available_addons(addon_names)
         sys.exit(1)
 
-    addon_path = addons_dir / args.addon
+    addon_path = addons_dir / (addon_name or "")
     if not is_valid:
         print(f"Error: {error_message}")
         print(f"Expected path: {addon_path}")
@@ -100,14 +104,14 @@ def main():
 
     test_kwargs = _build_test_kwargs(args)
     status_headline, status_detail = _debug_status_text(
-        args.addon, test_kwargs["debug_mode"]
+        addon_name, test_kwargs["debug_mode"]
     )
     print(status_headline)
     if status_detail:
         print(status_detail)
 
     try:
-        test_addon(args.addon, **test_kwargs)
+        test_addon(addon_name, **test_kwargs)
     except Exception as e:
         print(f"✗ Error: {e}")
         sys.exit(1)
