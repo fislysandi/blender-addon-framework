@@ -1,0 +1,5 @@
+name = "i18n"
+source_addon = "subtitle_studio"
+description = "Translation dictionary template adapted from Subtitle Studio"
+target_prefix = "src/i18n"
+compatibility = "unified-v1"

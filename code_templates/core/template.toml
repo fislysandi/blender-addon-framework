@@ -1,0 +1,5 @@
+name = "core"
+source_addon = "subtitle_studio"
+description = "Core subtitle utility template adapted from Subtitle Studio"
+target_prefix = "src/core"
+compatibility = "unified-v1"

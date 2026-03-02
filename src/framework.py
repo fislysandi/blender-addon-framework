@@ -58,10 +58,13 @@ _WHEELS_PATH = "wheels"
 _ADDON_TEMPLATE = "sample_addon"
 _ADDONS_FOLDER = "addons"
 _ADDON_ROOT = os.path.join(PROJECT_ROOT, _ADDONS_FOLDER)
+_CODE_TEMPLATES_ROOT = os.path.join(PROJECT_ROOT, "code_templates")
 _DEBUG_SESSION_DIR = os.path.join(PROJECT_ROOT, ".tmp", "debugger_sessions")
 _BDOCGEN_ROOT = os.path.join(PROJECT_ROOT, "bdocgen")
 _UNIFIED_TEMPLATE_MODE = "unified-v1"
 _LEGACY_TEMPLATE_MODE = "legacy"
+_CODE_TEMPLATE_METADATA_FILE = "template.toml"
+_CODE_TEMPLATE_ADDON_TOKEN = "{{addon_name}}"
 
 _RUNTIME_READY = False
 
@@ -333,6 +336,172 @@ def _validate_renamed_addon(addon_name: str):
             raise ValueError(
                 f"Manifest id mismatch after rename: expected '{addon_name}', got '{manifest_id}'"
             )
+
+
+def list_code_templates() -> list[str]:
+    if not os.path.isdir(_CODE_TEMPLATES_ROOT):
+        return []
+    templates = []
+    for root, _, files in os.walk(_CODE_TEMPLATES_ROOT):
+        visible_files = [
+            file_name
+            for file_name in files
+            if not file_name.startswith(".")
+            and file_name != _CODE_TEMPLATE_METADATA_FILE
+        ]
+        if not visible_files:
+            continue
+        rel_root = os.path.relpath(root, _CODE_TEMPLATES_ROOT)
+        templates.append(rel_root)
+    return sorted(templates)
+
+
+def apply_code_template(
+    template_name: str,
+    addon_name: str,
+    *,
+    on_conflict: str = "skip",
+    dry_run: bool = False,
+) -> dict:
+    _assert_valid_addon_name(addon_name)
+    _assert_valid_conflict_mode(on_conflict)
+
+    addon_root = _addon_path(addon_name)
+    if not os.path.isdir(addon_root):
+        raise ValueError(f"Addon not found: {addon_root}")
+
+    template_root = _resolve_template_root(template_name)
+    metadata = _read_code_template_metadata(template_root)
+    target_prefix = _resolve_template_target_prefix(template_name, metadata)
+
+    template_files = _list_template_files(template_root)
+    if not template_files:
+        if dry_run:
+            return {
+                "status": "dry-run",
+                "template": template_name,
+                "addon": addon_name,
+                "on_conflict": on_conflict,
+                "target_prefix": target_prefix,
+                "operations": 0,
+            }
+        raise ValueError(f"Template has no files to apply: {template_name}")
+
+    plan = _build_template_apply_plan(
+        template_root,
+        template_files,
+        addon_root,
+        target_prefix,
+        addon_name,
+        on_conflict,
+    )
+
+    if dry_run:
+        return {
+            "status": "dry-run",
+            "template": template_name,
+            "addon": addon_name,
+            "on_conflict": on_conflict,
+            "target_prefix": target_prefix,
+            "operations": len(plan),
+        }
+
+    applied = 0
+    for source_path, target_path, content, operation in plan:
+        if operation == "skip":
+            continue
+        _ensure_directory(os.path.dirname(target_path))
+        write_utf8(target_path, content)
+        applied += 1
+
+    return {
+        "status": "ok",
+        "template": template_name,
+        "addon": addon_name,
+        "on_conflict": on_conflict,
+        "target_prefix": target_prefix,
+        "operations": len(plan),
+        "applied": applied,
+    }
+
+
+def _assert_valid_conflict_mode(on_conflict: str):
+    if on_conflict in {"skip", "overwrite", "rename"}:
+        return
+    raise ValueError(
+        f"Invalid conflict mode: {on_conflict}. Use 'skip', 'overwrite', or 'rename'."
+    )
+
+
+def _resolve_template_root(template_name: str) -> str:
+    root = os.path.normpath(os.path.join(_CODE_TEMPLATES_ROOT, template_name))
+    if not root.startswith(os.path.normpath(_CODE_TEMPLATES_ROOT)):
+        raise ValueError(f"Invalid template path: {template_name}")
+    if not os.path.isdir(root):
+        raise ValueError(f"Template not found: {template_name}")
+    return root
+
+
+def _read_code_template_metadata(template_root: str) -> dict:
+    metadata_path = os.path.join(template_root, _CODE_TEMPLATE_METADATA_FILE)
+    if not os.path.isfile(metadata_path):
+        return {}
+    return _read_toml_file(metadata_path)
+
+
+def _resolve_template_target_prefix(template_name: str, metadata: dict) -> str:
+    configured_prefix = metadata.get("target_prefix")
+    if configured_prefix:
+        return configured_prefix.strip("/")
+    return os.path.join("src", template_name).replace("\\", "/")
+
+
+def _list_template_files(template_root: str) -> list[str]:
+    all_files = []
+    for root, _, files in os.walk(template_root):
+        for file_name in files:
+            if file_name.startswith(".") or file_name == _CODE_TEMPLATE_METADATA_FILE:
+                continue
+            all_files.append(os.path.join(root, file_name))
+    return sorted(all_files)
+
+
+def _build_template_apply_plan(
+    template_root: str,
+    template_files: list[str],
+    addon_root: str,
+    target_prefix: str,
+    addon_name: str,
+    on_conflict: str,
+) -> list[tuple[str, str, str, str]]:
+    plan = []
+    for source_path in template_files:
+        relative_source = os.path.relpath(source_path, template_root)
+        target_path = os.path.join(addon_root, target_prefix, relative_source)
+        content = _template_content_for_addon(source_path, addon_name)
+        operation = "write"
+
+        if os.path.exists(target_path):
+            if on_conflict == "skip":
+                operation = "skip"
+            elif on_conflict == "rename":
+                target_path = _next_renamed_target_path(target_path)
+
+        plan.append((source_path, target_path, content, operation))
+    return plan
+
+
+def _template_content_for_addon(source_path: str, addon_name: str) -> str:
+    return read_utf8(source_path).replace(_CODE_TEMPLATE_ADDON_TOKEN, addon_name)
+
+
+def _next_renamed_target_path(target_path: str) -> str:
+    path = Path(target_path)
+    for index in range(1, 1000):
+        candidate = path.with_name(f"{path.stem}_template_{index}{path.suffix}")
+        if not candidate.exists():
+            return str(candidate)
+    raise RuntimeError(f"Unable to resolve renamed target for conflict: {target_path}")
 
 
 def _addon_path(addon_name: str) -> str:

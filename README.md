@@ -77,6 +77,7 @@ uv run python -c "import watchdog; print('✓ UV setup complete')"
 | File | UV Command | Legacy Command |
 |------|------------|----------------|
 | Create addon | `uv run create <addon>` | `python3 -m src.commands.create <addon>` |
+| Apply template | `uv run template apply <template> <addon>` | `python3 -m src.commands.template apply <template> <addon>` |
 | Rename addon | `uv run rename-addon <old> <new>` | `python3 -m src.commands.rename_addon <old> <new>` |
 | Test addon | `uv run test <addon>` | `python3 -m src.commands.test <addon>` |
 | Compile addon | `uv run compile <addon>` | `python3 -m src.commands.compile <addon>` |
@@ -230,6 +231,22 @@ uv run rename-addon old_addon new_addon --dry-run
 
 # Execute rename with validation
 uv run rename-addon old_addon new_addon
+```
+
+### Reusable Code Templates
+
+Templates live under `code_templates/` at project root.
+Initial reusable templates adapted from `subtitle_studio`: `ui`, `core`, `i18n`.
+
+```bash
+# List templates
+uv run template list
+
+# Dry-run apply
+uv run template apply ui my_addon --dry-run
+
+# Apply with conflict strategy
+uv run template apply ui my_addon --on-conflict rename
 ```
 
 Each test run now prints a `[DEBUG] Blender PID: ... (session <id>)` line and writes a session file under `.tmp/debugger_sessions/<id>.json` plus a matching `.log`. Agents can inspect the JSON for the PID, command, and duration, and tail the log file to read the latest Blender output while the debugger is running.
@@ -403,6 +420,8 @@ The command will now show you a list of available addons in the `addons/` folder
 |---------|-------------|
 | `uv sync` | Install all dependencies from uv.lock |
 | `uv run create <addon>` | Create a new addon from template |
+| `uv run template list` | List reusable templates from code_templates/ |
+| `uv run template apply <template> <addon>` | Apply reusable template into addon |
 | `uv run rename-addon <old> <new>` | Rename addon with metadata/reference rewrite |
 | `uv run test <addon>` | Test addon with hot reload |
 | `uv run compile <addon>` | Compile/package addon for distribution |

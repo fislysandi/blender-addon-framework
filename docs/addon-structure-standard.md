@@ -51,6 +51,12 @@ Generator behavior:
 - Default: `unified-v1` template
 - Legacy opt-in: `uv run create <addon_name> --legacy` (or `--template legacy`)
 
+Reusable template catalog:
+
+- Location: `code_templates/`
+- Apply command: `uv run template apply <template_name> <addon_name>`
+- Initial templates adapted from subtitle_studio: `ui`, `core`, `i18n`
+
 ## Legacy Flat Structure (Deprecated)
 
 The older layout with module folders directly under addon root (for example `operators/`, `panels/`, `core/`, `utils/` at root) is deprecated.
