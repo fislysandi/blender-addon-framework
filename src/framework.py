@@ -1387,6 +1387,52 @@ def reset_blender_preferences():
     return _render_json_report(script)
 
 
+def _audit_missing_lines(missing: list[str]) -> list[str]:
+    if not missing:
+        return ["No missing addons detected."]
+    return [
+        "Missing modules (likely stale):",
+        *[f"  - {module}" for module in missing],
+        "Blender remembers previously enabled addons. Run `uv run audit-stale-addons --disable-missing` or reset preferences.",
+    ]
+
+
+def _audit_error_lines(errors: list[dict]) -> list[str]:
+    if not errors:
+        return []
+    return [
+        "Errors encountered while probing addons:",
+        *[f"  - {entry['module']}: {entry['message']}" for entry in errors],
+    ]
+
+
+def _audit_disable_lines(disable_summary: dict | None) -> list[str]:
+    if not disable_summary:
+        return []
+    disabled = disable_summary.get("disabled", [])
+    failed = disable_summary.get("failed", {})
+    lines = [f"Disabled {len(disabled)} addon(s) in Blender preferences."]
+    if failed:
+        lines.extend(
+            [
+                "Failed to disable:",
+                *[f"  - {module}: {reason}" for module, reason in failed.items()],
+            ]
+        )
+    return lines
+
+
+def _audit_reset_lines(reset_summary: dict | None) -> list[str]:
+    if not reset_summary:
+        return []
+    return ["Blender preferences reset to factory defaults."]
+
+
+def _print_lines(lines: list[str]):
+    for line in lines:
+        print(line)
+
+
 def audit_stale_addons(disable_missing=False, reset_preferences=False):
     report = collect_enabled_addons()
     enabled = report.get("enabled", [])
@@ -1394,36 +1440,18 @@ def audit_stale_addons(disable_missing=False, reset_preferences=False):
     errors = report.get("errors", [])
 
     print(f"Checked {len(enabled)} enabled addon(s).")
-    if missing:
-        print("Missing modules (likely stale):")
-        for module in missing:
-            print(f"  - {module}")
-        print(
-            "Blender remembers previously enabled addons. Run `uv run audit-stale-addons --disable-missing` or reset preferences."
-        )
-    else:
-        print("No missing addons detected.")
-
-    if errors:
-        print("Errors encountered while probing addons:")
-        for entry in errors:
-            print(f"  - {entry['module']}: {entry['message']}")
+    _print_lines(_audit_missing_lines(missing))
+    _print_lines(_audit_error_lines(errors))
 
     disable_summary = None
     if disable_missing and missing:
         disable_summary = disable_addons_in_blender(missing)
-        disabled = disable_summary.get("disabled", [])
-        failed = disable_summary.get("failed", {})
-        print(f"Disabled {len(disabled)} addon(s) in Blender preferences.")
-        if failed:
-            print("Failed to disable:")
-            for module, reason in failed.items():
-                print(f"  - {module}: {reason}")
+    _print_lines(_audit_disable_lines(disable_summary))
 
     reset_summary = None
     if reset_preferences:
         reset_summary = reset_blender_preferences()
-        print("Blender preferences reset to factory defaults.")
+    _print_lines(_audit_reset_lines(reset_summary))
 
     return {
         "report": report,
