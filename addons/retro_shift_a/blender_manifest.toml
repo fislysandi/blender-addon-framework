@@ -1,0 +1,11 @@
+schema_version = "1.0.0"
+
+id = "retro_shift_a"
+version = "1.0.0"
+name = "Retro Shift-A Menu"
+tagline = "Classic Shift-A add menu with quick primitive shortcuts"
+maintainer = "Developer"
+type = "add-on"
+tags = ["3D View"]
+blender_version_min = "4.2.0"
+license = ["SPDX:MIT"]
