@@ -28,6 +28,7 @@ audit-stale-addons = "src.commands.audit_stale_addons:main"
 compile = "src.commands.compile:main"
 release = "src.commands.release:main"
 addon-deps = "src.commands.addon_deps:main"
+test-framework = "src.commands.test_framework:main"
 
 [tool.uv]
 # Enable package mode to install console scripts
