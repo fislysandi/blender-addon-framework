@@ -55,7 +55,10 @@ Reusable template catalog:
 
 - Location: `code_templates/`
 - Apply command: `uv run template apply <template_name> <addon_name>`
-- Initial templates adapted from subtitle_studio: `ui`, `core`, `i18n`
+- Initial templates adapted from subtitle_studio:
+  - `ui/basic_panel`
+  - `core/subtitle_io`
+  - `i18n/base_dictionary`
 
 ## Legacy Flat Structure (Deprecated)
 

@@ -341,19 +341,7 @@ def _validate_renamed_addon(addon_name: str):
 def list_code_templates() -> list[str]:
     if not os.path.isdir(_CODE_TEMPLATES_ROOT):
         return []
-    templates = []
-    for root, _, files in os.walk(_CODE_TEMPLATES_ROOT):
-        visible_files = [
-            file_name
-            for file_name in files
-            if not file_name.startswith(".")
-            and file_name != _CODE_TEMPLATE_METADATA_FILE
-        ]
-        if not visible_files:
-            continue
-        rel_root = os.path.relpath(root, _CODE_TEMPLATES_ROOT)
-        templates.append(rel_root)
-    return sorted(templates)
+    return sorted(_template_directories())
 
 
 def apply_code_template(
@@ -439,6 +427,11 @@ def _resolve_template_root(template_name: str) -> str:
         raise ValueError(f"Invalid template path: {template_name}")
     if not os.path.isdir(root):
         raise ValueError(f"Template not found: {template_name}")
+    metadata_path = os.path.join(root, _CODE_TEMPLATE_METADATA_FILE)
+    if not os.path.isfile(metadata_path):
+        raise ValueError(
+            f"Template metadata missing for '{template_name}': {metadata_path}"
+        )
     return root
 
 
@@ -457,13 +450,28 @@ def _resolve_template_target_prefix(template_name: str, metadata: dict) -> str:
 
 
 def _list_template_files(template_root: str) -> list[str]:
+    files_root = os.path.join(template_root, "files")
+    if not os.path.isdir(files_root):
+        return []
     all_files = []
-    for root, _, files in os.walk(template_root):
+    for root, _, files in os.walk(files_root):
         for file_name in files:
-            if file_name.startswith(".") or file_name == _CODE_TEMPLATE_METADATA_FILE:
+            if file_name.startswith("."):
                 continue
             all_files.append(os.path.join(root, file_name))
     return sorted(all_files)
+
+
+def _template_directories() -> list[str]:
+    discovered = []
+    for root, _, files in os.walk(_CODE_TEMPLATES_ROOT):
+        if _CODE_TEMPLATE_METADATA_FILE not in files:
+            continue
+        rel_root = os.path.relpath(root, _CODE_TEMPLATES_ROOT)
+        if rel_root == ".":
+            continue
+        discovered.append(rel_root)
+    return discovered
 
 
 def _build_template_apply_plan(
@@ -474,9 +482,10 @@ def _build_template_apply_plan(
     addon_name: str,
     on_conflict: str,
 ) -> list[tuple[str, str, str, str]]:
+    files_root = os.path.join(template_root, "files")
     plan = []
     for source_path in template_files:
-        relative_source = os.path.relpath(source_path, template_root)
+        relative_source = os.path.relpath(source_path, files_root)
         target_path = os.path.join(addon_root, target_prefix, relative_source)
         content = _template_content_for_addon(source_path, addon_name)
         operation = "write"

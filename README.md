@@ -238,17 +238,21 @@ uv run rename-addon old_addon new_addon
 ### Reusable Code Templates
 
 Templates live under `code_templates/` at project root.
-Initial reusable templates adapted from `subtitle_studio`: `ui`, `core`, `i18n`.
+Initial reusable templates adapted from `subtitle_studio`:
+
+- `ui/basic_panel`
+- `core/subtitle_io`
+- `i18n/base_dictionary`
 
 ```bash
 # List templates
 uv run template list
 
 # Dry-run apply
-uv run template apply ui my_addon --dry-run
+uv run template apply ui/basic_panel my_addon --dry-run
 
 # Apply with conflict strategy
-uv run template apply ui my_addon --on-conflict rename
+uv run template apply ui/basic_panel my_addon --on-conflict rename
 ```
 
 Each test run now prints a `[DEBUG] Blender PID: ... (session <id>)` line and writes a session file under `.tmp/debugger_sessions/<id>.json` plus a matching `.log`. Agents can inspect the JSON for the PID, command, and duration, and tail the log file to read the latest Blender output while the debugger is running.

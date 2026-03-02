@@ -11,7 +11,11 @@ def _write(path: str, content: str):
 
 def _create_template(root: str, template_name: str, filename: str, content: str):
     template_root = os.path.join(root, template_name)
-    _write(os.path.join(template_root, filename), content)
+    _write(
+        os.path.join(template_root, "template.toml"),
+        'name = "test_template"\nsource_addon = "tests"\ntarget_prefix = "src/ui"\n',
+    )
+    _write(os.path.join(template_root, "files", filename), content)
 
 
 def _create_addon(root: str, addon_name: str):
@@ -20,13 +24,13 @@ def _create_addon(root: str, addon_name: str):
 
 def test_list_code_templates_returns_dirs_with_files(tmp_path, monkeypatch):
     templates_root = str(tmp_path / "code_templates")
-    _create_template(templates_root, "ui", "panel.py", "pass\n")
+    _create_template(templates_root, "ui/basic_panel", "panel.py", "pass\n")
     os.makedirs(os.path.join(templates_root, "empty"), exist_ok=True)
     monkeypatch.setattr(framework, "_CODE_TEMPLATES_ROOT", templates_root)
 
     templates = framework.list_code_templates()
 
-    assert templates == ["ui"]
+    assert templates == ["ui/basic_panel"]
 
 
 def test_apply_code_template_dry_run(tmp_path, monkeypatch):
@@ -34,7 +38,7 @@ def test_apply_code_template_dry_run(tmp_path, monkeypatch):
     addons_root = str(tmp_path / "addons")
     _create_template(
         templates_root,
-        "ui",
+        "ui/basic_panel",
         "panel.py",
         "class {{addon_name}}Panel:\n    pass\n",
     )
@@ -43,7 +47,7 @@ def test_apply_code_template_dry_run(tmp_path, monkeypatch):
     monkeypatch.setattr(framework, "_ADDON_ROOT", addons_root)
 
     result = framework.apply_code_template(
-        "ui", "demo_addon", on_conflict="skip", dry_run=True
+        "ui/basic_panel", "demo_addon", on_conflict="skip", dry_run=True
     )
 
     assert result["status"] == "dry-run"
@@ -57,7 +61,7 @@ def test_apply_code_template_writes_file_with_token_replacement(tmp_path, monkey
     addons_root = str(tmp_path / "addons")
     _create_template(
         templates_root,
-        "ui",
+        "ui/basic_panel",
         "panel.py",
         "class {{addon_name}}Panel:\n    pass\n",
     )
@@ -66,7 +70,7 @@ def test_apply_code_template_writes_file_with_token_replacement(tmp_path, monkey
     monkeypatch.setattr(framework, "_ADDON_ROOT", addons_root)
 
     result = framework.apply_code_template(
-        "ui", "demo_addon", on_conflict="skip", dry_run=False
+        "ui/basic_panel", "demo_addon", on_conflict="skip", dry_run=False
     )
 
     expected_path = os.path.join(addons_root, "demo_addon", "src", "ui", "panel.py")
@@ -80,7 +84,7 @@ def test_apply_code_template_writes_file_with_token_replacement(tmp_path, monkey
 def test_apply_code_template_rename_conflict_strategy(tmp_path, monkeypatch):
     templates_root = str(tmp_path / "code_templates")
     addons_root = str(tmp_path / "addons")
-    _create_template(templates_root, "ui", "panel.py", "x = 1\n")
+    _create_template(templates_root, "ui/basic_panel", "panel.py", "x = 1\n")
     _create_addon(addons_root, "demo_addon")
     existing_path = os.path.join(addons_root, "demo_addon", "src", "ui", "panel.py")
     _write(existing_path, "original\n")
@@ -88,7 +92,7 @@ def test_apply_code_template_rename_conflict_strategy(tmp_path, monkeypatch):
     monkeypatch.setattr(framework, "_ADDON_ROOT", addons_root)
 
     framework.apply_code_template(
-        "ui", "demo_addon", on_conflict="rename", dry_run=False
+        "ui/basic_panel", "demo_addon", on_conflict="rename", dry_run=False
     )
 
     renamed_path = os.path.join(
@@ -101,13 +105,17 @@ def test_apply_code_template_rename_conflict_strategy(tmp_path, monkeypatch):
 def test_apply_code_template_dry_run_allows_empty_template(tmp_path, monkeypatch):
     templates_root = str(tmp_path / "code_templates")
     addons_root = str(tmp_path / "addons")
-    os.makedirs(os.path.join(templates_root, "ui"), exist_ok=True)
+    os.makedirs(os.path.join(templates_root, "ui", "empty_template"), exist_ok=True)
+    _write(
+        os.path.join(templates_root, "ui", "empty_template", "template.toml"),
+        'name = "empty_template"\nsource_addon = "tests"\ntarget_prefix = "src/ui"\n',
+    )
     _create_addon(addons_root, "demo_addon")
     monkeypatch.setattr(framework, "_CODE_TEMPLATES_ROOT", templates_root)
     monkeypatch.setattr(framework, "_ADDON_ROOT", addons_root)
 
     result = framework.apply_code_template(
-        "ui", "demo_addon", on_conflict="skip", dry_run=True
+        "ui/empty_template", "demo_addon", on_conflict="skip", dry_run=True
     )
 
     assert result["status"] == "dry-run"
