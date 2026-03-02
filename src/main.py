@@ -111,49 +111,64 @@ def _load_project_config(config_path):
     return toml.load(config_path)
 
 
-def _apply_config_overrides(current_state, config):
-    next_state = dict(current_state)
-    blender_config = config.get("blender", {})
-    default_config = config.get("default", {})
+def _blender_state_overrides(blender_config):
+    overrides = {}
 
     exe_path = blender_config.get("exe_path")
     if exe_path:
-        next_state["BLENDER_EXE_PATH"] = exe_path
-        next_state["BLENDER_ADDON_PATH"] = default_blender_addon_path(exe_path)
+        overrides["BLENDER_EXE_PATH"] = exe_path
+        overrides["BLENDER_ADDON_PATH"] = default_blender_addon_path(exe_path)
 
     addon_path = blender_config.get("addon_path")
     if addon_path:
-        next_state["BLENDER_ADDON_PATH"] = addon_path
+        overrides["BLENDER_ADDON_PATH"] = addon_path
+
+    return overrides
+
+
+def _default_state_overrides(default_config, current_state):
+    overrides = {}
 
     addon_name = default_config.get("addon")
     if addon_name:
-        next_state["ACTIVE_ADDON"] = addon_name
+        overrides["ACTIVE_ADDON"] = addon_name
 
     is_extension = default_config.get("is_extension")
     if is_extension is not None:
-        next_state["IS_EXTENSION"] = bool(is_extension)
+        overrides["IS_EXTENSION"] = bool(is_extension)
 
     release_dir = default_config.get("release_dir")
     if release_dir:
-        next_state["DEFAULT_RELEASE_DIR"] = release_dir
+        overrides["DEFAULT_RELEASE_DIR"] = release_dir
 
     test_release_dir = default_config.get("test_release_dir")
     if test_release_dir:
-        next_state["TEST_RELEASE_DIR"] = test_release_dir
+        overrides["TEST_RELEASE_DIR"] = test_release_dir
 
     use_uv_by_default = default_config.get("use_uv_by_default")
     if use_uv_by_default is not None:
-        next_state["USE_UV_BY_DEFAULT"] = _coerce_bool(
-            use_uv_by_default, next_state["USE_UV_BY_DEFAULT"]
+        overrides["USE_UV_BY_DEFAULT"] = _coerce_bool(
+            use_uv_by_default, current_state["USE_UV_BY_DEFAULT"]
         )
 
     skip_docs_by_default = default_config.get("skip_docs_by_default")
     if skip_docs_by_default is not None:
-        next_state["SKIP_DOCS_BY_DEFAULT"] = _coerce_bool(
-            skip_docs_by_default, next_state["SKIP_DOCS_BY_DEFAULT"]
+        overrides["SKIP_DOCS_BY_DEFAULT"] = _coerce_bool(
+            skip_docs_by_default, current_state["SKIP_DOCS_BY_DEFAULT"]
         )
 
-    return next_state
+    return overrides
+
+
+def _apply_config_overrides(current_state, config):
+    blender_config = config.get("blender", {})
+    default_config = config.get("default", {})
+
+    return {
+        **dict(current_state),
+        **_blender_state_overrides(blender_config),
+        **_default_state_overrides(default_config, current_state),
+    }
 
 
 def _save_blender_path_to_config(path):
