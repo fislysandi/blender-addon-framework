@@ -957,91 +957,48 @@ def start_test(init_file, addon_name, enable_watch=True, debug_mode=True):
     # Check if addon has a virtual environment
     addon_venv_path = get_addon_venv_site_packages(addon_name)
 
-    # Select appropriate startup command based on debug mode
-    if debug_mode:
-        startup_cmd = debug_start_up_command.format(
-            addon_name=addon_name,
-            addon_signature=os.path.join(
-                test_addon_path, _addon_md5__signature
-            ).replace("\\", "/"),
-        )
-    else:
-        startup_cmd = None  # Will use simple enable command
+    startup_cmd = _build_debug_startup_command(addon_name, test_addon_path)
+
+    def exit_handler():
+        _cleanup_test_addon_path(test_addon_path)
 
     if not enable_watch:
-
-        def exit_handler():
-            if os.path.exists(test_addon_path):
-                shutil.rmtree(test_addon_path)
-
         atexit.register(exit_handler)
         try:
-            if debug_mode and startup_cmd:
-                # Use debug startup command with performance tracking
-                execute_blender_script(
-                    [
-                        BLENDER_EXE_PATH,
-                        "--python-use-system-env",
-                        "--python-expr",
-                        startup_cmd,
-                    ],
-                    test_addon_path,
-                    addon_name,
-                    debug_mode=True,
-                    addon_venv_path=addon_venv_path,
-                )
-            else:
-                # Use simple addon enable (no debug)
-                execute_blender_script(
-                    [
-                        BLENDER_EXE_PATH,
-                        "--python-use-system-env",
-                        "--python-expr",
-                        f'import bpy\nbpy.ops.preferences.addon_enable(module="{addon_name}")',
-                    ],
-                    test_addon_path,
-                    addon_name,
-                    debug_mode=False,
-                    addon_venv_path=addon_venv_path,
-                )
+            python_script = _single_run_python_script(
+                addon_name=addon_name,
+                debug_mode=debug_mode,
+                startup_cmd=startup_cmd,
+            )
+            execute_blender_script(
+                _build_blender_expr_args(python_script),
+                test_addon_path,
+                addon_name,
+                debug_mode=debug_mode,
+                addon_venv_path=addon_venv_path,
+            )
         finally:
             exit_handler()
         return
 
-    # start_watch_for_update(init_file, addon_name)
-    stop_event = threading.Event()
-    thread = threading.Thread(
-        target=start_watch_for_update, args=(init_file, addon_name, stop_event)
-    )
-    thread.start()
+    stop_event, thread = _start_watch_thread(init_file, addon_name)
 
     def exit_handler():
-        stop_event.set()
-        thread.join()
-        if os.path.exists(test_addon_path):
-            shutil.rmtree(test_addon_path)
+        _stop_watch_thread(stop_event, thread)
+        _cleanup_test_addon_path(test_addon_path)
 
     atexit.register(exit_handler)
 
-    # Select appropriate script based on debug mode
-    if debug_mode:
-        python_script = startup_cmd  # Already formatted with debug command
-    else:
-        python_script = start_up_command.format(
-            addon_name=addon_name,
-            addon_signature=os.path.join(
-                test_addon_path, _addon_md5__signature
-            ).replace("\\", "/"),
-        )
+    python_script = _watch_mode_python_script(
+        addon_name=addon_name,
+        test_addon_path=test_addon_path,
+        debug_mode=debug_mode,
+        startup_cmd=startup_cmd,
+    )
 
     try:
         execute_blender_script(
-            [
-                BLENDER_EXE_PATH,
-                "--python-use-system-env",
-                "--python-expr",
-                python_script,
-            ],
+            _build_blender_expr_args(python_script),
             test_addon_path,
             addon_name,
             debug_mode=debug_mode,
@@ -1049,6 +1006,70 @@ def start_test(init_file, addon_name, enable_watch=True, debug_mode=True):
         )
     finally:
         exit_handler()
+
+
+def _addon_signature_path(test_addon_path: str) -> str:
+    return os.path.join(test_addon_path, _addon_md5__signature).replace("\\", "/")
+
+
+def _build_debug_startup_command(addon_name: str, test_addon_path: str) -> str:
+    return debug_start_up_command.format(
+        addon_name=addon_name,
+        addon_signature=_addon_signature_path(test_addon_path),
+    )
+
+
+def _build_watch_startup_command(addon_name: str, test_addon_path: str) -> str:
+    return start_up_command.format(
+        addon_name=addon_name,
+        addon_signature=_addon_signature_path(test_addon_path),
+    )
+
+
+def _build_blender_expr_args(python_script: str) -> list[str]:
+    return [
+        BLENDER_EXE_PATH,
+        "--python-use-system-env",
+        "--python-expr",
+        python_script,
+    ]
+
+
+def _single_run_python_script(
+    *, addon_name: str, debug_mode: bool, startup_cmd: str
+) -> str:
+    if debug_mode:
+        return startup_cmd
+    return f'import bpy\nbpy.ops.preferences.addon_enable(module="{addon_name}")'
+
+
+def _watch_mode_python_script(
+    *, addon_name: str, test_addon_path: str, debug_mode: bool, startup_cmd: str
+) -> str:
+    if debug_mode:
+        return startup_cmd
+    return _build_watch_startup_command(addon_name, test_addon_path)
+
+
+def _cleanup_test_addon_path(test_addon_path: str):
+    if os.path.exists(test_addon_path):
+        shutil.rmtree(test_addon_path)
+
+
+def _start_watch_thread(
+    init_file: str, addon_name: str
+) -> tuple[threading.Event, threading.Thread]:
+    stop_event = threading.Event()
+    thread = threading.Thread(
+        target=start_watch_for_update, args=(init_file, addon_name, stop_event)
+    )
+    thread.start()
+    return stop_event, thread
+
+
+def _stop_watch_thread(stop_event: threading.Event, thread: threading.Thread):
+    stop_event.set()
+    thread.join()
 
 
 # This is the only corner case need to handle
