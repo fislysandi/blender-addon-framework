@@ -246,7 +246,10 @@ Target milestone: complete Python-first BDocGen MVP before REPL docs-command int
 - [ ] CI/CD integration
 - [ ] Documentation site generation
 - [ ] Official editor integrations
+  - [ ] Define shared extension architecture and protocol for tight framework integration
+  - [ ] Define repository policy: all official IDE extensions live under `ide_extensions/` at project root
   - [ ] Build official Neovim plugin for blender-addon-framework workflows
   - [ ] Build official VS Code extension for blender-addon-framework workflows
+  - [ ] Build official Emacs package for blender-addon-framework workflows
   - [ ] Expose common commands (test, compile, repl, docs) through editor UI/commands
   - [ ] Surface debugger/repl session status and quick actions in editor panels
