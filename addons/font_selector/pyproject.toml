@@ -1,0 +1,14 @@
+[project]
+name = "font_selector"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "fonttools>=4.54.0",
+]
+
+[tool.uv]
+package = false
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
