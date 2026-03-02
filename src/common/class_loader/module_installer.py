@@ -117,6 +117,8 @@ def get_blender_version(blender_exe_path):
 def extract_blender_version(blender_exe_path: str):
     """Extract the first two version numbers from the Blender executable path."""
     version_str = get_blender_version(blender_exe_path)
+    if not version_str:
+        return None
     try:
         return ".".join(version_str.split(".")[0:2])
     except Exception as e:
@@ -126,7 +128,7 @@ def extract_blender_version(blender_exe_path: str):
     return None
 
 
-def install_fake_bpy(blender_path: str):
+def install_fake_bpy(blender_path: str, warn_on_mismatch: bool = True):
     """
     Install fake-bpy-module matching the Blender version.
 
@@ -168,9 +170,10 @@ def install_fake_bpy(blender_path: str):
 
     if has_module("bpy"):
         if not is_package_installed(desired_module):
-            print(
-                "Your fake bpy module is different from the current blender version! You might need to update it."
-            )
+            if warn_on_mismatch:
+                print(
+                    "Your fake bpy module is different from the current blender version! You might need to update it."
+                )
         return
     else:
         print("Installing fake bpy module for Blender version: " + blender_version)

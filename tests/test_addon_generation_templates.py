@@ -27,6 +27,19 @@ def test_unified_addon_files_contains_standard_structure():
     assert expected_paths.issubset(set(files.keys()))
 
 
+def test_unified_root_init_defines_bl_info():
+    content = framework._unified_root_init_template("demo_addon")
+    assert "bl_info = {" in content
+    assert '"name": "demo_addon"' in content
+
+
+def test_unified_src_config_template_avoids_framework_imports():
+    content = framework._unified_src_config_template("demo_addon")
+    assert "from src.common.types.framework import is_extension" not in content
+    assert "def _resolve_addon_name" in content
+    assert "__addon_name__ = _resolve_addon_name(__package__)" in content
+
+
 def test_new_addon_routes_to_unified_template_by_default(monkeypatch):
     calls = []
 

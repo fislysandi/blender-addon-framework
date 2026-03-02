@@ -70,7 +70,7 @@ _CODE_TEMPLATE_COMPATIBILITY = "unified-v1"
 _RUNTIME_READY = False
 
 
-def _ensure_framework_runtime():
+def _ensure_framework_runtime(*, warn_on_fake_bpy_mismatch: bool = True):
     global _RUNTIME_READY
     global BLENDER_EXE_PATH
     global BLENDER_ADDON_PATH
@@ -84,7 +84,7 @@ def _ensure_framework_runtime():
     BLENDER_EXE_PATH = _main.BLENDER_EXE_PATH
     BLENDER_ADDON_PATH = _main.BLENDER_ADDON_PATH
     if os.path.isfile(BLENDER_EXE_PATH):
-        install_fake_bpy(BLENDER_EXE_PATH)
+        install_fake_bpy(BLENDER_EXE_PATH, warn_on_mismatch=warn_on_fake_bpy_mismatch)
     _RUNTIME_READY = True
 
 
@@ -128,39 +128,27 @@ def _create_unified_addon(addon_name: str, addon_path: str):
 
 def _unified_addon_files(addon_name: str) -> dict[str, str]:
     return {
-        "__init__.py": _unified_root_init_template(),
+        "__init__.py": _unified_root_init_template(addon_name),
         "blender_manifest.toml": _unified_manifest_template(addon_name),
         "pyproject.toml": _unified_pyproject_template(addon_name),
         "uv.lock": "# Generated on first uv sync\n",
         "docs/README.md": "# Addon Documentation\n\nDocument what/why/how for this addon.\n",
         "tests/test_basic.py": _unified_test_template(addon_name),
         "src/__init__.py": _unified_src_init_template(addon_name),
-        "src/config.py": _unified_src_config_template(),
+        "src/config.py": _unified_src_config_template(addon_name),
         "src/ui/__init__.py": "",
         "src/utils/__init__.py": "",
         "src/core/__init__.py": "",
         "src/i18n/__init__.py": "",
         "src/operators/__init__.py": "",
         "src/preferences/__init__.py": "",
-        "src/preferences/config.py": _unified_src_config_template(),
+        "src/preferences/config.py": _unified_src_config_template(addon_name),
         "src/preferences/addon_preferences.py": _unified_preferences_template(),
     }
 
 
-def _unified_root_init_template() -> str:
+def _unified_bl_info_template(addon_name: str) -> str:
     return (
-        "from .src import bl_info\n"
-        "from .src import register as addon_register, unregister as addon_unregister\n\n"
-        "def register():\n"
-        "    addon_register()\n\n"
-        "def unregister():\n"
-        "    addon_unregister()\n"
-    )
-
-
-def _unified_src_init_template(addon_name: str) -> str:
-    return (
-        "from .config import __addon_name__\n\n"
         "bl_info = {\n"
         f'    "name": "{addon_name}",\n'
         '    "author": "Developer",\n'
@@ -172,7 +160,27 @@ def _unified_src_init_template(addon_name: str) -> str:
         '    "tracker_url": "",\n'
         '    "support": "COMMUNITY",\n'
         '    "category": "3D View",\n'
-        "}\n\n"
+        "}\n"
+    )
+
+
+def _unified_root_init_template(addon_name: str) -> str:
+    return (
+        "from .src import register as addon_register, unregister as addon_unregister\n\n"
+        + _unified_bl_info_template(addon_name)
+        + "\n"
+        "def register():\n"
+        "    addon_register()\n\n"
+        "def unregister():\n"
+        "    addon_unregister()\n"
+    )
+
+
+def _unified_src_init_template(addon_name: str) -> str:
+    return (
+        "from .config import __addon_name__\n\n"
+        + _unified_bl_info_template(addon_name)
+        + "\n"
         "def register():\n"
         '    print(f"{__addon_name__} addon registered")\n\n'
         "def unregister():\n"
@@ -180,14 +188,16 @@ def _unified_src_init_template(addon_name: str) -> str:
     )
 
 
-def _unified_src_config_template() -> str:
+def _unified_src_config_template(addon_name: str) -> str:
     return (
-        "from src.common.types.framework import is_extension\n\n"
-        "__addon_name__ = (\n"
-        '    ".".join(__package__.split(".")[0:3])\n'
-        "    if is_extension()\n"
-        '    else __package__.split(".")[0]\n'
-        ")\n"
+        "def _resolve_addon_name(package_name: str | None) -> str:\n"
+        "    if not package_name:\n"
+        f'        return "{addon_name}"\n'
+        '    parts = package_name.split(".")\n'
+        "    return (\n"
+        '        ".".join(parts[0:3]) if len(parts) >= 3 and parts[0] == "bl_ext" else parts[0]\n'
+        "    )\n\n"
+        "__addon_name__ = _resolve_addon_name(__package__)\n"
     )
 
 
@@ -700,7 +710,7 @@ def _apply_template_substitutions(
 
 
 def test_addon(addon_name, enable_watch=True, debug_mode=True, install_wheels=False):
-    _ensure_framework_runtime()
+    _ensure_framework_runtime(warn_on_fake_bpy_mismatch=False)
     init_file = get_init_file_path(addon_name)
     if install_wheels:
         install_manifest_wheels(addon_name)
@@ -3016,6 +3026,7 @@ def update_addon_for_test(init_file, addon_name):
         is_extension=IS_EXTENSION,
         release_dir=TEST_RELEASE_DIR,
         need_zip=False,
+        skip_docs=True,
     )
     executable_path = os.path.join(os.path.dirname(addon_path), addon_name)
 
