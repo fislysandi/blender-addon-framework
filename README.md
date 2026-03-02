@@ -130,6 +130,14 @@ the add-on's package name, ensuring it doesn't conflict with other add-ons.
 
 This project depends on the `addons` folder; do not rename this folder.
 
+## Addon Structure Standard
+
+The framework now adopts a unified addon structure standard (`unified-v1`).
+
+- Canonical spec: `docs/addon-structure-standard.md`
+- New addons should follow the `src/`, `docs/`, and `tests/` layout.
+- Legacy flat addon layout is deprecated and will be removed in a future major release.
+
 When packaging an add-on, the framework will generate a __init__.py file in the add-on directory. By copying bl_info,
 and importing the register and unregister method from your target addon's __init__.py. Usually this won't cause any
 issue, but if you notice anything that might be related to this, please let us know.
