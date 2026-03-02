@@ -74,6 +74,13 @@
   - [ ] Add template metadata (`name`, `source-addon`, `dependencies`, `compatibility`)
   - [ ] Validate copied imports and dependency requirements after template apply
   - [ ] Provide conflict strategy for existing files (`skip`, `overwrite`, `rename`)
+- [ ] **Addon rename command**
+  - [ ] Add `uv run rename-addon <old_name> <new_name>` command
+  - [ ] Rename addon directory under `addons/` safely with preflight checks
+  - [ ] Update addon identity fields (`blender_manifest.toml`, generated metadata) after rename
+  - [ ] Update internal references/imports that include old addon name
+  - [ ] Add dry-run mode and rollback strategy for partial failures
+  - [ ] Validate renamed addon via `uv run test <new_name>` and `uv run compile <new_name>`
 
 ---
 
