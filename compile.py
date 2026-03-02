@@ -1,4 +1,4 @@
-from scripts.release import main
+from scripts.compile import main
 
 
 if __name__ == "__main__":

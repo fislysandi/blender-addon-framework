@@ -25,6 +25,7 @@ dev = [
 create = "scripts.create:main"
 test = "scripts.test:main"
 audit-stale-addons = "scripts.audit_stale_addons:main"
+compile = "scripts.compile:main"
 release = "scripts.release:main"
 addon-deps = "scripts.addon_deps:main"
 

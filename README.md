@@ -78,7 +78,7 @@ uv run python -c "import watchdog; print('✓ UV setup complete')"
 |------|------------|----------------|
 | Create addon | `uv run create <addon>` | `python3 create.py <addon>` |
 | Test addon | `uv run test <addon>` | `python3 test.py <addon>` |
-| Release addon | `uv run release <addon>` | `python3 release.py <addon>` |
+| Compile addon | `uv run compile <addon>` | `python3 compile.py <addon>` |
 
 ### Framework Files
 
@@ -175,7 +175,7 @@ addon_prefs.some_property
    watchdog and fake-bpy-module into your virtual enviroment.
 1. Develop your addon in the newly created addon directory.
 1. Run test.py to test your addon in Blender.
-1. Run release.py to package your addon into an installable package. The packaged addon path will appears in the
+1. Run compile.py to package your addon into an installable package. The packaged addon path will appears in the
    terminal when packaged successfully.
 
 ### Create a New Addon
@@ -243,11 +243,13 @@ python scripts/analyze_eval_timeline.py .tmp/debugger_sessions/<id>.log --opid o
 
 ```bash
 # Using UV
-uv run release my_addon
+uv run compile my_addon
 
 # Legacy method
-python3 release.py my_addon
+python3 compile.py my_addon
 ```
+
+`uv run release` and `python3 release.py` remain available as deprecated aliases during the migration window.
 
 By default the packaged zip lands in `Releases/` at the project root (the folder exists in Git history but its contents stay ignored). Use `config.toml` or `--release-dir` to point releases elsewhere.
 
@@ -374,7 +376,8 @@ The command will now show you a list of available addons in the `addons/` folder
 | `uv sync` | Install all dependencies from uv.lock |
 | `uv run create <addon>` | Create a new addon from template |
 | `uv run test <addon>` | Test addon with hot reload |
-| `uv run release <addon>` | Package addon for distribution |
+| `uv run compile <addon>` | Compile/package addon for distribution |
+| `uv run release <addon>` | Deprecated alias for compile |
 | `uv run addon-deps init <addon>` | Initialize addon dependencies |
 | `uv run addon-deps add <addon> <pkg>` | Add dependency to addon |
 | `uv run addon-deps list <addon>` | List addon dependencies |
@@ -415,7 +418,7 @@ The command will now show you a list of available addons in the `addons/` folder
 
 [create.py](create.py): 创建插件的工具，可以根据sample_addon模版快速创建一个插件
 
-[release.py](release.py): 打包工具，可以将插件打包成一个安装包
+[compile.py](compile.py): 打包工具，可以将插件打包成一个安装包
 
 [framework.py](framework.py): 框架的核心业务代码，用于实现开发流程的自动化
 
@@ -472,7 +475,7 @@ addon_prefs.some_property
 1. 运行 create.py 在您的 IDE 中创建一个新的插件。第一次运行时需要联网下载依赖库,包括watchdog和fake-bpy-module
 1. 在新创建的插件目录中开发您的插件。
 1. 运行 test.py 在 Blender 中测试您的插件。
-1. 运行 release.py 将您的插件打包成可安装的包。成功打包后，终端中将显示打包插件的路径。
+1. 运行 compile.py 将您的插件打包成可安装的包。成功打包后，终端中将显示打包插件的路径。
 
 ## 框架提供的功能
 

@@ -1533,7 +1533,7 @@ def build_docs_for_addon(addon_name: str):
     return {"status": "ok", **contract}
 
 
-def release_addon(
+def compile_addon(
     target_init_file,
     addon_name,
     release_dir=DEFAULT_RELEASE_DIR,
@@ -1701,6 +1701,29 @@ def release_addon(
         print("Add on released:", released_addon_path)
 
     return released_addon_path
+
+
+def release_addon(
+    target_init_file,
+    addon_name,
+    release_dir=DEFAULT_RELEASE_DIR,
+    need_zip=True,
+    is_extension=IS_EXTENSION,
+    with_timestamp=False,
+    with_version=False,
+    skip_docs=False,
+):
+    print("Warning: release_addon is deprecated. Use compile_addon instead.")
+    return compile_addon(
+        target_init_file=target_init_file,
+        addon_name=addon_name,
+        release_dir=release_dir,
+        need_zip=need_zip,
+        is_extension=is_extension,
+        with_timestamp=with_timestamp,
+        with_version=with_version,
+        skip_docs=skip_docs,
+    )
 
 
 def get_addon_info(filename: str):
@@ -2063,7 +2086,7 @@ def update_addon_for_test(init_file, addon_name):
         raise ValueError(
             "Could not find Blender addon installation path. Please check the configuration in main.py or config.toml"
         )
-    addon_path = release_addon(
+    addon_path = compile_addon(
         init_file,
         addon_name,
         with_timestamp=False,

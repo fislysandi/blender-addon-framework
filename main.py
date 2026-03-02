@@ -16,11 +16,11 @@ from common.blender_detection import (
 )
 from common.blender_launcher import detect_from_blender_launcher
 
-# The name of current active addon to be created, tested or released
-# 要创建、测试或发布的当前活动插件的名称
+# The name of current active addon to be created, tested or compiled
+# 要创建、测试或编译的当前活动插件的名称
 # IMPORTANT: This is just a default. You should specify the addon name when running commands:
 #   uv run test <addon_name>
-#   uv run release <addon_name>
+#   uv run compile <addon_name>
 # Or update this value to your current working addon
 ACTIVE_ADDON = ""
 
