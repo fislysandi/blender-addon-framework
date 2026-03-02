@@ -234,6 +234,107 @@ def _unified_test_template(addon_name: str) -> str:
     )
 
 
+def rename_addon(
+    old_name: str,
+    new_name: str,
+    *,
+    dry_run: bool = False,
+    validate: bool = True,
+) -> dict:
+    _assert_valid_addon_name(old_name)
+    _assert_valid_addon_name(new_name)
+    _assert_rename_preconditions(old_name, new_name)
+
+    old_path = _addon_path(old_name)
+    new_path = _addon_path(new_name)
+    rewrite_paths = _rename_rewrite_file_paths(old_path)
+    rewrite_plan = _rename_rewrite_plan(rewrite_paths, old_path, old_name, new_name)
+
+    if dry_run:
+        return {
+            "status": "dry-run",
+            "old_name": old_name,
+            "new_name": new_name,
+            "old_path": old_path,
+            "new_path": new_path,
+            "files_to_rewrite": len(rewrite_plan),
+        }
+
+    moved = False
+    try:
+        shutil.move(old_path, new_path)
+        moved = True
+        _rewrite_name_references(new_path, rewrite_plan)
+        if validate:
+            _validate_renamed_addon(new_name)
+        return {
+            "status": "ok",
+            "old_name": old_name,
+            "new_name": new_name,
+            "old_path": old_path,
+            "new_path": new_path,
+            "files_rewritten": len(rewrite_plan),
+        }
+    except Exception as error:
+        _rollback_rename_move(old_path, new_path, moved)
+        raise RuntimeError(f"Rename failed and rollback completed: {error}") from error
+
+
+def _assert_rename_preconditions(old_name: str, new_name: str):
+    if old_name == new_name:
+        raise ValueError("Old and new addon names must be different")
+    old_path = _addon_path(old_name)
+    new_path = _addon_path(new_name)
+    if not os.path.isdir(old_path):
+        raise ValueError(f"Addon '{old_name}' not found at: {old_path}")
+    if os.path.exists(new_path):
+        raise ValueError(f"Target addon '{new_name}' already exists at: {new_path}")
+
+
+def _rename_rewrite_file_paths(addon_path: str) -> list[str]:
+    return search_files(addon_path, {".py", ".toml", ".md", ".txt"})
+
+
+def _rename_rewrite_plan(
+    file_paths: list[str], addon_root: str, old_name: str, new_name: str
+) -> list[tuple[str, str]]:
+    return [
+        (
+            os.path.relpath(file_path, addon_root),
+            read_utf8(file_path).replace(old_name, new_name),
+        )
+        for file_path in file_paths
+    ]
+
+
+def _rewrite_name_references(addon_root: str, rewrite_plan: list[tuple[str, str]]):
+    for relative_path, new_content in rewrite_plan:
+        file_path = os.path.join(addon_root, relative_path)
+        write_utf8(file_path, new_content)
+
+
+def _rollback_rename_move(old_path: str, new_path: str, moved: bool):
+    if not moved:
+        return
+    if os.path.exists(new_path) and not os.path.exists(old_path):
+        shutil.move(new_path, old_path)
+
+
+def _validate_renamed_addon(addon_name: str):
+    init_file = get_init_file_path(addon_name)
+    if not os.path.exists(init_file):
+        raise ValueError(f"Renamed addon init file missing: {init_file}")
+
+    manifest_path = os.path.join(_addon_path(addon_name), _ADDON_MANIFEST_FILE)
+    if os.path.isfile(manifest_path):
+        manifest = read_ext_config(manifest_path)
+        manifest_id = manifest.get("id")
+        if manifest_id and manifest_id != addon_name:
+            raise ValueError(
+                f"Manifest id mismatch after rename: expected '{addon_name}', got '{manifest_id}'"
+            )
+
+
 def _addon_path(addon_name: str) -> str:
     return os.path.join(_ADDON_ROOT, addon_name)
 
