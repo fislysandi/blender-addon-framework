@@ -69,21 +69,49 @@ if os.path.isfile(BLENDER_EXE_PATH):
 
 
 def new_addon(addon_name: str):
-    new_addon_path = os.path.join(_ADDON_ROOT, addon_name)
-    if os.path.exists(new_addon_path):
-        raise ValueError("Addon already exists: " + addon_name)
-    if not bool(_addon_namespace_pattern.match(addon_name)):
-        raise ValueError(
-            "Invalid addon name: "
-            + addon_name
-            + " Please name it as a python package name"
-        )
+    _assert_valid_addon_name(addon_name)
+    new_addon_path = _addon_path(addon_name)
+    _assert_addon_absent(new_addon_path, addon_name)
     shutil.copytree(os.path.join(_ADDON_ROOT, _ADDON_TEMPLATE), new_addon_path)
+    _apply_template_substitutions(
+        _template_file_paths(new_addon_path),
+        source_token=_ADDON_TEMPLATE,
+        target_token=addon_name,
+    )
 
-    all_template_file = search_files(new_addon_path, {".py", ".toml"})
-    for py_file in all_template_file:
-        content = read_utf8(py_file).replace(_ADDON_TEMPLATE, addon_name)
-        write_utf8(py_file, content)
+
+def _addon_path(addon_name: str) -> str:
+    return os.path.join(_ADDON_ROOT, addon_name)
+
+
+def _addon_init_path(addon_name: str) -> str:
+    return os.path.join(_addon_path(addon_name), "__init__.py")
+
+
+def _assert_valid_addon_name(addon_name: str):
+    if bool(_addon_namespace_pattern.match(addon_name)):
+        return
+    raise ValueError(
+        "Invalid addon name: " + addon_name + " Please name it as a python package name"
+    )
+
+
+def _assert_addon_absent(addon_path: str, addon_name: str):
+    if not os.path.exists(addon_path):
+        return
+    raise ValueError("Addon already exists: " + addon_name)
+
+
+def _template_file_paths(addon_path: str) -> list[str]:
+    return search_files(addon_path, {".py", ".toml"})
+
+
+def _apply_template_substitutions(
+    file_paths: list[str], *, source_token: str, target_token: str
+):
+    for file_path in file_paths:
+        content = read_utf8(file_path).replace(source_token, target_token)
+        write_utf8(file_path, content)
 
 
 def test_addon(addon_name, enable_watch=True, debug_mode=True, install_wheels=False):
@@ -97,7 +125,7 @@ def test_addon(addon_name, enable_watch=True, debug_mode=True, install_wheels=Fa
 
 def get_init_file_path(addon_name):
     # addon_name is the name defined in addon's config.py
-    target_init_file_path = os.path.join(_ADDON_ROOT, addon_name, "__init__.py")
+    target_init_file_path = _addon_init_path(addon_name)
     if not os.path.exists(target_init_file_path):
         raise ValueError(f"Release failed: Addon {addon_name} not found.")
     return target_init_file_path
