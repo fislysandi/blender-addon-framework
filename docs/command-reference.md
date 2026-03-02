@@ -57,6 +57,8 @@ Options:
 - `--with-timestamp`
 - `--skip-docs`
 - `--with-docs`
+- `--no-deps`
+- `--with-deps`
 
 ## `release` (deprecated)
 

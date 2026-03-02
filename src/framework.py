@@ -21,6 +21,7 @@ from src.common.class_loader.module_installer import (
     install_if_missing,
     install_fake_bpy,
 )
+from src.common.uv_integration import resolve_use_uv
 from src.common.io.FileManagerClient import (
     search_files,
     read_utf8,
@@ -37,6 +38,7 @@ from src.main import (
     DEFAULT_RELEASE_DIR,
     TEST_RELEASE_DIR,
     IS_EXTENSION,
+    BUNDLE_DEPS_BY_DEFAULT,
     ensure_runtime_configuration,
 )
 
@@ -69,6 +71,7 @@ _CODE_TEMPLATE_COMPATIBILITY = "unified-v1"
 _INITIAL_ADDON_COMMIT_MESSAGE = "chore: initial addon scaffold"
 _RENAME_ADDON_COMMIT_MESSAGE = "chore: rename addon scaffold"
 _PYTHON_VERSION_PATTERN = re.compile(r"^\d+\.\d+(?:\.\d+)?$")
+_REQ_NAME_PATTERN = re.compile(r"^\s*([A-Za-z0-9_.-]+)")
 
 _RUNTIME_READY = False
 
@@ -2565,22 +2568,189 @@ def _load_extension_config(addon_name: str, is_extension: bool) -> tuple[str, di
     return addon_config_file, {}
 
 
-def _copy_extension_wheels(addon_config: dict, release_folder: str):
-    wheel_files = addon_config.get("wheels", [])
-    if len(wheel_files) == 0:
-        return
+def _normalize_distribution_name(raw_name: str) -> str:
+    return re.sub(r"[-_.]+", "-", raw_name).lower()
 
-    wheel_folder = os.path.join(release_folder, _WHEELS_PATH)
-    os.mkdir(wheel_folder)
+
+def _manifest_wheel_sources(addon_config: dict) -> list[str]:
+    wheel_files = addon_config.get("wheels", [])
+    wheel_sources = []
     for wheel_file in wheel_files:
         assert wheel_file.startswith("./wheels/") and wheel_file.count("/") == 2
         wheel_source = os.path.join(PROJECT_ROOT, wheel_file)
         if not os.path.exists(wheel_source):
-            raise ValueError(
-                "Wheel file not found:",
-                wheel_source,
-                ". Please download the required wheel file to the wheels folder.",
+            print(
+                "Warning: manifest wheel file not found, will try dependency auto-resolution: "
+                + wheel_source
             )
+            continue
+        wheel_sources.append(wheel_source)
+    return wheel_sources
+
+
+def _addon_dependency_specs(addon_name: str) -> list[str]:
+    pyproject_file = os.path.join(_ADDON_ROOT, addon_name, "pyproject.toml")
+    if not os.path.isfile(pyproject_file):
+        return []
+    pyproject = _read_toml_file(pyproject_file)
+    dependencies = pyproject.get("project", {}).get("dependencies", [])
+    if isinstance(dependencies, list):
+        return [str(spec) for spec in dependencies]
+    return []
+
+
+def _dependency_name_from_spec(spec: str) -> str | None:
+    matched = _REQ_NAME_PATTERN.match(spec)
+    if matched is None:
+        return None
+    return _normalize_distribution_name(matched.group(1))
+
+
+def _wheel_distribution_name(wheel_path: str) -> str | None:
+    filename = os.path.basename(wheel_path)
+    if not filename.endswith(".whl"):
+        return None
+    segments = filename[:-4].split("-")
+    if not segments:
+        return None
+    return _normalize_distribution_name(segments[0])
+
+
+def _available_wheel_sources() -> list[str]:
+    wheel_root = os.path.join(PROJECT_ROOT, _WHEELS_PATH)
+    if not os.path.isdir(wheel_root):
+        return []
+    return [
+        os.path.join(wheel_root, filename)
+        for filename in os.listdir(wheel_root)
+        if filename.endswith(".whl")
+    ]
+
+
+def _download_dependency_wheels(dependency_specs: list[str]):
+    if not dependency_specs:
+        return
+    wheel_root = os.path.join(PROJECT_ROOT, _WHEELS_PATH)
+    os.makedirs(wheel_root, exist_ok=True)
+    use_uv = resolve_use_uv()
+    uv_available = shutil.which("uv") is not None
+    if use_uv and uv_available:
+        command = [
+            "uv",
+            "tool",
+            "run",
+            "--from",
+            "pip",
+            "pip",
+            "download",
+            "--only-binary=:all:",
+            "--dest",
+            wheel_root,
+            *dependency_specs,
+        ]
+    else:
+        command = [
+            sys.executable,
+            "-m",
+            "pip",
+            "download",
+            "--only-binary=:all:",
+            "--dest",
+            wheel_root,
+            *dependency_specs,
+        ]
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError as exc:
+        if use_uv and uv_available:
+            fallback_command = [
+                sys.executable,
+                "-m",
+                "pip",
+                "download",
+                "--only-binary=:all:",
+                "--dest",
+                wheel_root,
+                *dependency_specs,
+            ]
+            subprocess.run(fallback_command, check=True)
+            return
+        raise RuntimeError(
+            "Failed to download wheels for addon dependencies: "
+            + ", ".join(dependency_specs)
+        ) from exc
+
+
+def _dependency_wheel_sources(addon_name: str) -> tuple[list[str], list[str]]:
+    dependency_specs = _addon_dependency_specs(addon_name)
+    dependency_by_name = {
+        dependency_name: spec
+        for spec in dependency_specs
+        for dependency_name in [_dependency_name_from_spec(spec)]
+        if dependency_name
+    }
+    dependency_names = sorted(dependency_by_name.keys())
+    if not dependency_names:
+        return [], []
+
+    def build_wheel_index() -> dict[str, list[str]]:
+        wheel_index: dict[str, list[str]] = {}
+        for wheel_path in _available_wheel_sources():
+            wheel_dist = _wheel_distribution_name(wheel_path)
+            if wheel_dist is None:
+                continue
+            wheel_index.setdefault(wheel_dist, []).append(wheel_path)
+        return wheel_index
+
+    wheel_by_dist = build_wheel_index()
+    missing_names = [name for name in dependency_names if not wheel_by_dist.get(name)]
+    if missing_names:
+        _download_dependency_wheels(
+            [dependency_by_name[name] for name in missing_names]
+        )
+        wheel_by_dist = build_wheel_index()
+
+    resolved = []
+    missing = []
+    for dependency_name in dependency_names:
+        matched = wheel_by_dist.get(dependency_name, [])
+        if not matched:
+            missing.append(dependency_name)
+            continue
+        resolved.extend(sorted(matched))
+    return resolved, missing
+
+
+def _dedupe_paths(paths: list[str]) -> list[str]:
+    seen = set()
+    deduped = []
+    for path in paths:
+        normalized = os.path.normpath(path)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        deduped.append(path)
+    return deduped
+
+
+def _resolve_wheel_sources(addon_name: str, addon_config: dict) -> list[str]:
+    manifest_wheels = _manifest_wheel_sources(addon_config)
+    dependency_wheels, missing_dependencies = _dependency_wheel_sources(addon_name)
+    if missing_dependencies:
+        print(
+            "Warning: missing wheel files for addon dependencies in wheels/: "
+            + ", ".join(missing_dependencies)
+        )
+    return _dedupe_paths(manifest_wheels + dependency_wheels)
+
+
+def _copy_wheels_to_release(wheel_sources: list[str], release_folder: str):
+    if len(wheel_sources) == 0:
+        return
+
+    wheel_folder = os.path.join(release_folder, _WHEELS_PATH)
+    os.mkdir(wheel_folder)
+    for wheel_source in wheel_sources:
         shutil.copy(wheel_source, wheel_folder)
 
 
@@ -2668,6 +2838,7 @@ def compile_addon(
     with_timestamp=False,
     with_version=False,
     skip_docs=False,
+    bundle_deps=BUNDLE_DEPS_BY_DEFAULT,
 ):
     _assert_valid_compile_inputs(addon_name, is_extension)
 
@@ -2713,8 +2884,12 @@ def compile_addon(
     #                                     _ADDONS_FOLDER, addon_name)
 
     # include wheel files when need to be zipped
-    if need_zip:
-        _copy_extension_wheels(plan.addon_config, release_folder)
+    if need_zip and bundle_deps:
+        _copy_wheels_to_release(
+            _resolve_wheel_sources(addon_name, plan.addon_config), release_folder
+        )
+    elif need_zip and not bundle_deps:
+        print("Skipping dependency wheel packaging (--no-deps).")
 
     real_addon_name = plan.real_addon_name
     released_addon_path = plan.released_addon_path
@@ -2735,6 +2910,7 @@ def release_addon(
     with_timestamp=False,
     with_version=False,
     skip_docs=False,
+    bundle_deps=BUNDLE_DEPS_BY_DEFAULT,
 ):
     print("Warning: release_addon is deprecated. Use compile_addon instead.")
     return compile_addon(
@@ -2746,6 +2922,7 @@ def release_addon(
         with_timestamp=with_timestamp,
         with_version=with_version,
         skip_docs=skip_docs,
+        bundle_deps=bundle_deps,
     )
 
 

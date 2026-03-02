@@ -5,14 +5,20 @@ import importlib.metadata
 import importlib.util
 import os
 import platform
+import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+from ..uv_integration import resolve_use_uv
 
 
 # Track if we've already attempted detection this session
 _detection_attempted = False
 _detected_blender_path = None
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+_WHEELS_DIR = _PROJECT_ROOT / "wheels"
 
 
 def _attempt_blender_detection():
@@ -65,6 +71,85 @@ def _attempt_blender_detection():
 
 def install(package):
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
+
+def _normalize_dist_name(raw_name: str) -> str:
+    return re.sub(r"[-_.]+", "-", str(raw_name)).lower()
+
+
+def _wheel_dist_name(wheel_path: Path) -> str | None:
+    filename = wheel_path.name
+    if not filename.endswith(".whl"):
+        return None
+    segments = filename[:-4].split("-")
+    if not segments:
+        return None
+    return _normalize_dist_name(segments[0])
+
+
+def _find_cached_wheel(package_name: str) -> Path | None:
+    if not _WHEELS_DIR.is_dir():
+        return None
+    target = _normalize_dist_name(package_name)
+    matches = []
+    for wheel_path in sorted(_WHEELS_DIR.glob("*.whl")):
+        dist_name = _wheel_dist_name(wheel_path)
+        if dist_name == target:
+            matches.append(wheel_path)
+    if not matches:
+        return None
+    return matches[-1]
+
+
+def _download_wheel_to_cache(package_name: str) -> Path | None:
+    _WHEELS_DIR.mkdir(parents=True, exist_ok=True)
+    use_uv = resolve_use_uv()
+    uv_available = shutil.which("uv") is not None
+    try:
+        if use_uv and uv_available:
+            subprocess.check_call(
+                [
+                    "uv",
+                    "tool",
+                    "run",
+                    "--from",
+                    "pip",
+                    "pip",
+                    "download",
+                    "--only-binary=:all:",
+                    "--dest",
+                    str(_WHEELS_DIR),
+                    package_name,
+                ]
+            )
+        else:
+            subprocess.check_call(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "download",
+                    "--only-binary=:all:",
+                    "--dest",
+                    str(_WHEELS_DIR),
+                    package_name,
+                ]
+            )
+    except Exception:
+        return None
+    return _find_cached_wheel(package_name)
+
+
+def _install_package_from_cached_wheel(package_name: str) -> bool:
+    wheel_path = _find_cached_wheel(package_name)
+    if wheel_path is None:
+        wheel_path = _download_wheel_to_cache(package_name)
+    if wheel_path is None:
+        return False
+    subprocess.check_call(
+        [sys.executable, "-m", "pip", "install", "--upgrade", str(wheel_path)]
+    )
+    return True
 
 
 def has_module(module_name):
@@ -157,7 +242,8 @@ def install_fake_bpy(blender_path: str, warn_on_mismatch: bool = True):
                 print("3. Or install Blender Launcher")
                 print("\nInstalling latest fake-bpy-module as fallback...")
                 print("=" * 60 + "\n")
-                install("fake-bpy-module-latest")
+                if not _install_package_from_cached_wheel("fake-bpy-module-latest"):
+                    install("fake-bpy-module-latest")
             return
 
     # Normal flow with valid blender_path
@@ -178,7 +264,8 @@ def install_fake_bpy(blender_path: str, warn_on_mismatch: bool = True):
     else:
         print("Installing fake bpy module for Blender version: " + blender_version)
         try:
-            install(desired_module)
+            if not _install_package_from_cached_wheel(desired_module):
+                install(desired_module)
         except Exception as e:
             if desired_module != "fake-bpy-module-latest":
                 print(
@@ -186,7 +273,8 @@ def install_fake_bpy(blender_path: str, warn_on_mismatch: bool = True):
                     + blender_version
                     + "! Trying to install the latest version."
                 )
-                install("fake-bpy-module-latest")
+                if not _install_package_from_cached_wheel("fake-bpy-module-latest"):
+                    install("fake-bpy-module-latest")
 
 
 def normalize_blender_path_by_system(blender_path: str):

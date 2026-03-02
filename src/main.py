@@ -66,6 +66,7 @@ DEFAULT_RELEASE_DIR = os.path.join(PROJECT_ROOT, "releases")
 TEST_RELEASE_DIR = os.path.join(PROJECT_ROOT, "../addon_test/")
 USE_UV_BY_DEFAULT = True
 SKIP_DOCS_BY_DEFAULT = False
+BUNDLE_DEPS_BY_DEFAULT = True
 
 
 def _coerce_bool(value, default):
@@ -157,6 +158,12 @@ def _default_state_overrides(default_config, current_state):
             skip_docs_by_default, current_state["SKIP_DOCS_BY_DEFAULT"]
         )
 
+    bundle_deps_by_default = default_config.get("bundle_deps_by_default")
+    if bundle_deps_by_default is not None:
+        overrides["BUNDLE_DEPS_BY_DEFAULT"] = _coerce_bool(
+            bundle_deps_by_default, current_state["BUNDLE_DEPS_BY_DEFAULT"]
+        )
+
     return overrides
 
 
@@ -228,6 +235,7 @@ _runtime_state = {
     "TEST_RELEASE_DIR": TEST_RELEASE_DIR,
     "USE_UV_BY_DEFAULT": USE_UV_BY_DEFAULT,
     "SKIP_DOCS_BY_DEFAULT": SKIP_DOCS_BY_DEFAULT,
+    "BUNDLE_DEPS_BY_DEFAULT": BUNDLE_DEPS_BY_DEFAULT,
 }
 _runtime_state = _apply_config_overrides(
     _runtime_state, _load_project_config(CONFIG_FILEPATH)
@@ -241,6 +249,7 @@ DEFAULT_RELEASE_DIR = _runtime_state["DEFAULT_RELEASE_DIR"]
 TEST_RELEASE_DIR = _runtime_state["TEST_RELEASE_DIR"]
 USE_UV_BY_DEFAULT = _runtime_state["USE_UV_BY_DEFAULT"]
 SKIP_DOCS_BY_DEFAULT = _runtime_state["SKIP_DOCS_BY_DEFAULT"]
+BUNDLE_DEPS_BY_DEFAULT = _runtime_state["BUNDLE_DEPS_BY_DEFAULT"]
 
 
 def ensure_runtime_configuration(auto_detect: bool = True):

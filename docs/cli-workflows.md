@@ -96,6 +96,15 @@ Package addon:
 uv run compile my_addon
 ```
 
+Skip dependency wheel packaging:
+
+```bash
+uv run compile my_addon --no-deps
+```
+
+By default, compile bundles dependency wheels for extension packaging when matching wheel files exist in `wheels/`.
+Dependency names are discovered from `addons/<addon>/pyproject.toml` (`project.dependencies`) and merged with wheels declared in `blender_manifest.toml`.
+
 Deprecated alias:
 
 ```bash

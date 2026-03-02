@@ -14,6 +14,7 @@ from src.main import (
     DEFAULT_RELEASE_DIR,
     IS_EXTENSION,
     SKIP_DOCS_BY_DEFAULT,
+    BUNDLE_DEPS_BY_DEFAULT,
 )
 
 
@@ -64,6 +65,7 @@ def _build_compile_kwargs(args, init_file: str) -> dict:
         "with_version": args.with_version,
         "with_timestamp": args.with_timestamp,
         "skip_docs": args.skip_docs,
+        "bundle_deps": args.bundle_deps,
     }
 
 
@@ -102,6 +104,19 @@ def main():
         action="store_false",
         dest="skip_docs",
         help="Force docs generation even if skip_docs_by_default is enabled",
+    )
+    parser.add_argument(
+        "--no-deps",
+        action="store_false",
+        default=BUNDLE_DEPS_BY_DEFAULT,
+        dest="bundle_deps",
+        help="Skip packaging dependency wheels",
+    )
+    parser.add_argument(
+        "--with-deps",
+        action="store_true",
+        dest="bundle_deps",
+        help="Force packaging dependency wheels",
     )
     args = parser.parse_args()
 

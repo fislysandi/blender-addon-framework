@@ -16,6 +16,12 @@ wheels = [
 When you release your addon, the framework will copy these wheels into the zip file according to the toml configuration.
 This way you don't have to maintain wheels in your addon directory which could lead to duplication.
 
+Starting from the current compile flow, wheel packaging is also dependency-aware:
+
+- Dependency names are read from `addons/<addon_name>/pyproject.toml` (`project.dependencies`).
+- Matching wheel files in this shared `wheels/` directory are auto-included when compiling extensions.
+- Use `uv run compile <addon_name> --no-deps` to skip dependency wheel packaging.
+
 Noticed that when testing your addon, the framework will not automatically include these wheels to avoid
 overhead. You might see `ModuleNotFoundError` when testing your addon even though you have included the wheels in the
 project.
