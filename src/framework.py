@@ -1884,6 +1884,64 @@ def _maybe_print_docs_contract(docs_build_result: dict):
     )
 
 
+def _assert_valid_compile_inputs(addon_name: str, is_extension: bool):
+    if not bool(_addon_namespace_pattern.match(addon_name)):
+        raise ValueError(
+            "InValid addon_name:", addon_name, "Please name it as a python package name"
+        )
+    if not is_extension:
+        return
+    addon_config_file = os.path.join(_ADDON_ROOT, addon_name, _ADDON_MANIFEST_FILE)
+    if not os.path.isfile(addon_config_file):
+        raise ValueError("Extension config file not found:", addon_config_file)
+
+
+def _compile_plan(
+    *,
+    target_init_file: str,
+    addon_name: str,
+    release_dir: str,
+    is_extension: bool,
+    with_version: bool,
+    with_timestamp: bool,
+) -> dict:
+    bl_info = get_addon_info(target_init_file)
+    if bl_info is None:
+        raise ValueError(f"bl_info not found in: {target_init_file}")
+
+    release_folder = os.path.join(release_dir, addon_name)
+    visited_py_files = _build_initial_visited_py_files(addon_name)
+    dependencies = find_all_dependencies(list(visited_py_files), PROJECT_ROOT)
+    dependency_paths = _new_dependency_paths(list(dependencies), visited_py_files)
+    addon_config_file, addon_config = _load_extension_config(addon_name, is_extension)
+    version_suffix = _resolve_version_suffix(
+        with_version=with_version,
+        is_extension=is_extension,
+        bl_info=bl_info,
+        addon_config=addon_config,
+        addon_config_file=addon_config_file,
+    )
+    real_addon_name = _build_release_artifact_name(
+        release_folder,
+        is_extension=is_extension,
+        version_suffix=version_suffix,
+        with_timestamp=with_timestamp,
+    )
+    released_addon_path = os.path.abspath(
+        os.path.join(release_dir, real_addon_name) + ".zip"
+    )
+
+    return {
+        "bl_info": bl_info,
+        "release_folder": release_folder,
+        "dependency_paths": dependency_paths,
+        "addon_config_file": addon_config_file,
+        "addon_config": addon_config,
+        "real_addon_name": real_addon_name,
+        "released_addon_path": released_addon_path,
+    }
+
+
 def compile_addon(
     target_init_file,
     addon_name,
@@ -1894,20 +1952,18 @@ def compile_addon(
     with_version=False,
     skip_docs=False,
 ):
-    if not bool(_addon_namespace_pattern.match(addon_name)):
-        raise ValueError(
-            "InValid addon_name:", addon_name, "Please name it as a python package name"
-        )
-
-    if is_extension:
-        # 发布为扩展时，请确保您在config.py正确的定义了__addon_name__
-        # Release as extension, please make sure you defined __addon_name__ correctly in config.py"
-        # Make sure toml file exists
-        addon_config_file = os.path.join(_ADDON_ROOT, addon_name, _ADDON_MANIFEST_FILE)
-        if not os.path.isfile(addon_config_file):
-            raise ValueError("Extension config file not found:", addon_config_file)
+    _assert_valid_compile_inputs(addon_name, is_extension)
 
     _ensure_directory(release_dir)
+
+    plan = _compile_plan(
+        target_init_file=target_init_file,
+        addon_name=addon_name,
+        release_dir=release_dir,
+        is_extension=is_extension,
+        with_version=with_version,
+        with_timestamp=with_timestamp,
+    )
 
     if skip_docs:
         print("Skipping docs generation (--skip-docs).")
@@ -1917,21 +1973,14 @@ def compile_addon(
 
     release_folder = _prepare_release_folder(release_dir, addon_name)
 
-    bl_info = get_addon_info(target_init_file)
-    if bl_info is None:
-        raise ValueError(f"bl_info not found in: {target_init_file}")
-    bootstrap_init_file = generate_bootstrap_init_file(addon_name, bl_info)
+    bootstrap_init_file = generate_bootstrap_init_file(addon_name, plan["bl_info"])
     write_utf8(os.path.join(release_folder, "__init__.py"), bootstrap_init_file)
 
     _copy_non_python_siblings(target_init_file, release_folder)
     _copy_addon_tree_to_release(addon_name, release_folder)
 
     # 对插件文件夹中的每一个py文件进行分析，找到每个py文件中依赖的其他py文件
-    visited_py_files = _build_initial_visited_py_files(addon_name)
-
-    dependencies = find_all_dependencies(list(visited_py_files), PROJECT_ROOT)
-    dependency_paths = _new_dependency_paths(list(dependencies), visited_py_files)
-    _copy_dependencies_to_release(dependency_paths, visited_py_files, release_folder)
+    _copy_dependencies_to_release(plan["dependency_paths"], set(), release_folder)
 
     _clean_release_tree(release_folder)
 
@@ -1947,27 +1996,11 @@ def compile_addon(
     #                                     _ADDONS_FOLDER, addon_name)
 
     # include wheel files when need to be zipped
-    addon_config_file, addon_config = _load_extension_config(addon_name, is_extension)
     if need_zip:
-        _copy_extension_wheels(addon_config, release_folder)
+        _copy_extension_wheels(plan["addon_config"], release_folder)
 
-    version_suffix = _resolve_version_suffix(
-        with_version=with_version,
-        is_extension=is_extension,
-        bl_info=bl_info,
-        addon_config=addon_config,
-        addon_config_file=addon_config_file,
-    )
-    real_addon_name = _build_release_artifact_name(
-        release_folder,
-        is_extension=is_extension,
-        version_suffix=version_suffix,
-        with_timestamp=with_timestamp,
-    )
-
-    released_addon_path = os.path.abspath(
-        os.path.join(release_dir, real_addon_name) + ".zip"
-    )
+    real_addon_name = plan["real_addon_name"]
+    released_addon_path = plan["released_addon_path"]
     # zip the addon
     if need_zip:
         zip_folder(release_folder, real_addon_name, is_extension)
