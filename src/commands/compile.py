@@ -16,6 +16,60 @@ from src.main import (
 )
 
 
+def _project_root() -> Path:
+    return Path(__file__).parent.parent.parent
+
+
+def _list_addon_names(addons_dir: Path) -> list[str]:
+    if not addons_dir.exists():
+        return []
+    return sorted(
+        [
+            entry.name
+            for entry in addons_dir.iterdir()
+            if entry.is_dir()
+            and not entry.name.startswith(".")
+            and entry.name != "__pycache__"
+        ]
+    )
+
+
+def _validate_addon_name(
+    addon_name: str, addons_dir: Path
+) -> tuple[bool, str, Path, list[str]]:
+    addon_names = _list_addon_names(addons_dir)
+    if not addon_name:
+        return False, "No addon name provided", addons_dir, addon_names
+    addon_path = addons_dir / addon_name
+    if not addon_path.exists():
+        return (
+            False,
+            f"Addon '{addon_name}' not found in addons/",
+            addon_path,
+            addon_names,
+        )
+    return True, "", addon_path, addon_names
+
+
+def _print_available_addons(addon_names: list[str]):
+    print("\nAvailable addons:")
+    for addon_name in addon_names:
+        print(f"  - {addon_name}")
+
+
+def _build_compile_kwargs(args, init_file: str) -> dict:
+    return {
+        "target_init_file": init_file,
+        "addon_name": args.addon,
+        "release_dir": args.release_dir,
+        "need_zip": not args.no_zip,
+        "is_extension": args.extension,
+        "with_version": args.with_version,
+        "with_timestamp": args.with_timestamp,
+        "skip_docs": args.skip_docs,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="Compile a Blender addon")
     parser.add_argument("addon", nargs="?", default=ACTIVE_ADDON, help="Addon name")
@@ -49,41 +103,25 @@ def main():
     )
     args = parser.parse_args()
 
-    if not args.addon:
-        print("Error: No addon name provided")
+    addons_dir = _project_root() / "addons"
+    is_valid, error_message, addon_path, addon_names = _validate_addon_name(
+        args.addon, addons_dir
+    )
+    if not is_valid and error_message == "No addon name provided":
+        print(f"Error: {error_message}")
         print("Usage: uv run compile <addon_name>")
-        print("\nAvailable addons:")
-        addons_dir = Path(__file__).parent.parent / "addons"
-        if addons_dir.exists():
-            for addon in sorted(addons_dir.iterdir()):
-                if addon.is_dir() and not addon.name.startswith("."):
-                    print(f"  - {addon.name}")
+        _print_available_addons(addon_names)
         sys.exit(1)
 
-    addon_path = Path(__file__).parent.parent / "addons" / args.addon
-    if not addon_path.exists():
-        print(f"Error: Addon '{args.addon}' not found in addons/")
+    if not is_valid:
+        print(f"Error: {error_message}")
         print(f"Expected path: {addon_path}")
-        print("\nAvailable addons:")
-        addons_dir = Path(__file__).parent.parent / "addons"
-        if addons_dir.exists():
-            for addon in sorted(addons_dir.iterdir()):
-                if addon.is_dir() and not addon.name.startswith("."):
-                    print(f"  - {addon.name}")
+        _print_available_addons(addon_names)
         sys.exit(1)
 
     try:
         init_file = get_init_file_path(args.addon)
-        compile_addon(
-            target_init_file=init_file,
-            addon_name=args.addon,
-            release_dir=args.release_dir,
-            need_zip=not args.no_zip,
-            is_extension=args.extension,
-            with_version=args.with_version,
-            with_timestamp=args.with_timestamp,
-            skip_docs=args.skip_docs,
-        )
+        compile_addon(**_build_compile_kwargs(args, init_file))
         print(f"✓ Compiled addon: {args.addon}")
     except Exception as e:
         print(f"✗ Error: {e}")
