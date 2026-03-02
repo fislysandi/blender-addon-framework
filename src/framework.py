@@ -1544,11 +1544,23 @@ def _edn_string(value: str) -> str:
     return json.dumps(str(value))
 
 
-def _run_bdocgen(addon_name: str, docs_root_rel: str, output_dir_rel: str):
-    if not os.path.isdir(_BDOCGEN_ROOT):
-        raise RuntimeError(f"BDocGen project not found: {_BDOCGEN_ROOT}")
+def _docs_paths(addon_name: str) -> dict:
+    docs_root_rel = os.path.join(_ADDONS_FOLDER, addon_name, "docs")
+    output_dir_rel = os.path.join(docs_root_rel, "_build")
+    return {
+        "docs_root_rel": docs_root_rel,
+        "docs_root_abs": os.path.join(PROJECT_ROOT, docs_root_rel),
+        "output_dir_rel": output_dir_rel,
+        "output_dir_abs": os.path.join(PROJECT_ROOT, output_dir_rel),
+        "index_path": os.path.join(PROJECT_ROOT, output_dir_rel, "index.html"),
+        "manifest_path": os.path.join(PROJECT_ROOT, output_dir_rel, "manifest.json"),
+    }
 
-    command = [
+
+def _bdocgen_command(
+    addon_name: str, docs_root_rel: str, output_dir_rel: str
+) -> list[str]:
+    return [
         "clj",
         "-X:run",
         ":scope",
@@ -1562,6 +1574,39 @@ def _run_bdocgen(addon_name: str, docs_root_rel: str, output_dir_rel: str):
         ":addon-name",
         _edn_string(addon_name),
     ]
+
+
+def _validate_manifest_contract(manifest: dict, manifest_path: str):
+    required_keys = {"status", "scope", "page_count", "errors", "pages"}
+    missing = [key for key in required_keys if key not in manifest]
+    if missing:
+        raise RuntimeError(
+            f"BDocGen contract invalid: manifest missing keys {missing} ({manifest_path})"
+        )
+    if manifest["status"] != "ok":
+        raise RuntimeError(
+            f"BDocGen contract invalid: status={manifest['status']} errors={manifest.get('errors')}"
+        )
+    if manifest.get("errors"):
+        raise RuntimeError(f"BDocGen reported errors: {manifest['errors']}")
+
+    page_count = manifest.get("page_count")
+    pages = manifest.get("pages")
+    if not isinstance(page_count, int) or page_count < 0:
+        raise RuntimeError(f"BDocGen contract invalid: page_count={page_count}")
+    if not isinstance(pages, list):
+        raise RuntimeError("BDocGen contract invalid: pages must be a list")
+    if page_count != len(pages):
+        raise RuntimeError(
+            f"BDocGen contract invalid: page_count={page_count} but pages={len(pages)}"
+        )
+
+
+def _run_bdocgen(addon_name: str, docs_root_rel: str, output_dir_rel: str):
+    if not os.path.isdir(_BDOCGEN_ROOT):
+        raise RuntimeError(f"BDocGen project not found: {_BDOCGEN_ROOT}")
+
+    command = _bdocgen_command(addon_name, docs_root_rel, output_dir_rel)
 
     result = subprocess.run(
         command,
@@ -1592,31 +1637,8 @@ def _validate_bdocgen_contract(output_dir_rel: str):
         )
 
     manifest = json.loads(read_utf8(manifest_path))
-    required_keys = {"status", "scope", "page_count", "errors", "pages"}
-    missing = [key for key in required_keys if key not in manifest]
-    if missing:
-        raise RuntimeError(
-            f"BDocGen contract invalid: manifest missing keys {missing} ({manifest_path})"
-        )
-
-    if manifest["status"] != "ok":
-        raise RuntimeError(
-            f"BDocGen contract invalid: status={manifest['status']} errors={manifest.get('errors')}"
-        )
-
-    if manifest.get("errors"):
-        raise RuntimeError(f"BDocGen reported errors: {manifest['errors']}")
-
+    _validate_manifest_contract(manifest, manifest_path)
     page_count = manifest.get("page_count")
-    pages = manifest.get("pages")
-    if not isinstance(page_count, int) or page_count < 0:
-        raise RuntimeError(f"BDocGen contract invalid: page_count={page_count}")
-    if not isinstance(pages, list):
-        raise RuntimeError("BDocGen contract invalid: pages must be a list")
-    if page_count != len(pages):
-        raise RuntimeError(
-            f"BDocGen contract invalid: page_count={page_count} but pages={len(pages)}"
-        )
 
     return {
         "index_path": index_path,
@@ -1626,13 +1648,13 @@ def _validate_bdocgen_contract(output_dir_rel: str):
 
 
 def build_docs_for_addon(addon_name: str):
-    docs_root_rel = os.path.join(_ADDONS_FOLDER, addon_name, "docs")
-    docs_root_abs = os.path.join(PROJECT_ROOT, docs_root_rel)
-    if not os.path.isdir(docs_root_abs):
+    paths = _docs_paths(addon_name)
+    docs_root_rel = paths["docs_root_rel"]
+    if not os.path.isdir(paths["docs_root_abs"]):
         print(f"No docs directory for addon '{addon_name}', skipping BDocGen.")
         return {"status": "skipped", "page_count": 0}
 
-    output_dir_rel = os.path.join(docs_root_rel, "_build")
+    output_dir_rel = paths["output_dir_rel"]
     _run_bdocgen(addon_name, docs_root_rel, output_dir_rel)
     contract = _validate_bdocgen_contract(output_dir_rel)
     print(
