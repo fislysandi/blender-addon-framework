@@ -1,5 +1,6 @@
 import ast
 import atexit
+import importlib
 import json
 import os
 import re
@@ -40,9 +41,8 @@ from src.main import (
 )
 
 try:
-    # added in python3.11
-    import tomllib as _tomllib
-except ImportError:
+    _tomllib = importlib.import_module("tomllib")
+except ModuleNotFoundError:
     _tomllib = None
 
 # Following variables are used internally in the framework according to some protocols defined by Blender or
@@ -2392,7 +2392,7 @@ def start_watch_for_update(init_file, addon_name, stop_event: threading.Event):
             self.has_update = False
 
         def on_any_event(self, event):
-            source_path = event.src_path
+            source_path: str = _event_source_path(event.src_path)
             if source_path.endswith(".py"):
                 self.has_update = True
 
@@ -2424,6 +2424,12 @@ def start_watch_for_update(init_file, addon_name, stop_event: threading.Event):
     finally:
         observer.stop()
         observer.join()
+
+
+def _event_source_path(source_path) -> str:
+    if isinstance(source_path, bytes):
+        return source_path.decode("utf-8", errors="ignore")
+    return str(source_path)
 
 
 def update_addon_for_test(init_file, addon_name):

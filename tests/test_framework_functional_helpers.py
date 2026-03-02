@@ -157,3 +157,95 @@ def test_validate_manifest_contract_reports_page_count_mismatch():
     }
     with pytest.raises(RuntimeError):
         framework._validate_manifest_contract(manifest, "/tmp/manifest.json")
+
+
+def test_compile_addon_orchestrates_side_effect_steps(monkeypatch):
+    calls = []
+
+    def _record(name):
+        def _inner(*args, **kwargs):
+            calls.append((name, args, kwargs))
+
+        return _inner
+
+    monkeypatch.setattr(framework, "_assert_valid_compile_inputs", _record("validate"))
+    monkeypatch.setattr(framework, "_ensure_directory", _record("ensure_dir"))
+    monkeypatch.setattr(
+        framework,
+        "_compile_plan",
+        lambda **_kwargs: framework._CompilePlan(
+            bl_info={"version": (1, 0, 0)},
+            release_folder="/tmp/release/valid_addon",
+            dependency_paths=["/tmp/deps/a.py"],
+            addon_config={"wheels": ["./wheels/a.whl"]},
+            real_addon_name="/tmp/release/valid_addon",
+            released_addon_path="/tmp/release/valid_addon.zip",
+        ),
+    )
+    monkeypatch.setattr(
+        framework,
+        "build_docs_for_addon",
+        lambda addon_name: {
+            "status": "ok",
+            "manifest_path": f"/{addon_name}/manifest.json",
+            "page_count": 2,
+        },
+    )
+    monkeypatch.setattr(
+        framework, "_maybe_print_docs_contract", _record("docs_contract")
+    )
+    monkeypatch.setattr(
+        framework,
+        "_prepare_release_folder",
+        lambda release_dir, addon_name: "/tmp/release/valid_addon",
+    )
+    monkeypatch.setattr(
+        framework,
+        "generate_bootstrap_init_file",
+        lambda addon_name, bl_info: f"bootstrap:{addon_name}:{bl_info['version']}",
+    )
+    monkeypatch.setattr(framework, "write_utf8", _record("write"))
+    monkeypatch.setattr(
+        framework, "_copy_non_python_siblings", _record("copy_siblings")
+    )
+    monkeypatch.setattr(framework, "_copy_addon_tree_to_release", _record("copy_tree"))
+    monkeypatch.setattr(
+        framework, "_copy_dependencies_to_release", _record("copy_deps")
+    )
+    monkeypatch.setattr(framework, "_clean_release_tree", _record("clean"))
+    monkeypatch.setattr(
+        framework, "_apply_extension_import_conversion", _record("convert_ext")
+    )
+    monkeypatch.setattr(
+        framework, "enhance_import_for_py_files", _record("enhance_imports")
+    )
+    monkeypatch.setattr(framework, "_copy_extension_wheels", _record("copy_wheels"))
+    monkeypatch.setattr(framework, "zip_folder", _record("zip"))
+
+    result = framework.compile_addon(
+        target_init_file="/tmp/addons/valid_addon/__init__.py",
+        addon_name="valid_addon",
+        release_dir="/tmp/release",
+        need_zip=True,
+        is_extension=True,
+        with_timestamp=False,
+        with_version=True,
+        skip_docs=False,
+    )
+
+    assert result == "/tmp/release/valid_addon.zip"
+    call_names = [name for name, _, _ in calls]
+    assert call_names == [
+        "validate",
+        "ensure_dir",
+        "docs_contract",
+        "write",
+        "copy_siblings",
+        "copy_tree",
+        "copy_deps",
+        "clean",
+        "convert_ext",
+        "enhance_imports",
+        "copy_wheels",
+        "zip",
+    ]
