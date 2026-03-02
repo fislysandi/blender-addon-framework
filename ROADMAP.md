@@ -65,27 +65,27 @@
 
 ## Code Generation & Addon Templating
 
-- [ ] Addon scaffold generator
-- [ ] Template library for common patterns
+- [x] Addon scaffold generator
+- [x] Template library for common patterns
 - [ ] **Reusable code templates**
-  - [ ] Reuse code/features from existing addons as template modules
-  - [ ] Add command to import/append template blocks into a target addon
-  - [ ] Support UI template extraction (panels/operators/preferences) for reuse
-  - [ ] Add template metadata (`name`, `source-addon`, `dependencies`, `compatibility`)
+  - [x] Reuse code/features from existing addons as template modules
+  - [x] Add command to import/append template blocks into a target addon
+  - [x] Support UI template extraction (panels/operators/preferences) for reuse
+  - [x] Add template metadata (`name`, `source-addon`, `dependencies`, `compatibility`)
   - [ ] Validate copied imports and dependency requirements after template apply
-  - [ ] Provide conflict strategy for existing files (`skip`, `overwrite`, `rename`)
+  - [x] Provide conflict strategy for existing files (`skip`, `overwrite`, `rename`)
 - [ ] **Addon rename command**
-  - [ ] Add `uv run rename-addon <old_name> <new_name>` command
-  - [ ] Rename addon directory under `addons/` safely with preflight checks
-  - [ ] Update addon identity fields (`blender_manifest.toml`, generated metadata) after rename
-  - [ ] Update internal references/imports that include old addon name
-  - [ ] Add dry-run mode and rollback strategy for partial failures
+  - [x] Add `uv run rename-addon <old_name> <new_name>` command
+  - [x] Rename addon directory under `addons/` safely with preflight checks
+  - [x] Update addon identity fields (`blender_manifest.toml`, generated metadata) after rename
+  - [x] Update internal references/imports that include old addon name
+  - [x] Add dry-run mode and rollback strategy for partial failures
   - [ ] Validate renamed addon via `uv run test <new_name>` and `uv run compile <new_name>`
 - [ ] **Unified CLI autocomplete**
-  - [ ] Add shell completion generation for framework commands (bash/zsh/fish)
+  - [x] Add shell completion generation for framework commands (bash/zsh/fish)
   - [ ] Autocomplete addon names for commands like `test`, `compile`, `rename-addon`, and `addon-deps`
-  - [ ] Add typo-aware suggestions for mistyped commands (for example `renmae-addon` -> `rename-addon`)
-  - [ ] Add `uv run completion` command to print/install completion scripts
+  - [x] Add typo-aware suggestions for mistyped commands (for example `renmae-addon` -> `rename-addon`)
+  - [x] Add `uv run completion` command to print/install completion scripts
   - [ ] Document completion setup and platform-specific install steps
 
 ---
@@ -161,24 +161,24 @@ Target milestone: complete Python-first BDocGen MVP before REPL docs-command int
 - [ ] Standardize folder layout: `src/`, `docs/`, `tests/`
 - [ ] Define `src/` nested conventions (e.g. `src/panels/` for UI)
 - [ ] Migration guidance for existing addons
-- [ ] Write to `docs/addon-structure-standard.md`
+- [x] Write to `docs/addon-structure-standard.md`
 - [ ] **Default addon template v1**
-  - [ ] Confirm generator target path remains `addons/{addon_name}/`
+  - [x] Confirm generator target path remains `addons/{addon_name}/`
   - [ ] Generate addon tree:
-    - [ ] `{addon_name}/blender_manifest.toml`
-    - [ ] `{addon_name}/src/__init__.py`
-    - [ ] `{addon_name}/src/config.py`
-    - [ ] `{addon_name}/src/ui/`
-    - [ ] `{addon_name}/src/operators/`
-    - [ ] `{addon_name}/src/preferences/__init__.py`
-    - [ ] `{addon_name}/src/preferences/config.py`
-    - [ ] `{addon_name}/src/preferences/addon_preferences.py`
-    - [ ] `{addon_name}/docs/`
-    - [ ] `{addon_name}/tests/`
+    - [x] `{addon_name}/blender_manifest.toml`
+    - [x] `{addon_name}/src/__init__.py`
+    - [x] `{addon_name}/src/config.py`
+    - [x] `{addon_name}/src/ui/`
+    - [x] `{addon_name}/src/operators/`
+    - [x] `{addon_name}/src/preferences/__init__.py`
+    - [x] `{addon_name}/src/preferences/config.py`
+    - [x] `{addon_name}/src/preferences/addon_preferences.py`
+    - [x] `{addon_name}/docs/`
+    - [x] `{addon_name}/tests/`
 
 - [ ] **Addon dependency environment standard (UV at addon root)**
-  - [ ] Include `{addon_name}/pyproject.toml` for addon-scoped dependencies
-  - [ ] Include `{addon_name}/uv.lock` for reproducible installs
+  - [x] Include `{addon_name}/pyproject.toml` for addon-scoped dependencies
+  - [x] Include `{addon_name}/uv.lock` for reproducible installs
   - [ ] Support addon-local `.venv/` (not committed)
   - [ ] Define dependency groups for `dev` and `test`
   - [ ] Optional: support `.python-version` per addon when needed
