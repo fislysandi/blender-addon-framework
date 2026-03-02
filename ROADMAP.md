@@ -183,6 +183,14 @@ Target milestone: complete Python-first BDocGen MVP before REPL docs-command int
   - [ ] Define dependency groups for `dev` and `test`
   - [ ] Optional: support `.python-version` per addon when needed
 
+- [ ] **Addon-local command invocation (no framework-root cd needed)**
+  - [ ] Add context resolver to detect addon name from current working directory
+  - [ ] Allow running framework commands from inside addon directory (e.g. `uv run test`, `uv run compile`)
+  - [ ] Add override flags when autodetection is ambiguous (`--addon <name>`, `--framework-root <path>`)
+  - [ ] Apply addon-local invocation support to `test`, `compile`, `rename-addon`, `addon-deps`, and `template apply`
+  - [ ] Add `baf init` (or equivalent) to write local invocation config for addon projects
+  - [ ] Add tests for cwd-based detection and command dispatch correctness
+
 ---
 
 ## Internationalization (i18n)
