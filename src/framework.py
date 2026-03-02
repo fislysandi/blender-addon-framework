@@ -118,9 +118,20 @@ def test_addon(addon_name, enable_watch=True, debug_mode=True, install_wheels=Fa
     init_file = get_init_file_path(addon_name)
     if install_wheels:
         install_manifest_wheels(addon_name)
-    if not enable_watch:
-        print("Do not auto reload addon when file changed")
-    start_test(init_file, addon_name, enable_watch=enable_watch, debug_mode=debug_mode)
+    watch_message = _test_watch_message(enable_watch)
+    if watch_message:
+        print(watch_message)
+    start_test(init_file, addon_name, **_test_start_options(enable_watch, debug_mode))
+
+
+def _test_watch_message(enable_watch: bool) -> str | None:
+    if enable_watch:
+        return None
+    return "Do not auto reload addon when file changed"
+
+
+def _test_start_options(enable_watch: bool, debug_mode: bool) -> dict:
+    return {"enable_watch": enable_watch, "debug_mode": debug_mode}
 
 
 def get_init_file_path(addon_name):
