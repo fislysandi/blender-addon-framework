@@ -1847,13 +1847,10 @@ def _copy_addon_tree_to_release(addon_name: str, release_folder: str):
     )
 
 
-def _copy_dependencies_to_release(
-    dependency_paths: list[str], visited_py_files: set[str], release_folder: str
-):
+def _copy_dependencies_to_release(dependency_paths: list[str], release_folder: str):
     for dependency, target_path in _dependency_copy_plan(
         dependency_paths, release_folder
     ):
-        visited_py_files.add(dependency)
         _ensure_directory(os.path.dirname(target_path))
         shutil.copy(dependency, target_path)
 
@@ -2023,7 +2020,7 @@ def compile_addon(
     _copy_addon_tree_to_release(addon_name, release_folder)
 
     # 对插件文件夹中的每一个py文件进行分析，找到每个py文件中依赖的其他py文件
-    _copy_dependencies_to_release(plan.dependency_paths, set(), release_folder)
+    _copy_dependencies_to_release(plan.dependency_paths, release_folder)
 
     _clean_release_tree(release_folder)
 
