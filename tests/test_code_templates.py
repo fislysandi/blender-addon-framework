@@ -1,5 +1,7 @@
 import os
 
+import pytest
+
 from src import framework
 
 
@@ -13,7 +15,7 @@ def _create_template(root: str, template_name: str, filename: str, content: str)
     template_root = os.path.join(root, template_name)
     _write(
         os.path.join(template_root, "template.toml"),
-        'name = "test_template"\nsource_addon = "tests"\ntarget_prefix = "src/ui"\n',
+        'name = "test_template"\nsource_addon = "tests"\ndescription = "test template"\ntarget_prefix = "src/ui"\ncompatibility = "unified-v1"\n',
     )
     _write(os.path.join(template_root, "files", filename), content)
 
@@ -108,7 +110,7 @@ def test_apply_code_template_dry_run_allows_empty_template(tmp_path, monkeypatch
     os.makedirs(os.path.join(templates_root, "ui", "empty_template"), exist_ok=True)
     _write(
         os.path.join(templates_root, "ui", "empty_template", "template.toml"),
-        'name = "empty_template"\nsource_addon = "tests"\ntarget_prefix = "src/ui"\n',
+        'name = "empty_template"\nsource_addon = "tests"\ndescription = "empty template"\ntarget_prefix = "src/ui"\ncompatibility = "unified-v1"\n',
     )
     _create_addon(addons_root, "demo_addon")
     monkeypatch.setattr(framework, "_CODE_TEMPLATES_ROOT", templates_root)
@@ -120,3 +122,22 @@ def test_apply_code_template_dry_run_allows_empty_template(tmp_path, monkeypatch
 
     assert result["status"] == "dry-run"
     assert result["operations"] == 0
+
+
+def test_template_metadata_validation_rejects_missing_required_fields(tmp_path):
+    metadata_path = tmp_path / "template.toml"
+    metadata_path.write_text('name = "x"\n', encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        framework._read_code_template_metadata(str(tmp_path))
+
+
+def test_template_metadata_validation_rejects_wrong_compatibility(tmp_path):
+    metadata_path = tmp_path / "template.toml"
+    metadata_path.write_text(
+        'name = "x"\nsource_addon = "s"\ndescription = "d"\ntarget_prefix = "src/x"\ncompatibility = "legacy"\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError):
+        framework._read_code_template_metadata(str(tmp_path))

@@ -65,6 +65,7 @@ _UNIFIED_TEMPLATE_MODE = "unified-v1"
 _LEGACY_TEMPLATE_MODE = "legacy"
 _CODE_TEMPLATE_METADATA_FILE = "template.toml"
 _CODE_TEMPLATE_ADDON_TOKEN = "{{addon_name}}"
+_CODE_TEMPLATE_COMPATIBILITY = "unified-v1"
 
 _RUNTIME_READY = False
 
@@ -438,8 +439,42 @@ def _resolve_template_root(template_name: str) -> str:
 def _read_code_template_metadata(template_root: str) -> dict:
     metadata_path = os.path.join(template_root, _CODE_TEMPLATE_METADATA_FILE)
     if not os.path.isfile(metadata_path):
-        return {}
-    return _read_toml_file(metadata_path)
+        raise ValueError(
+            f"Template metadata missing: {metadata_path}. Each template needs template.toml"
+        )
+    metadata = _read_toml_file(metadata_path)
+    _validate_code_template_metadata(metadata, metadata_path)
+    return metadata
+
+
+def _validate_code_template_metadata(metadata: dict, metadata_path: str):
+    required_keys = {
+        "name": str,
+        "source_addon": str,
+        "description": str,
+        "target_prefix": str,
+        "compatibility": str,
+    }
+    for key, expected_type in required_keys.items():
+        value = metadata.get(key)
+        if not isinstance(value, expected_type) or not value.strip():
+            raise ValueError(
+                f"Invalid template metadata in {metadata_path}: field '{key}' must be a non-empty {expected_type.__name__}"
+            )
+
+    dependencies = metadata.get("dependencies", [])
+    if dependencies is not None:
+        if not isinstance(dependencies, list) or not all(
+            isinstance(dep, str) and dep.strip() for dep in dependencies
+        ):
+            raise ValueError(
+                f"Invalid template metadata in {metadata_path}: 'dependencies' must be a list of non-empty strings"
+            )
+
+    if metadata.get("compatibility") != _CODE_TEMPLATE_COMPATIBILITY:
+        raise ValueError(
+            f"Invalid template metadata in {metadata_path}: compatibility must be '{_CODE_TEMPLATE_COMPATIBILITY}'"
+        )
 
 
 def _resolve_template_target_prefix(template_name: str, metadata: dict) -> str:
