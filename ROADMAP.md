@@ -81,6 +81,12 @@
   - [ ] Update internal references/imports that include old addon name
   - [ ] Add dry-run mode and rollback strategy for partial failures
   - [ ] Validate renamed addon via `uv run test <new_name>` and `uv run compile <new_name>`
+- [ ] **Unified CLI autocomplete**
+  - [ ] Add shell completion generation for framework commands (bash/zsh/fish)
+  - [ ] Autocomplete addon names for commands like `test`, `compile`, `rename-addon`, and `addon-deps`
+  - [ ] Add typo-aware suggestions for mistyped commands (for example `renmae-addon` -> `rename-addon`)
+  - [ ] Add `uv run completion` command to print/install completion scripts
+  - [ ] Document completion setup and platform-specific install steps
 
 ---
 
