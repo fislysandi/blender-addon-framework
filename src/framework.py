@@ -1521,29 +1521,34 @@ def _read_toml_file(file_path: str) -> dict:
     return _parse_toml_text(read_utf8(file_path))
 
 
-def _manifest_wheel_plan(addon_name: str) -> dict:
+@dataclass(frozen=True)
+class _ManifestWheelPlan:
+    status: str
+    manifest_path: str
+    wheel_paths: list[str]
+
+
+def _manifest_wheel_plan(addon_name: str) -> _ManifestWheelPlan:
     manifest_path = os.path.join(_ADDON_ROOT, addon_name, _ADDON_MANIFEST_FILE)
     if not os.path.isfile(manifest_path):
-        return {
-            "status": "missing_manifest",
-            "manifest_path": manifest_path,
-            "wheel_paths": [],
-        }
+        return _ManifestWheelPlan(
+            status="missing_manifest", manifest_path=manifest_path, wheel_paths=[]
+        )
 
     addon_config = read_ext_config(manifest_path)
     wheel_files = addon_config.get("wheels", [])
     if not wheel_files:
-        return {
-            "status": "no_wheels",
-            "manifest_path": manifest_path,
-            "wheel_paths": [],
-        }
+        return _ManifestWheelPlan(
+            status="no_wheels", manifest_path=manifest_path, wheel_paths=[]
+        )
 
     wheel_paths = [
         os.path.normpath(os.path.join(PROJECT_ROOT, wheel_file))
         for wheel_file in wheel_files
     ]
-    return {"status": "ok", "manifest_path": manifest_path, "wheel_paths": wheel_paths}
+    return _ManifestWheelPlan(
+        status="ok", manifest_path=manifest_path, wheel_paths=wheel_paths
+    )
 
 
 def _missing_wheel_paths(wheel_paths: list[str]) -> list[str]:
@@ -1560,14 +1565,14 @@ def _install_wheel_path(wheel_path: str):
 
 def install_manifest_wheels(addon_name: str):
     plan = _manifest_wheel_plan(addon_name)
-    if plan["status"] == "missing_manifest":
+    if plan.status == "missing_manifest":
         print(
             f"No {_ADDON_MANIFEST_FILE} found for '{addon_name}'; skipping wheel installation."
         )
         return []
 
-    wheel_paths = plan["wheel_paths"]
-    if plan["status"] == "no_wheels" or not wheel_paths:
+    wheel_paths = plan.wheel_paths
+    if plan.status == "no_wheels" or not wheel_paths:
         print("No wheels declared in blender_manifest.toml; skipping.")
         return []
 
@@ -1596,17 +1601,27 @@ def _edn_string(value: str) -> str:
     return json.dumps(str(value))
 
 
-def _docs_paths(addon_name: str) -> dict:
+@dataclass(frozen=True)
+class _DocsPaths:
+    docs_root_rel: str
+    docs_root_abs: str
+    output_dir_rel: str
+    output_dir_abs: str
+    index_path: str
+    manifest_path: str
+
+
+def _docs_paths(addon_name: str) -> _DocsPaths:
     docs_root_rel = os.path.join(_ADDONS_FOLDER, addon_name, "docs")
     output_dir_rel = os.path.join(docs_root_rel, "_build")
-    return {
-        "docs_root_rel": docs_root_rel,
-        "docs_root_abs": os.path.join(PROJECT_ROOT, docs_root_rel),
-        "output_dir_rel": output_dir_rel,
-        "output_dir_abs": os.path.join(PROJECT_ROOT, output_dir_rel),
-        "index_path": os.path.join(PROJECT_ROOT, output_dir_rel, "index.html"),
-        "manifest_path": os.path.join(PROJECT_ROOT, output_dir_rel, "manifest.json"),
-    }
+    return _DocsPaths(
+        docs_root_rel=docs_root_rel,
+        docs_root_abs=os.path.join(PROJECT_ROOT, docs_root_rel),
+        output_dir_rel=output_dir_rel,
+        output_dir_abs=os.path.join(PROJECT_ROOT, output_dir_rel),
+        index_path=os.path.join(PROJECT_ROOT, output_dir_rel, "index.html"),
+        manifest_path=os.path.join(PROJECT_ROOT, output_dir_rel, "manifest.json"),
+    )
 
 
 def _bdocgen_command(
@@ -1701,12 +1716,12 @@ def _validate_bdocgen_contract(output_dir_rel: str):
 
 def build_docs_for_addon(addon_name: str):
     paths = _docs_paths(addon_name)
-    docs_root_rel = paths["docs_root_rel"]
-    if not os.path.isdir(paths["docs_root_abs"]):
+    docs_root_rel = paths.docs_root_rel
+    if not os.path.isdir(paths.docs_root_abs):
         print(f"No docs directory for addon '{addon_name}', skipping BDocGen.")
         return {"status": "skipped", "page_count": 0}
 
-    output_dir_rel = paths["output_dir_rel"]
+    output_dir_rel = paths.output_dir_rel
     _run_bdocgen(addon_name, docs_root_rel, output_dir_rel)
     contract = _validate_bdocgen_contract(output_dir_rel)
     print(
