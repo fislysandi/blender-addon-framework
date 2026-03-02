@@ -1469,33 +1469,67 @@ def read_ext_config(addon_config_file):
     return addon_config
 
 
-def install_manifest_wheels(addon_name: str):
+def _manifest_wheel_plan(addon_name: str) -> dict:
     manifest_path = os.path.join(_ADDON_ROOT, addon_name, _ADDON_MANIFEST_FILE)
     if not os.path.isfile(manifest_path):
+        return {
+            "status": "missing_manifest",
+            "manifest_path": manifest_path,
+            "wheel_paths": [],
+        }
+
+    addon_config = read_ext_config(manifest_path)
+    wheel_files = addon_config.get("wheels", [])
+    if not wheel_files:
+        return {
+            "status": "no_wheels",
+            "manifest_path": manifest_path,
+            "wheel_paths": [],
+        }
+
+    wheel_paths = [
+        os.path.normpath(os.path.join(PROJECT_ROOT, wheel_file))
+        for wheel_file in wheel_files
+    ]
+    return {"status": "ok", "manifest_path": manifest_path, "wheel_paths": wheel_paths}
+
+
+def _missing_wheel_paths(wheel_paths: list[str]) -> list[str]:
+    return [wheel_path for wheel_path in wheel_paths if not os.path.isfile(wheel_path)]
+
+
+def _pip_install_command(wheel_path: str) -> list[str]:
+    return [sys.executable, "-m", "pip", "install", "--upgrade", wheel_path]
+
+
+def _install_wheel_path(wheel_path: str):
+    subprocess.run(_pip_install_command(wheel_path), check=True)
+
+
+def install_manifest_wheels(addon_name: str):
+    plan = _manifest_wheel_plan(addon_name)
+    if plan["status"] == "missing_manifest":
         print(
             f"No {_ADDON_MANIFEST_FILE} found for '{addon_name}'; skipping wheel installation."
         )
         return []
 
-    addon_config = read_ext_config(manifest_path)
-    wheel_files = addon_config.get("wheels", [])
-    if not wheel_files:
+    wheel_paths = plan["wheel_paths"]
+    if plan["status"] == "no_wheels" or not wheel_paths:
         print("No wheels declared in blender_manifest.toml; skipping.")
         return []
 
+    missing_paths = _missing_wheel_paths(wheel_paths)
+    if missing_paths:
+        raise FileNotFoundError(
+            f"Wheel file not found: {missing_paths[0]}. Please download it into the wheels/ folder."
+        )
+
     installed = []
-    for wheel_file in wheel_files:
-        wheel_path = os.path.normpath(os.path.join(PROJECT_ROOT, wheel_file))
-        if not os.path.isfile(wheel_path):
-            raise FileNotFoundError(
-                f"Wheel file not found: {wheel_path}. Please download it into the wheels/ folder."
-            )
+    for wheel_path in wheel_paths:
         print(f"Installing wheel for tests: {wheel_path}")
         try:
-            subprocess.run(
-                [sys.executable, "-m", "pip", "install", "--upgrade", wheel_path],
-                check=True,
-            )
+            _install_wheel_path(wheel_path)
         except subprocess.CalledProcessError as exc:
             raise RuntimeError(
                 f"Failed to install wheel {wheel_path}: {exc.stderr or exc}".strip()
