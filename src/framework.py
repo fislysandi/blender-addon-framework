@@ -12,6 +12,7 @@ import time
 import textwrap
 import uuid
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -1237,6 +1238,16 @@ _BLENDER_JSON_END = "__OpenCode_Audit_JSON_END__"
 _BLENDER_JSON_TIMEOUT = 60
 
 
+@dataclass(frozen=True)
+class _BlenderScriptOutput:
+    stdout: str
+    stderr: str
+
+    @property
+    def combined(self) -> str:
+        return f"{self.stdout}\n{self.stderr}"
+
+
 def _ensure_blender_executable():
     if not os.path.isfile(BLENDER_EXE_PATH):
         raise FileNotFoundError(f"Blender executable not found: {BLENDER_EXE_PATH}")
@@ -1255,7 +1266,7 @@ def _prepare_blender_env(addon_venv_path=None):
 
 def _run_blender_python_with_output(
     script, addon_venv_path=None, timeout=_BLENDER_JSON_TIMEOUT
-):
+) -> _BlenderScriptOutput:
     _ensure_blender_executable()
     args = [
         BLENDER_EXE_PATH,
@@ -1277,23 +1288,22 @@ def _run_blender_python_with_output(
         raise RuntimeError(
             f"Blender script failed (exit {result.returncode}): {error_msg}"
         )
-    return result.stdout, result.stderr
+    return _BlenderScriptOutput(stdout=result.stdout, stderr=result.stderr)
 
 
 def _extract_json_payload(stream: str) -> str:
-    start = stream.find(_BLENDER_JSON_BEGIN)
-    end = stream.find(_BLENDER_JSON_END, start + len(_BLENDER_JSON_BEGIN))
-    if start == -1 or end == -1:
+    _, begin_marker, after_begin = stream.partition(_BLENDER_JSON_BEGIN)
+    if not begin_marker:
         raise RuntimeError("Could not read JSON payload from Blender output")
-    return stream[start + len(_BLENDER_JSON_BEGIN) : end].strip()
+    payload, end_marker, _ = after_begin.partition(_BLENDER_JSON_END)
+    if not end_marker:
+        raise RuntimeError("Could not read JSON payload from Blender output")
+    return payload.strip()
 
 
 def _run_blender_script_and_parse_json(script, addon_venv_path=None):
-    stdout, stderr = _run_blender_python_with_output(
-        script, addon_venv_path=addon_venv_path
-    )
-    combined = f"{stdout}\n{stderr}"
-    payload = _extract_json_payload(combined)
+    output = _run_blender_python_with_output(script, addon_venv_path=addon_venv_path)
+    payload = _extract_json_payload(output.combined)
     return json.loads(payload)
 
 
