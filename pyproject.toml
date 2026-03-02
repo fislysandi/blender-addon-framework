@@ -34,7 +34,7 @@ addon-deps = "src.commands.addon_deps:main"
 package = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src", "scripts", "common"]
+packages = ["src", "common"]
 
 [build-system]
 requires = ["hatchling"]

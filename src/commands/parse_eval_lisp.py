@@ -2,8 +2,8 @@
 """Convert debugger '(eval ...)' lines to JSON.
 
 Usage:
-  python scripts/parse_eval_lisp.py < .tmp/debugger_sessions/<id>.log
-  python scripts/parse_eval_lisp.py .tmp/debugger_sessions/<id>.log --pretty
+  python -m src.commands.parse_eval_lisp < .tmp/debugger_sessions/<id>.log
+  python -m src.commands.parse_eval_lisp .tmp/debugger_sessions/<id>.log --pretty
 """
 
 from __future__ import annotations

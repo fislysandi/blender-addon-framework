@@ -2,8 +2,8 @@
 """Group eval trace events by opid and print compact timelines.
 
 Usage:
-  python scripts/analyze_eval_timeline.py .tmp/debugger_sessions/<id>.log
-  python scripts/analyze_eval_timeline.py .tmp/debugger_sessions/<id>.log --opid op-000001
+  python -m src.commands.analyze_eval_timeline .tmp/debugger_sessions/<id>.log
+  python -m src.commands.analyze_eval_timeline .tmp/debugger_sessions/<id>.log --opid op-000001
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
-from parse_eval_lisp import iter_lines, parse_eval_line
+from src.commands.parse_eval_lisp import iter_lines, parse_eval_line
 
 
 def _to_int(value: Any, default: int) -> int:

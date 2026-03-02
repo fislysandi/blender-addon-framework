@@ -241,10 +241,10 @@ You can inspect compact per-operator timelines from debugger logs:
 
 ```bash
 # Group events by opid and print decisions/deltas/summaries
-python scripts/analyze_eval_timeline.py .tmp/debugger_sessions/<id>.log
+python -m src.commands.analyze_eval_timeline .tmp/debugger_sessions/<id>.log
 
 # Focus one operator run
-python scripts/analyze_eval_timeline.py .tmp/debugger_sessions/<id>.log --opid op-000001
+python -m src.commands.analyze_eval_timeline .tmp/debugger_sessions/<id>.log --opid op-000001
 ```
 
 ### Package Your Addon
