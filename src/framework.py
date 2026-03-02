@@ -1785,12 +1785,18 @@ def _prepare_release_folder(release_dir: str, addon_name: str) -> str:
 
 
 def _copy_non_python_siblings(target_init_file: str, release_folder: str):
-    source_dir = os.path.dirname(target_init_file)
-    for file_name in os.listdir(source_dir):
-        file_path = os.path.join(source_dir, file_name)
-        if os.path.isdir(file_path) or file_name.endswith(".py"):
-            continue
+    for file_path in _non_python_sibling_paths(target_init_file):
         shutil.copy(file_path, release_folder)
+
+
+def _non_python_sibling_paths(target_init_file: str) -> list[str]:
+    source_dir = os.path.dirname(target_init_file)
+    return [
+        os.path.join(source_dir, file_name)
+        for file_name in os.listdir(source_dir)
+        if not os.path.isdir(os.path.join(source_dir, file_name))
+        and not file_name.endswith(".py")
+    ]
 
 
 def _copy_addon_tree_to_release(addon_name: str, release_folder: str):
@@ -1810,13 +1816,24 @@ def _copy_addon_tree_to_release(addon_name: str, release_folder: str):
 def _copy_dependencies_to_release(
     dependency_paths: list[str], visited_py_files: set[str], release_folder: str
 ):
-    for dependency in dependency_paths:
+    for dependency, target_path in _dependency_copy_plan(
+        dependency_paths, release_folder
+    ):
         visited_py_files.add(dependency)
-        target_path = os.path.join(
-            release_folder, os.path.relpath(dependency, PROJECT_ROOT)
-        )
         _ensure_directory(os.path.dirname(target_path))
         shutil.copy(dependency, target_path)
+
+
+def _dependency_copy_plan(
+    dependency_paths: list[str], release_folder: str
+) -> list[tuple[str, str]]:
+    return [
+        (
+            dependency,
+            os.path.join(release_folder, os.path.relpath(dependency, PROJECT_ROOT)),
+        )
+        for dependency in dependency_paths
+    ]
 
 
 def _clean_release_tree(release_folder: str):
