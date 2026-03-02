@@ -40,11 +40,9 @@ from src.main import (
 
 try:
     # added in python3.11
-    import tomllib
+    import tomllib as _tomllib
 except ImportError:
-    # for python3.10 and below
-    install_if_missing("toml")
-    import toml
+    _tomllib = None
 
 # Following variables are used internally in the framework according to some protocols defined by Blender or
 # the framework itself. Do not change them unless you know what you are doing.
@@ -1500,12 +1498,27 @@ def audit_stale_addons(disable_missing=False, reset_preferences=False):
 
 
 def read_ext_config(addon_config_file):
-    with open(addon_config_file, "r", encoding="utf-8") as f:
+    return _read_toml_file(addon_config_file)
+
+
+def _parse_toml_text_with_legacy_loader(toml_text: str) -> dict:
+    install_if_missing("toml")
+    import toml
+
+    return toml.loads(toml_text)
+
+
+def _parse_toml_text(toml_text: str) -> dict:
+    if _tomllib is not None:
         try:
-            addon_config = tomllib.loads(f.read())
-        except Exception as e:
-            addon_config = toml.load(f)
-    return addon_config
+            return _tomllib.loads(toml_text)
+        except Exception:
+            pass
+    return _parse_toml_text_with_legacy_loader(toml_text)
+
+
+def _read_toml_file(file_path: str) -> dict:
+    return _parse_toml_text(read_utf8(file_path))
 
 
 def _manifest_wheel_plan(addon_name: str) -> dict:
