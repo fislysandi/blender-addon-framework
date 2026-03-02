@@ -1,0 +1,6 @@
+name = "networking_client"
+source_addon = "blender-addon-framework"
+description = "Safe networking client patterns (urllib, requests, httpx async)"
+target_prefix = "src/core/networking"
+compatibility = "unified-v1"
+dependencies = ["requests>=2.33.0", "httpx>=0.30.0"]

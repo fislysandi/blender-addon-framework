@@ -61,6 +61,7 @@ Reusable template catalog:
   - `ui/panel_with_sections`
   - `core/subtitle_io`
   - `core/background_task_runner`
+  - `core/networking_client`
   - `i18n/base_dictionary`
   - `operators/basic_operator`
   - `preferences/basic_preferences`
