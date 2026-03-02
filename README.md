@@ -241,8 +241,13 @@ Templates live under `code_templates/` at project root.
 Initial reusable templates adapted from `subtitle_studio`:
 
 - `ui/basic_panel`
+- `ui/panel_with_sections`
 - `core/subtitle_io`
+- `core/background_task_runner`
 - `i18n/base_dictionary`
+- `operators/basic_operator`
+- `preferences/basic_preferences`
+- `tests/basic_operator_tests`
 
 ```bash
 # List templates

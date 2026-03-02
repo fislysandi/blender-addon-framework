@@ -1,0 +1,5 @@
+name = "background_task_runner"
+source_addon = "subtitle_studio"
+description = "Background worker runner with cancel and progress hooks"
+target_prefix = "src/core"
+compatibility = "unified-v1"

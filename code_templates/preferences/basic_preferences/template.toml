@@ -1,0 +1,5 @@
+name = "basic_preferences"
+source_addon = "blender-addon-framework"
+description = "Addon preferences scaffold"
+target_prefix = "src/preferences"
+compatibility = "unified-v1"

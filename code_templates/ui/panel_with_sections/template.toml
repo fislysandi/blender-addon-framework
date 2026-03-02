@@ -1,0 +1,5 @@
+name = "panel_with_sections"
+source_addon = "subtitle_studio"
+description = "Panel scaffold with section-based draw composition"
+target_prefix = "src/ui"
+compatibility = "unified-v1"

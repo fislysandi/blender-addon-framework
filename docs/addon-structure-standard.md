@@ -57,8 +57,13 @@ Reusable template catalog:
 - Apply command: `uv run template apply <template_name> <addon_name>`
 - Initial templates adapted from subtitle_studio:
   - `ui/basic_panel`
+  - `ui/panel_with_sections`
   - `core/subtitle_io`
+  - `core/background_task_runner`
   - `i18n/base_dictionary`
+  - `operators/basic_operator`
+  - `preferences/basic_preferences`
+  - `tests/basic_operator_tests`
 
 ## Legacy Flat Structure (Deprecated)
 

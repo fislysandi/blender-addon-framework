@@ -1,0 +1,5 @@
+name = "basic_operator"
+source_addon = "blender-addon-framework"
+description = "Reusable Blender operator scaffold with poll/execute/error reporting"
+target_prefix = "src/operators"
+compatibility = "unified-v1"

@@ -1,0 +1,5 @@
+name = "basic_operator_tests"
+source_addon = "blender-addon-framework"
+description = "Starter tests for operator scaffolds"
+target_prefix = "tests"
+compatibility = "unified-v1"
