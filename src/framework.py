@@ -36,6 +36,7 @@ from src.main import (
     DEFAULT_RELEASE_DIR,
     TEST_RELEASE_DIR,
     IS_EXTENSION,
+    ensure_runtime_configuration,
 )
 
 try:
@@ -60,10 +61,25 @@ _ADDON_ROOT = os.path.join(PROJECT_ROOT, _ADDONS_FOLDER)
 _DEBUG_SESSION_DIR = os.path.join(PROJECT_ROOT, ".tmp", "debugger_sessions")
 _BDOCGEN_ROOT = os.path.join(PROJECT_ROOT, "bdocgen")
 
-# Install fake bpy module only when user have configured the blender executable path
-# 仅在用户配置了Blender可执行文件路径时安装fake bpy模块 避免在非Blender环境下安装fake bpy模块(如CICD流程中)
-if os.path.isfile(BLENDER_EXE_PATH):
-    install_fake_bpy(BLENDER_EXE_PATH)
+_RUNTIME_READY = False
+
+
+def _ensure_framework_runtime():
+    global _RUNTIME_READY
+    global BLENDER_EXE_PATH
+    global BLENDER_ADDON_PATH
+
+    if _RUNTIME_READY:
+        return
+
+    ensure_runtime_configuration(auto_detect=True)
+    from src import main as _main
+
+    BLENDER_EXE_PATH = _main.BLENDER_EXE_PATH
+    BLENDER_ADDON_PATH = _main.BLENDER_ADDON_PATH
+    if os.path.isfile(BLENDER_EXE_PATH):
+        install_fake_bpy(BLENDER_EXE_PATH)
+    _RUNTIME_READY = True
 
 
 def new_addon(addon_name: str):
@@ -113,6 +129,7 @@ def _apply_template_substitutions(
 
 
 def test_addon(addon_name, enable_watch=True, debug_mode=True, install_wheels=False):
+    _ensure_framework_runtime()
     init_file = get_init_file_path(addon_name)
     if install_wheels:
         install_manifest_wheels(addon_name)
@@ -1242,6 +1259,7 @@ def execute_blender_script(
         addon_path: Path to the addon for error message path replacement
         addon_venv_path: Optional path to addon's venv site-packages
     """
+    _ensure_framework_runtime()
     debug_session_id = uuid.uuid4().hex
     start_time = time.monotonic()
     env = _build_exec_environment(addon_venv_path, debug_session_id)
@@ -1304,6 +1322,7 @@ def _prepare_blender_env(addon_venv_path=None):
 def _run_blender_python_with_output(
     script, addon_venv_path=None, timeout=_BLENDER_JSON_TIMEOUT
 ) -> _BlenderScriptOutput:
+    _ensure_framework_runtime()
     _ensure_blender_executable()
     args = [
         BLENDER_EXE_PATH,

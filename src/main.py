@@ -242,30 +242,34 @@ TEST_RELEASE_DIR = _runtime_state["TEST_RELEASE_DIR"]
 USE_UV_BY_DEFAULT = _runtime_state["USE_UV_BY_DEFAULT"]
 SKIP_DOCS_BY_DEFAULT = _runtime_state["SKIP_DOCS_BY_DEFAULT"]
 
-BLENDER_EXE_PATH = normalize_blender_path_by_system(BLENDER_EXE_PATH)
 
-# If you want to override theBLENDER_ADDON_PATH(the path to install addon during testing), uncomment the following line and set the path manually.
-# 如果要覆盖BLENDER_ADDON_PATH(测试插件安装路径)，请取消下一行的注释并手动设置路径
-# BLENDER_ADDON_PATH = ""
+def ensure_runtime_configuration(auto_detect: bool = True):
+    global BLENDER_EXE_PATH
+    global BLENDER_ADDON_PATH
 
-# Check if Blender path is valid, attempt auto-detection if not
-if not os.path.exists(BLENDER_EXE_PATH):
-    # Try auto-detection
-    detected_path = _configure_blender_auto()
-    if detected_path:
-        BLENDER_EXE_PATH = detected_path
-        BLENDER_ADDON_PATH = default_blender_addon_path(BLENDER_EXE_PATH)
-    else:
-        raise ValueError(
-            f"Blender not found at: {BLENDER_EXE_PATH}\n"
-            "Please configure BLENDER_EXE_PATH in main.py or config.toml"
-        )
-elif not BLENDER_ADDON_PATH or not os.path.exists(BLENDER_ADDON_PATH):
-    # Blender exists but addon path couldn't be determined
-    BLENDER_ADDON_PATH = default_blender_addon_path(BLENDER_EXE_PATH)
-    if not BLENDER_ADDON_PATH or not os.path.exists(BLENDER_ADDON_PATH):
-        addon_path_str = BLENDER_ADDON_PATH if BLENDER_ADDON_PATH else "<unknown>"
-        raise ValueError(
-            f"Blender addon path not found: {addon_path_str}\n"
-            "Please set the correct path in config.toml"
-        )
+    BLENDER_EXE_PATH = normalize_blender_path_by_system(BLENDER_EXE_PATH)
+
+    if os.path.exists(BLENDER_EXE_PATH):
+        if not BLENDER_ADDON_PATH or not os.path.exists(BLENDER_ADDON_PATH):
+            BLENDER_ADDON_PATH = default_blender_addon_path(BLENDER_EXE_PATH)
+            if not BLENDER_ADDON_PATH or not os.path.exists(BLENDER_ADDON_PATH):
+                addon_path_str = (
+                    BLENDER_ADDON_PATH if BLENDER_ADDON_PATH else "<unknown>"
+                )
+                raise ValueError(
+                    f"Blender addon path not found: {addon_path_str}\n"
+                    "Please set the correct path in config.toml"
+                )
+        return
+
+    if auto_detect:
+        detected_path = _configure_blender_auto()
+        if detected_path:
+            BLENDER_EXE_PATH = detected_path
+            BLENDER_ADDON_PATH = default_blender_addon_path(BLENDER_EXE_PATH)
+            return
+
+    raise ValueError(
+        f"Blender not found at: {BLENDER_EXE_PATH}\n"
+        "Please configure BLENDER_EXE_PATH in main.py or config.toml"
+    )
