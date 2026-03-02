@@ -14,8 +14,11 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from common.class_loader.module_installer import install_if_missing, install_fake_bpy
-from common.io.FileManagerClient import (
+from src.common.class_loader.module_installer import (
+    install_if_missing,
+    install_fake_bpy,
+)
+from src.common.io.FileManagerClient import (
     search_files,
     read_utf8,
     write_utf8,

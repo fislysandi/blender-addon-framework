@@ -6,16 +6,16 @@ from copy import deepcopy
 
 import toml
 
-from common.class_loader.module_installer import (
+from src.common.class_loader.module_installer import (
     default_blender_addon_path,
     normalize_blender_path_by_system,
 )
-from common.blender_detection import (
+from src.common.blender_detection import (
     detect_blender_installations,
     select_blender_installation,
     get_detected_blender_path,
 )
-from common.blender_launcher import detect_from_blender_launcher
+from src.common.blender_launcher import detect_from_blender_launcher
 
 # The name of current active addon to be created, tested or compiled
 # 要创建、测试或编译的当前活动插件的名称

@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from common.uv_integration import (
+from src.common.uv_integration import (
     init_addon_pyproject,
     add_addon_dependency,
     list_addon_dependencies,
