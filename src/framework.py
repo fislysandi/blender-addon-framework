@@ -11,6 +11,7 @@ import threading
 import time
 import textwrap
 import uuid
+from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
 
@@ -1545,7 +1546,7 @@ def _build_initial_visited_py_files(addon_name: str) -> set[str]:
 
 
 def _new_dependency_paths(
-    dependencies: list[str], visited_py_files: set[str]
+    dependencies: Iterable[str], visited_py_files: set[str]
 ) -> list[str]:
     normalized_dependencies = [
         os.path.abspath(dependency) for dependency in dependencies
@@ -1592,6 +1593,102 @@ def _build_release_artifact_name(
     return release_name
 
 
+def _ensure_directory(path: str):
+    if not os.path.isdir(path):
+        Path(path).mkdir(parents=True, exist_ok=True)
+
+
+def _prepare_release_folder(release_dir: str, addon_name: str) -> str:
+    release_folder = os.path.join(release_dir, addon_name)
+    if os.path.exists(release_folder):
+        shutil.rmtree(release_folder)
+    os.mkdir(release_folder)
+    return release_folder
+
+
+def _copy_non_python_siblings(target_init_file: str, release_folder: str):
+    source_dir = os.path.dirname(target_init_file)
+    for file_name in os.listdir(source_dir):
+        file_path = os.path.join(source_dir, file_name)
+        if os.path.isdir(file_path) or file_name.endswith(".py"):
+            continue
+        shutil.copy(file_path, release_folder)
+
+
+def _copy_addon_tree_to_release(addon_name: str, release_folder: str):
+    shutil.copytree(
+        os.path.join(_ADDON_ROOT, addon_name),
+        os.path.join(release_folder, _ADDONS_FOLDER, addon_name),
+        ignore=shutil.ignore_patterns(
+            ".venv", "venv", "__pycache__", "*.pyc", ".git", ".gitignore"
+        ),
+    )
+    shutil.copyfile(
+        os.path.join(_ADDON_ROOT, "__init__.py"),
+        os.path.join(release_folder, _ADDONS_FOLDER, "__init__.py"),
+    )
+
+
+def _copy_dependencies_to_release(
+    dependency_paths: list[str], visited_py_files: set[str], release_folder: str
+):
+    for dependency in dependency_paths:
+        visited_py_files.add(dependency)
+        target_path = os.path.join(
+            release_folder, os.path.relpath(dependency, PROJECT_ROOT)
+        )
+        _ensure_directory(os.path.dirname(target_path))
+        shutil.copy(dependency, target_path)
+
+
+def _clean_release_tree(release_folder: str):
+    remove_pyc_files(release_folder)
+    removed_path = 1
+    while removed_path > 0:
+        removed_path = remove_empty_folders(release_folder)
+
+
+def _apply_extension_import_conversion(release_folder: str, is_extension: bool):
+    if not is_extension:
+        return
+    for py_file in search_files(release_folder, {".py"}):
+        convert_absolute_to_relative(py_file, release_folder)
+
+
+def _load_extension_config(addon_name: str, is_extension: bool) -> tuple[str, dict]:
+    addon_config_file = os.path.join(_ADDON_ROOT, addon_name, _ADDON_MANIFEST_FILE)
+    if os.path.exists(addon_config_file) and is_extension:
+        return addon_config_file, read_ext_config(addon_config_file)
+    return addon_config_file, {}
+
+
+def _copy_extension_wheels(addon_config: dict, release_folder: str):
+    wheel_files = addon_config.get("wheels", [])
+    if len(wheel_files) == 0:
+        return
+
+    wheel_folder = os.path.join(release_folder, _WHEELS_PATH)
+    os.mkdir(wheel_folder)
+    for wheel_file in wheel_files:
+        assert wheel_file.startswith("./wheels/") and wheel_file.count("/") == 2
+        wheel_source = os.path.join(PROJECT_ROOT, wheel_file)
+        if not os.path.exists(wheel_source):
+            raise ValueError(
+                "Wheel file not found:",
+                wheel_source,
+                ". Please download the required wheel file to the wheels folder.",
+            )
+        shutil.copy(wheel_source, wheel_folder)
+
+
+def _maybe_print_docs_contract(docs_build_result: dict):
+    if docs_build_result.get("status") != "ok":
+        return
+    print(
+        f"Docs contract validated: {docs_build_result['manifest_path']} (pages={docs_build_result['page_count']})"
+    )
+
+
 def compile_addon(
     target_init_file,
     addon_name,
@@ -1615,23 +1712,15 @@ def compile_addon(
         if not os.path.isfile(addon_config_file):
             raise ValueError("Extension config file not found:", addon_config_file)
 
-    if not os.path.isdir(release_dir):
-        Path(release_dir).mkdir(parents=True, exist_ok=True)
+    _ensure_directory(release_dir)
 
     if skip_docs:
         print("Skipping docs generation (--skip-docs).")
     else:
         docs_build_result = build_docs_for_addon(addon_name)
-        if docs_build_result.get("status") == "ok":
-            print(
-                f"Docs contract validated: {docs_build_result['manifest_path']} (pages={docs_build_result['page_count']})"
-            )
+        _maybe_print_docs_contract(docs_build_result)
 
-    # remove the folder if already exists
-    release_folder = os.path.join(release_dir, addon_name)
-    if os.path.exists(release_folder):
-        shutil.rmtree(release_folder)
-    os.mkdir(release_folder)
+    release_folder = _prepare_release_folder(release_dir, addon_name)
 
     bl_info = get_addon_info(target_init_file)
     if bl_info is None:
@@ -1639,53 +1728,21 @@ def compile_addon(
     bootstrap_init_file = generate_bootstrap_init_file(addon_name, bl_info)
     write_utf8(os.path.join(release_folder, "__init__.py"), bootstrap_init_file)
 
-    # shutil.copyfile(target_init_file, os.path.join(release_folder, "__init__.py"))
-    # 将target_init_file同级的其他非py文件复制到发布目录 如 toml xml等可能跟插件有关的配置文件
-    for file in os.listdir(os.path.dirname(target_init_file)):
-        file_path = os.path.join(os.path.dirname(target_init_file), file)
-        if os.path.isdir(file_path) or file.endswith(".py"):
-            continue
-        shutil.copy(file_path, release_folder)
-
-    # 将插件文件夹复制到发布目录 (忽略.venv等目录)
-    shutil.copytree(
-        os.path.join(_ADDON_ROOT, addon_name),
-        os.path.join(release_folder, _ADDONS_FOLDER, addon_name),
-        ignore=shutil.ignore_patterns(
-            ".venv", "venv", "__pycache__", "*.pyc", ".git", ".gitignore"
-        ),
-    )
-    shutil.copyfile(
-        os.path.join(_ADDON_ROOT, "__init__.py"),
-        os.path.join(release_folder, _ADDONS_FOLDER, "__init__.py"),
-    )
+    _copy_non_python_siblings(target_init_file, release_folder)
+    _copy_addon_tree_to_release(addon_name, release_folder)
 
     # 对插件文件夹中的每一个py文件进行分析，找到每个py文件中依赖的其他py文件
     visited_py_files = _build_initial_visited_py_files(addon_name)
 
     dependencies = find_all_dependencies(list(visited_py_files), PROJECT_ROOT)
-    for dependency in _new_dependency_paths(dependencies, visited_py_files):
-        visited_py_files.add(dependency)
-        target_path = os.path.join(
-            release_folder, os.path.relpath(dependency, PROJECT_ROOT)
-        )
-        if not os.path.exists(os.path.dirname(target_path)):
-            os.makedirs(os.path.dirname(target_path))
-        shutil.copy(
-            dependency,
-            os.path.join(release_folder, os.path.relpath(dependency, PROJECT_ROOT)),
-        )
+    dependency_paths = _new_dependency_paths(list(dependencies), visited_py_files)
+    _copy_dependencies_to_release(dependency_paths, visited_py_files, release_folder)
 
-    remove_pyc_files(release_folder)
-    removed_path = 1
-    while removed_path > 0:
-        removed_path = remove_empty_folders(release_folder)
+    _clean_release_tree(release_folder)
 
     # 必须先将绝对导入转换为相对导入，否则enhance_import_for_py_files一步会改变绝对导入的路径导致出错
     # convert absolute import to relative import if it's an extension
-    if is_extension:
-        for py_file in search_files(release_folder, {".py"}):
-            convert_absolute_to_relative(py_file, release_folder)
+    _apply_extension_import_conversion(release_folder, is_extension)
 
     # 更新打包后的绝对导入路径：由于打包后文件夹的层级关系发生了变化，需要更新打包后的绝对导入路径
     enhance_import_for_py_files(release_folder)
@@ -1695,32 +1752,9 @@ def compile_addon(
     #                                     _ADDONS_FOLDER, addon_name)
 
     # include wheel files when need to be zipped
-    addon_config_file = os.path.join(_ADDON_ROOT, addon_name, _ADDON_MANIFEST_FILE)
-    addon_config = {}
-    if os.path.exists(addon_config_file) and is_extension:
-        addon_config = read_ext_config(addon_config_file)
+    addon_config_file, addon_config = _load_extension_config(addon_name, is_extension)
     if need_zip:
-        # package whl files into extension
-        if "wheels" in addon_config:
-            wheel_files = addon_config["wheels"]
-            if len(wheel_files) > 0:
-                wheel_folder = os.path.join(release_folder, _WHEELS_PATH)
-                os.mkdir(wheel_folder)
-                for wheel_file in wheel_files:
-                    # You much put the .whl file directly under the wheels folder, not in a subfolder
-                    # 你必须将.whl文件直接放在wheels文件夹下，而不是在子文件夹中
-                    assert (
-                        wheel_file.startswith("./wheels/")
-                        and wheel_file.count("/") == 2
-                    )
-                    wheel_source = os.path.join(PROJECT_ROOT, wheel_file)
-                    if not os.path.exists(wheel_source):
-                        raise ValueError(
-                            "Wheel file not found:",
-                            wheel_source,
-                            ". Please download the required wheel file to the wheels folder.",
-                        )
-                    shutil.copy(wheel_source, wheel_folder)
+        _copy_extension_wheels(addon_config, release_folder)
 
     version_suffix = _resolve_version_suffix(
         with_version=with_version,
