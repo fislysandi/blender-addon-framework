@@ -11,6 +11,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.framework import new_addon
 from src.main import ACTIVE_ADDON
 
+_UNIFIED_TEMPLATE_MODE = "unified-v1"
+_LEGACY_TEMPLATE_MODE = "legacy"
+
 
 def _project_root() -> Path:
     return Path(__file__).parent.parent.parent
@@ -45,9 +48,26 @@ def _print_available_addons(addon_names: list[str]):
         print(f"  - {addon_name}")
 
 
+def _resolve_template_mode(template: str, legacy: bool) -> str:
+    if legacy:
+        return _LEGACY_TEMPLATE_MODE
+    return template
+
+
 def main():
     parser = argparse.ArgumentParser(description="Create a new Blender addon")
     parser.add_argument("addon", nargs="?", default=ACTIVE_ADDON, help="Addon name")
+    parser.add_argument(
+        "--template",
+        choices=[_UNIFIED_TEMPLATE_MODE, _LEGACY_TEMPLATE_MODE],
+        default=_UNIFIED_TEMPLATE_MODE,
+        help="Addon template mode",
+    )
+    parser.add_argument(
+        "--legacy",
+        action="store_true",
+        help="Use legacy flat template (alias for --template legacy)",
+    )
     args = parser.parse_args()
 
     addons_dir = _project_root() / "addons"
@@ -59,8 +79,9 @@ def main():
         sys.exit(1)
 
     try:
-        new_addon(args.addon)
-        print(f"✓ Created addon: {args.addon}")
+        template_mode = _resolve_template_mode(args.template, args.legacy)
+        new_addon(args.addon, template_mode=template_mode)
+        print(f"✓ Created addon: {args.addon} ({template_mode})")
     except ValueError as e:
         print(f"✗ Error: {e}")
         sys.exit(1)

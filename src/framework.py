@@ -60,6 +60,8 @@ _ADDONS_FOLDER = "addons"
 _ADDON_ROOT = os.path.join(PROJECT_ROOT, _ADDONS_FOLDER)
 _DEBUG_SESSION_DIR = os.path.join(PROJECT_ROOT, ".tmp", "debugger_sessions")
 _BDOCGEN_ROOT = os.path.join(PROJECT_ROOT, "bdocgen")
+_UNIFIED_TEMPLATE_MODE = "unified-v1"
+_LEGACY_TEMPLATE_MODE = "legacy"
 
 _RUNTIME_READY = False
 
@@ -82,15 +84,153 @@ def _ensure_framework_runtime():
     _RUNTIME_READY = True
 
 
-def new_addon(addon_name: str):
+def new_addon(addon_name: str, template_mode: str = _UNIFIED_TEMPLATE_MODE):
     _assert_valid_addon_name(addon_name)
+    _assert_valid_template_mode(template_mode)
     new_addon_path = _addon_path(addon_name)
     _assert_addon_absent(new_addon_path, addon_name)
-    shutil.copytree(os.path.join(_ADDON_ROOT, _ADDON_TEMPLATE), new_addon_path)
+
+    if template_mode == _LEGACY_TEMPLATE_MODE:
+        _create_legacy_addon(addon_name, new_addon_path)
+        return
+
+    _create_unified_addon(addon_name, new_addon_path)
+
+
+def _assert_valid_template_mode(template_mode: str):
+    if template_mode in {_UNIFIED_TEMPLATE_MODE, _LEGACY_TEMPLATE_MODE}:
+        return
+    raise ValueError(
+        f"Invalid template mode: {template_mode}. Use '{_UNIFIED_TEMPLATE_MODE}' or '{_LEGACY_TEMPLATE_MODE}'."
+    )
+
+
+def _create_legacy_addon(addon_name: str, addon_path: str):
+    shutil.copytree(os.path.join(_ADDON_ROOT, _ADDON_TEMPLATE), addon_path)
     _apply_template_substitutions(
-        _template_file_paths(new_addon_path),
+        _template_file_paths(addon_path),
         source_token=_ADDON_TEMPLATE,
         target_token=addon_name,
+    )
+
+
+def _create_unified_addon(addon_name: str, addon_path: str):
+    Path(addon_path).mkdir(parents=True, exist_ok=False)
+    for relative_path, content in _unified_addon_files(addon_name).items():
+        target_path = os.path.join(addon_path, relative_path)
+        _ensure_directory(os.path.dirname(target_path))
+        write_utf8(target_path, content)
+
+
+def _unified_addon_files(addon_name: str) -> dict[str, str]:
+    return {
+        "__init__.py": _unified_root_init_template(),
+        "blender_manifest.toml": _unified_manifest_template(addon_name),
+        "pyproject.toml": _unified_pyproject_template(addon_name),
+        "uv.lock": "# Generated on first uv sync\n",
+        "docs/README.md": "# Addon Documentation\n\nDocument what/why/how for this addon.\n",
+        "tests/test_basic.py": _unified_test_template(addon_name),
+        "src/__init__.py": _unified_src_init_template(addon_name),
+        "src/config.py": _unified_src_config_template(),
+        "src/ui/__init__.py": "",
+        "src/utils/__init__.py": "",
+        "src/core/__init__.py": "",
+        "src/i18n/__init__.py": "",
+        "src/operators/__init__.py": "",
+        "src/preferences/__init__.py": "",
+        "src/preferences/config.py": _unified_src_config_template(),
+        "src/preferences/addon_preferences.py": _unified_preferences_template(),
+    }
+
+
+def _unified_root_init_template() -> str:
+    return (
+        "from .src import bl_info\n"
+        "from .src import register as addon_register, unregister as addon_unregister\n\n"
+        "def register():\n"
+        "    addon_register()\n\n"
+        "def unregister():\n"
+        "    addon_unregister()\n"
+    )
+
+
+def _unified_src_init_template(addon_name: str) -> str:
+    return (
+        "from .config import __addon_name__\n\n"
+        "bl_info = {\n"
+        f'    "name": "{addon_name}",\n'
+        '    "author": "Developer",\n'
+        '    "blender": (4, 2, 0),\n'
+        '    "version": (0, 1, 0),\n'
+        '    "description": "Generated addon (unified-v1)",\n'
+        '    "warning": "",\n'
+        '    "doc_url": "",\n'
+        '    "tracker_url": "",\n'
+        '    "support": "COMMUNITY",\n'
+        '    "category": "3D View",\n'
+        "}\n\n"
+        "def register():\n"
+        '    print(f"{__addon_name__} addon registered")\n\n'
+        "def unregister():\n"
+        '    print(f"{__addon_name__} addon unregistered")\n'
+    )
+
+
+def _unified_src_config_template() -> str:
+    return (
+        "from src.common.types.framework import is_extension\n\n"
+        "__addon_name__ = (\n"
+        '    ".".join(__package__.split(".")[0:3])\n'
+        "    if is_extension()\n"
+        '    else __package__.split(".")[0]\n'
+        ")\n"
+    )
+
+
+def _unified_manifest_template(addon_name: str) -> str:
+    return (
+        'schema_version = "1.0.0"\n\n'
+        f'id = "{addon_name}"\n'
+        'version = "0.1.0"\n'
+        f'name = "{addon_name}"\n'
+        'tagline = "Generated with blender-addon-framework unified-v1 template"\n'
+        'maintainer = "Developer <email@example.com>"\n'
+        'type = "add-on"\n'
+        'tags = ["Animation"]\n'
+        'blender_version_min = "4.2.0"\n'
+        'license = ["SPDX:GPL-3.0-or-later"]\n'
+    )
+
+
+def _unified_pyproject_template(addon_name: str) -> str:
+    return (
+        "[project]\n"
+        f'name = "{addon_name}"\n'
+        'version = "0.1.0"\n'
+        'requires-python = ">=3.10"\n'
+        "dependencies = []\n\n"
+        "[build-system]\n"
+        'requires = ["hatchling"]\n'
+        'build-backend = "hatchling.build"\n'
+    )
+
+
+def _unified_preferences_template() -> str:
+    return (
+        "import bpy\n"
+        "from bpy.types import AddonPreferences\n"
+        "from .config import __addon_name__\n\n"
+        "class GeneratedAddonPreferences(AddonPreferences):\n"
+        "    bl_idname = __addon_name__\n\n"
+        "    def draw(self, context):\n"
+        '        self.layout.label(text="Addon preferences")\n'
+    )
+
+
+def _unified_test_template(addon_name: str) -> str:
+    return (
+        "def test_generated_addon_name():\n"
+        f'    assert "{addon_name}" == "{addon_name}"\n'
     )
 
 

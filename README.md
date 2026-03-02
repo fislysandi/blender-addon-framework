@@ -188,6 +188,15 @@ addon_prefs.some_property
 
 ### Create a New Addon
 
+Generated location: `addons/<addon_name>/`
+Default template: `unified-v1`.
+
+Use legacy template when needed:
+
+```bash
+uv run create my_addon --legacy
+```
+
 ```bash
 # Using UV (recommended)
 uv run create my_addon

@@ -67,6 +67,13 @@
 
 - [ ] Addon scaffold generator
 - [ ] Template library for common patterns
+- [ ] **Reusable code templates**
+  - [ ] Reuse code/features from existing addons as template modules
+  - [ ] Add command to import/append template blocks into a target addon
+  - [ ] Support UI template extraction (panels/operators/preferences) for reuse
+  - [ ] Add template metadata (`name`, `source-addon`, `dependencies`, `compatibility`)
+  - [ ] Validate copied imports and dependency requirements after template apply
+  - [ ] Provide conflict strategy for existing files (`skip`, `overwrite`, `rename`)
 
 ---
 
@@ -77,12 +84,18 @@
 > Product principle: prioritize user experience over UI styling.
 > Engineering goal: keep the dependency surface minimal and prefer standard-library-first implementations.
 
+### Decision Note
+
+BDocGen implementation is moved to Python to keep it native to the framework runtime.
+This enables tighter framework integration and sets up a seamless path to invoke docs generation from REPL workflows in future iterations.
+Target milestone: complete Python-first BDocGen MVP before REPL docs-command integration.
+
 - [ ] **Implementation language decision**
-  - [ ] Implement BDocGen in **Clojure**
-  - [ ] Keep runtime dependencies as small as possible (evaluate each new dependency against a clear build/runtime benefit)
-  - [ ] Use Clojure's native JVM interop for Java ecosystem libraries
-  - [ ] Use Clojure's Python interop path where needed for Python ecosystem access
-  - [ ] Keep BDocGen architecture Lisp-friendly for composable document transforms
+  - [ ] Implement BDocGen in **Python**
+  - [ ] Keep dependencies lightweight and minimal (each dependency must have clear value)
+  - [ ] Prefer Python standard library first, then add small focused libraries only when needed
+  - [ ] Define and document accepted dependency criteria (size, maintenance, security, performance)
+  - [ ] Migrate/replace existing Clojure-oriented BDocGen paths with Python implementation plan
 
 - [ ] **UX-first acceptance criteria**
   - [x] Mirror the Blender 5.0 Reference Manual visual style and information architecture (left navigation rail, central content column, right "On This Page" TOC)
@@ -130,11 +143,14 @@
 
 ## Addon Structure Standards
 
+> Generation path policy: new addons are generated under `addons/{addon_name}/`.
+
 - [ ] Standardize folder layout: `src/`, `docs/`, `tests/`
 - [ ] Define `src/` nested conventions (e.g. `src/panels/` for UI)
 - [ ] Migration guidance for existing addons
 - [ ] Write to `docs/addon-structure-standard.md`
 - [ ] **Default addon template v1**
+  - [ ] Confirm generator target path remains `addons/{addon_name}/`
   - [ ] Generate addon tree:
     - [ ] `{addon_name}/blender_manifest.toml`
     - [ ] `{addon_name}/src/__init__.py`
