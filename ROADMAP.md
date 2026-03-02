@@ -179,9 +179,9 @@ Target milestone: complete Python-first BDocGen MVP before REPL docs-command int
 - [ ] **Addon dependency environment standard (UV at addon root)**
   - [x] Include `{addon_name}/pyproject.toml` for addon-scoped dependencies
   - [x] Include `{addon_name}/uv.lock` for reproducible installs
-  - [ ] Support addon-local `.venv/` (not committed)
-  - [ ] Define dependency groups for `dev` and `test`
-  - [ ] Optional: support `.python-version` per addon when needed
+  - [x] Support addon-local `.venv/` (not committed)
+  - [x] Define dependency groups for `dev` and `test`
+  - [x] Optional: support `.python-version` per addon when needed
 
 - [ ] **Addon-local command invocation (no framework-root cd needed)**
   - [ ] Add context resolver to detect addon name from current working directory

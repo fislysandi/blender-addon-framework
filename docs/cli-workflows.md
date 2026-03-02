@@ -30,6 +30,14 @@ Skip git repo bootstrap when needed:
 uv run create my_addon --no-git-init
 ```
 
+Add optional addon-local Python version pin:
+
+```bash
+uv run create my_addon --python-version 3.11
+```
+
+Generated addon `pyproject.toml` includes dependency groups for `dev` and `test` by default.
+
 ## Reusable templates
 
 List templates:

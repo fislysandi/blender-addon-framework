@@ -73,6 +73,11 @@ def main():
         action="store_true",
         help="Skip git init and initial commit in the new addon folder",
     )
+    parser.add_argument(
+        "--python-version",
+        default=None,
+        help="Optional addon-local Python version pin (writes .python-version)",
+    )
     args = parser.parse_args()
 
     addons_dir = _project_root() / "addons"
@@ -89,6 +94,7 @@ def main():
             args.addon,
             template_mode=template_mode,
             initialize_git_repo=not args.no_git_init,
+            python_version=args.python_version,
         )
         print(f"✓ Created addon: {args.addon} ({template_mode})")
     except ValueError as e:

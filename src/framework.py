@@ -68,6 +68,7 @@ _CODE_TEMPLATE_ADDON_TOKEN = "{{addon_name}}"
 _CODE_TEMPLATE_COMPATIBILITY = "unified-v1"
 _INITIAL_ADDON_COMMIT_MESSAGE = "chore: initial addon scaffold"
 _RENAME_ADDON_COMMIT_MESSAGE = "chore: rename addon scaffold"
+_PYTHON_VERSION_PATTERN = re.compile(r"^\d+\.\d+(?:\.\d+)?$")
 
 _RUNTIME_READY = False
 
@@ -94,16 +95,21 @@ def new_addon(
     addon_name: str,
     template_mode: str = _UNIFIED_TEMPLATE_MODE,
     initialize_git_repo: bool = True,
+    python_version: str | None = None,
 ):
     _assert_valid_addon_name(addon_name)
     _assert_valid_template_mode(template_mode)
+    _assert_valid_python_version(python_version)
     new_addon_path = _addon_path(addon_name)
     _assert_addon_absent(new_addon_path, addon_name)
 
     if template_mode == _LEGACY_TEMPLATE_MODE:
         _create_legacy_addon(addon_name, new_addon_path)
     else:
-        _create_unified_addon(addon_name, new_addon_path)
+        _create_unified_addon(addon_name, new_addon_path, python_version=python_version)
+
+    if python_version:
+        _write_addon_python_version_file(new_addon_path, python_version)
 
     if initialize_git_repo:
         _initialize_addon_git_repo(new_addon_path)
@@ -114,6 +120,23 @@ def _assert_valid_template_mode(template_mode: str):
         return
     raise ValueError(
         f"Invalid template mode: {template_mode}. Use '{_UNIFIED_TEMPLATE_MODE}' or '{_LEGACY_TEMPLATE_MODE}'."
+    )
+
+
+def _assert_valid_python_version(python_version: str | None):
+    if python_version is None:
+        return
+    normalized = python_version.strip()
+    if _PYTHON_VERSION_PATTERN.match(normalized):
+        return
+    raise ValueError(
+        "Invalid python version format. Use MAJOR.MINOR or MAJOR.MINOR.PATCH (for example: 3.10 or 3.11.8)."
+    )
+
+
+def _write_addon_python_version_file(addon_path: str, python_version: str):
+    write_utf8(
+        os.path.join(addon_path, ".python-version"), f"{python_version.strip()}\n"
     )
 
 
@@ -171,16 +194,22 @@ def _create_legacy_addon(addon_name: str, addon_path: str):
     )
 
 
-def _create_unified_addon(addon_name: str, addon_path: str):
+def _create_unified_addon(
+    addon_name: str, addon_path: str, python_version: str | None = None
+):
     Path(addon_path).mkdir(parents=True, exist_ok=False)
-    for relative_path, content in _unified_addon_files(addon_name).items():
+    for relative_path, content in _unified_addon_files(
+        addon_name, python_version=python_version
+    ).items():
         target_path = os.path.join(addon_path, relative_path)
         _ensure_directory(os.path.dirname(target_path))
         write_utf8(target_path, content)
 
 
-def _unified_addon_files(addon_name: str) -> dict[str, str]:
-    return {
+def _unified_addon_files(
+    addon_name: str, python_version: str | None = None
+) -> dict[str, str]:
+    files = {
         "__init__.py": _unified_root_init_template(addon_name),
         "blender_manifest.toml": _unified_manifest_template(addon_name),
         "pyproject.toml": _unified_pyproject_template(addon_name),
@@ -198,6 +227,9 @@ def _unified_addon_files(addon_name: str) -> dict[str, str]:
         "src/preferences/config.py": _unified_src_config_template(addon_name),
         "src/preferences/addon_preferences.py": _unified_preferences_template(),
     }
+    if python_version:
+        files[".python-version"] = f"{python_version.strip()}\n"
+    return files
 
 
 def _unified_bl_info_template(addon_name: str) -> str:
@@ -276,6 +308,9 @@ def _unified_pyproject_template(addon_name: str) -> str:
         'version = "0.1.0"\n'
         'requires-python = ">=3.10"\n'
         "dependencies = []\n\n"
+        "[dependency-groups]\n"
+        "dev = []\n"
+        "test = []\n\n"
         "[build-system]\n"
         'requires = ["hatchling"]\n'
         'build-backend = "hatchling.build"\n'

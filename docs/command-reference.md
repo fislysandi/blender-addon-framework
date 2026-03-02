@@ -22,6 +22,7 @@ Options:
 - `--template {unified-v1,legacy}`
 - `--legacy` (alias for `--template legacy`)
 - `--no-git-init` (skip creating a git repo and initial commit inside the new addon)
+- `--python-version <version>` (optional addon-local `.python-version` file)
 
 ## `test`
 

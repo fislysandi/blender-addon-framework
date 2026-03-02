@@ -27,6 +27,18 @@ def test_unified_addon_files_contains_standard_structure():
     assert expected_paths.issubset(set(files.keys()))
 
 
+def test_unified_pyproject_template_includes_dependency_groups():
+    content = framework._unified_pyproject_template("demo_addon")
+    assert "[dependency-groups]" in content
+    assert "dev = []" in content
+    assert "test = []" in content
+
+
+def test_unified_addon_files_include_python_version_when_requested():
+    files = framework._unified_addon_files("demo_addon", python_version="3.11")
+    assert files[".python-version"] == "3.11\n"
+
+
 def test_unified_root_init_defines_bl_info():
     content = framework._unified_root_init_template("demo_addon")
     assert "bl_info = {" in content
@@ -52,8 +64,8 @@ def test_new_addon_routes_to_unified_template_by_default(monkeypatch):
     monkeypatch.setattr(
         framework,
         "_create_unified_addon",
-        lambda addon_name, addon_path: calls.append(
-            ("unified", addon_name, addon_path)
+        lambda addon_name, addon_path, python_version=None: calls.append(
+            ("unified", addon_name, addon_path, python_version)
         ),
     )
     monkeypatch.setattr(
@@ -70,7 +82,7 @@ def test_new_addon_routes_to_unified_template_by_default(monkeypatch):
     framework.new_addon("demo_addon")
 
     assert calls == [
-        ("unified", "demo_addon", "/tmp/addons/demo_addon"),
+        ("unified", "demo_addon", "/tmp/addons/demo_addon", None),
         ("git", "/tmp/addons/demo_addon"),
     ]
 
@@ -87,8 +99,8 @@ def test_new_addon_legacy_mode_routes_to_legacy_template(monkeypatch):
     monkeypatch.setattr(
         framework,
         "_create_unified_addon",
-        lambda addon_name, addon_path: calls.append(
-            ("unified", addon_name, addon_path)
+        lambda addon_name, addon_path, python_version=None: calls.append(
+            ("unified", addon_name, addon_path, python_version)
         ),
     )
     monkeypatch.setattr(
@@ -122,8 +134,8 @@ def test_new_addon_can_skip_git_init(monkeypatch):
     monkeypatch.setattr(
         framework,
         "_create_unified_addon",
-        lambda addon_name, addon_path: calls.append(
-            ("unified", addon_name, addon_path)
+        lambda addon_name, addon_path, python_version=None: calls.append(
+            ("unified", addon_name, addon_path, python_version)
         ),
     )
     monkeypatch.setattr(
@@ -139,7 +151,46 @@ def test_new_addon_can_skip_git_init(monkeypatch):
 
     framework.new_addon("demo_addon", initialize_git_repo=False)
 
-    assert calls == [("unified", "demo_addon", "/tmp/addons/demo_addon")]
+    assert calls == [("unified", "demo_addon", "/tmp/addons/demo_addon", None)]
+
+
+def test_new_addon_writes_python_version_file(monkeypatch):
+    calls = []
+
+    monkeypatch.setattr(framework, "_assert_valid_addon_name", lambda _name: None)
+    monkeypatch.setattr(framework, "_assert_valid_template_mode", lambda _mode: None)
+    monkeypatch.setattr(framework, "_assert_valid_python_version", lambda _v: None)
+    monkeypatch.setattr(
+        framework, "_addon_path", lambda _name: "/tmp/addons/demo_addon"
+    )
+    monkeypatch.setattr(framework, "_assert_addon_absent", lambda _path, _name: None)
+    monkeypatch.setattr(
+        framework,
+        "_create_unified_addon",
+        lambda addon_name, addon_path, python_version=None: calls.append(
+            ("unified", addon_name, addon_path, python_version)
+        ),
+    )
+    monkeypatch.setattr(
+        framework,
+        "_write_addon_python_version_file",
+        lambda addon_path, python_version: calls.append(
+            ("python-version", addon_path, python_version)
+        ),
+    )
+    monkeypatch.setattr(
+        framework,
+        "_initialize_addon_git_repo",
+        lambda addon_path: calls.append(("git", addon_path)),
+    )
+
+    framework.new_addon("demo_addon", python_version="3.11")
+
+    assert calls == [
+        ("unified", "demo_addon", "/tmp/addons/demo_addon", "3.11"),
+        ("python-version", "/tmp/addons/demo_addon", "3.11"),
+        ("git", "/tmp/addons/demo_addon"),
+    ]
 
 
 def test_new_addon_rejects_unknown_template_mode():

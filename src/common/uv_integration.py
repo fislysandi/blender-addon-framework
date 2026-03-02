@@ -79,6 +79,10 @@ description = "Blender addon: {addon_name}"
 requires-python = ">=3.10"
 dependencies = []
 
+[dependency-groups]
+dev = []
+test = []
+
 [tool.uv]
 package = false
 '''
