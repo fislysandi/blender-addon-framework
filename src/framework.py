@@ -1896,6 +1896,16 @@ def _assert_valid_compile_inputs(addon_name: str, is_extension: bool):
         raise ValueError("Extension config file not found:", addon_config_file)
 
 
+@dataclass(frozen=True)
+class _CompilePlan:
+    bl_info: dict
+    release_folder: str
+    dependency_paths: list[str]
+    addon_config: dict
+    real_addon_name: str
+    released_addon_path: str
+
+
 def _compile_plan(
     *,
     target_init_file: str,
@@ -1904,7 +1914,7 @@ def _compile_plan(
     is_extension: bool,
     with_version: bool,
     with_timestamp: bool,
-) -> dict:
+) -> _CompilePlan:
     bl_info = get_addon_info(target_init_file)
     if bl_info is None:
         raise ValueError(f"bl_info not found in: {target_init_file}")
@@ -1931,15 +1941,14 @@ def _compile_plan(
         os.path.join(release_dir, real_addon_name) + ".zip"
     )
 
-    return {
-        "bl_info": bl_info,
-        "release_folder": release_folder,
-        "dependency_paths": dependency_paths,
-        "addon_config_file": addon_config_file,
-        "addon_config": addon_config,
-        "real_addon_name": real_addon_name,
-        "released_addon_path": released_addon_path,
-    }
+    return _CompilePlan(
+        bl_info=bl_info,
+        release_folder=release_folder,
+        dependency_paths=dependency_paths,
+        addon_config=addon_config,
+        real_addon_name=real_addon_name,
+        released_addon_path=released_addon_path,
+    )
 
 
 def compile_addon(
@@ -1973,14 +1982,14 @@ def compile_addon(
 
     release_folder = _prepare_release_folder(release_dir, addon_name)
 
-    bootstrap_init_file = generate_bootstrap_init_file(addon_name, plan["bl_info"])
+    bootstrap_init_file = generate_bootstrap_init_file(addon_name, plan.bl_info)
     write_utf8(os.path.join(release_folder, "__init__.py"), bootstrap_init_file)
 
     _copy_non_python_siblings(target_init_file, release_folder)
     _copy_addon_tree_to_release(addon_name, release_folder)
 
     # 对插件文件夹中的每一个py文件进行分析，找到每个py文件中依赖的其他py文件
-    _copy_dependencies_to_release(plan["dependency_paths"], set(), release_folder)
+    _copy_dependencies_to_release(plan.dependency_paths, set(), release_folder)
 
     _clean_release_tree(release_folder)
 
@@ -1997,10 +2006,10 @@ def compile_addon(
 
     # include wheel files when need to be zipped
     if need_zip:
-        _copy_extension_wheels(plan["addon_config"], release_folder)
+        _copy_extension_wheels(plan.addon_config, release_folder)
 
-    real_addon_name = plan["real_addon_name"]
-    released_addon_path = plan["released_addon_path"]
+    real_addon_name = plan.real_addon_name
+    released_addon_path = plan.released_addon_path
     # zip the addon
     if need_zip:
         zip_folder(release_folder, real_addon_name, is_extension)
