@@ -7,8 +7,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from framework import compile_addon, get_init_file_path
-from main import ACTIVE_ADDON, DEFAULT_RELEASE_DIR, IS_EXTENSION, SKIP_DOCS_BY_DEFAULT
+from src.framework import compile_addon, get_init_file_path
+from src.main import (
+    ACTIVE_ADDON,
+    DEFAULT_RELEASE_DIR,
+    IS_EXTENSION,
+    SKIP_DOCS_BY_DEFAULT,
+)
 
 
 def main():

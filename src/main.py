@@ -52,7 +52,7 @@ BLENDER_ADDON_PATH = None
 if os.path.exists(BLENDER_EXE_PATH):
     BLENDER_ADDON_PATH = default_blender_addon_path(BLENDER_EXE_PATH)
 
-PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 # 若存在config.toml则从其中中读取配置
 CONFIG_FILEPATH = os.path.join(PROJECT_ROOT, "config.toml")

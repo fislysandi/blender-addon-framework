@@ -8,8 +8,8 @@ from pathlib import Path
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from framework import new_addon
-from main import ACTIVE_ADDON
+from src.framework import new_addon
+from src.main import ACTIVE_ADDON
 
 
 def main():

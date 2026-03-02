@@ -27,7 +27,7 @@ from src.common.io.FileManagerClient import (
     read_utf8_in_lines,
     write_utf8_in_lines,
 )
-from main import (
+from src.main import (
     PROJECT_ROOT,
     BLENDER_ADDON_PATH,
     BLENDER_EXE_PATH,

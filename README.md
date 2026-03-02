@@ -76,15 +76,15 @@ uv run python -c "import watchdog; print('✓ UV setup complete')"
 
 | File | UV Command | Legacy Command |
 |------|------------|----------------|
-| Create addon | `uv run create <addon>` | `python3 create.py <addon>` |
-| Test addon | `uv run test <addon>` | `python3 test.py <addon>` |
-| Compile addon | `uv run compile <addon>` | `python3 compile.py <addon>` |
+| Create addon | `uv run create <addon>` | `python3 -m src.commands.create <addon>` |
+| Test addon | `uv run test <addon>` | `python3 -m src.commands.test <addon>` |
+| Compile addon | `uv run compile <addon>` | `python3 -m src.commands.compile <addon>` |
 
 ### Framework Files
 
-- [main.py](main.py): Configures the Blender path, add-on installation path, default add-on, package ignore files, and
+- [src/main.py](src/main.py): Configures the Blender path, add-on installation path, default add-on, package ignore files, and
   add-on release path, among other settings.
-- [framework.py](framework.py): The core business logic of the framework, which automates the development process.
+- [src/framework.py](src/framework.py): The core business logic of the framework, which automates the development process.
 - [addons](addons): A directory to store add-ons, with each add-on in its own sub-directory.
 - [common](common): A directory to store shared utilities.
 
@@ -177,13 +177,13 @@ addon_prefs.some_property
    Properties.) to more than 2600 because some modules have the issue of being too big for intelliSense to work. You
    might also need to associate the __init__.pyi file as the python File Types
    in ![setting](https://i.ibb.co/QcYZytw/script.png) to get the auto code completion working.
-1. Configure the name of the addon you want to create (ACTIVE_ADDON) in [main.py](main.py).
-1. Run create.py to create a new addon in your IDE. The first time you run this, it will download dependencies,
+1. Configure the name of the addon you want to create (ACTIVE_ADDON) in [src/main.py](src/main.py).
+1. Run `python3 -m src.commands.create` to create a new addon in your IDE. The first time you run this, it will download dependencies,
    including
    watchdog and fake-bpy-module into your virtual enviroment.
 1. Develop your addon in the newly created addon directory.
-1. Run test.py to test your addon in Blender.
-1. Run compile.py to package your addon into an installable package. The packaged addon path will appears in the
+1. Run `python3 -m src.commands.test` to test your addon in Blender.
+1. Run `python3 -m src.commands.compile` to package your addon into an installable package. The packaged addon path will appears in the
    terminal when packaged successfully.
 
 ### Create a New Addon
@@ -193,7 +193,7 @@ addon_prefs.some_property
 uv run create my_addon
 
 # Legacy method
-python3 create.py my_addon
+python3 -m src.commands.create my_addon
 ```
 
 ### Test Your Addon
@@ -209,7 +209,7 @@ uv run test my_addon --disable-watch
 uv run test my_addon --with-wheels
 
 # Legacy method
-python3 test.py my_addon
+python3 -m src.commands.test my_addon
 ```
 
 Each test run now prints a `[DEBUG] Blender PID: ... (session <id>)` line and writes a session file under `.tmp/debugger_sessions/<id>.json` plus a matching `.log`. Agents can inspect the JSON for the PID, command, and duration, and tail the log file to read the latest Blender output while the debugger is running.
@@ -254,10 +254,10 @@ python scripts/analyze_eval_timeline.py .tmp/debugger_sessions/<id>.log --opid o
 uv run compile my_addon
 
 # Legacy method
-python3 compile.py my_addon
+python3 -m src.commands.compile my_addon
 ```
 
-`uv run release` and `python3 release.py` remain available as deprecated aliases during the migration window.
+`uv run release` and `python3 -m src.commands.release` remain available as deprecated aliases during the migration window.
 
 By default the packaged zip lands in `releases/` at the project root. Use `config.toml` or `--release-dir` to point releases elsewhere.
 
@@ -420,15 +420,15 @@ The command will now show you a list of available addons in the `addons/` folder
 
 ## 基础框架
 
-[main.py](main.py): 可以配置Blender路径，插件安装路径，当前默认插件，插件发布路径等
+[src/main.py](src/main.py): 可以配置Blender路径，插件安装路径，当前默认插件，插件发布路径等
 
-[test.py](test.py): 测试工具，可以运行插件的测试
+[src/commands/test.py](src/commands/test.py): 测试工具，可以运行插件的测试
 
-[create.py](create.py): 创建插件的工具，可以根据sample_addon模版快速创建一个插件
+[src/commands/create.py](src/commands/create.py): 创建插件的工具，可以根据sample_addon模版快速创建一个插件
 
-[compile.py](compile.py): 打包工具，可以将插件打包成一个安装包
+[src/commands/compile.py](src/commands/compile.py): 打包工具，可以将插件打包成一个安装包
 
-[framework.py](framework.py): 框架的核心业务代码，用于实现开发流程的自动化
+[src/framework.py](src/framework.py): 框架的核心业务代码，用于实现开发流程的自动化
 
 [addons](addons): 存放插件的目录，每个插件一个目录，使用create.py可以快速创建一个插件
 
@@ -478,12 +478,12 @@ addon_prefs.some_property
 1. 对于PyCharm用户，请将idea.properties文件(点击 Help | Edit Custom Properties.)
    中的idea.max.intellisense.filesize的值更改为大于2600，因为某些模块的大小超过了intelliSense的工作范围。你可能需要将__init__
    .pyi文件关联到python File Types ![setting](https://i.ibb.co/QcYZytw/script.png) 以使自动代码补全正常工作。
-1. 在 [main.py](main.py) 中配置 Blender 可执行文件路径（BLENDER_EXE_PATH）
-1. 在 [main.py](main.py) 中配置您想要创建的插件名称（ACTIVE_ADDON）。
-1. 运行 create.py 在您的 IDE 中创建一个新的插件。第一次运行时需要联网下载依赖库,包括watchdog和fake-bpy-module
+1. 在 [src/main.py](src/main.py) 中配置 Blender 可执行文件路径（BLENDER_EXE_PATH）
+1. 在 [src/main.py](src/main.py) 中配置您想要创建的插件名称（ACTIVE_ADDON）。
+1. 运行 `python3 -m src.commands.create` 在您的 IDE 中创建一个新的插件。第一次运行时需要联网下载依赖库,包括watchdog和fake-bpy-module
 1. 在新创建的插件目录中开发您的插件。
-1. 运行 test.py 在 Blender 中测试您的插件。
-1. 运行 compile.py 将您的插件打包成可安装的包。成功打包后，终端中将显示打包插件的路径。
+1. 运行 `python3 -m src.commands.test` 在 Blender 中测试您的插件。
+1. 运行 `python3 -m src.commands.compile` 将您的插件打包成可安装的包。成功打包后，终端中将显示打包插件的路径。
 
 ## 框架提供的功能
 

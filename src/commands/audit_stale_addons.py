@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from framework import audit_stale_addons
+from src.framework import audit_stale_addons
 
 
 def main():

@@ -7,8 +7,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from framework import test_addon
-from main import ACTIVE_ADDON
+from src.framework import test_addon
+from src.main import ACTIVE_ADDON
 
 
 def _list_addons(addons_dir: Path) -> list[str]:
