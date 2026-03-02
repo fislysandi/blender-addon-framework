@@ -1536,6 +1536,62 @@ def build_docs_for_addon(addon_name: str):
     return {"status": "ok", **contract}
 
 
+def _build_initial_visited_py_files(addon_name: str) -> set[str]:
+    addon_py_files = search_files(os.path.join(_ADDON_ROOT, addon_name), {".py"})
+    root_init_file = os.path.join(_ADDON_ROOT, "__init__.py")
+    return {os.path.abspath(file_path) for file_path in addon_py_files} | {
+        os.path.abspath(root_init_file)
+    }
+
+
+def _new_dependency_paths(
+    dependencies: list[str], visited_py_files: set[str]
+) -> list[str]:
+    normalized_dependencies = [
+        os.path.abspath(dependency) for dependency in dependencies
+    ]
+    return [
+        dependency
+        for dependency in normalized_dependencies
+        if dependency not in visited_py_files
+    ]
+
+
+def _resolve_version_suffix(
+    *,
+    with_version: bool,
+    is_extension: bool,
+    bl_info: dict,
+    addon_config: dict,
+    addon_config_file: str,
+) -> str | None:
+    if not with_version:
+        return None
+    if not is_extension:
+        return ".".join([str(value) for value in bl_info["version"]])
+
+    version = addon_config.get("version")
+    if version:
+        return version
+    raise ValueError("version not found in:", addon_config_file)
+
+
+def _build_release_artifact_name(
+    release_folder: str,
+    *,
+    is_extension: bool,
+    version_suffix: str | None,
+    with_timestamp: bool,
+) -> str:
+    release_name = f"{release_folder}_ext" if is_extension else release_folder
+    if version_suffix:
+        release_name = f"{release_name}_V{version_suffix}"
+    if with_timestamp:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        release_name = f"{release_name}_{timestamp}"
+    return release_name
+
+
 def compile_addon(
     target_init_file,
     addon_name,
@@ -1604,19 +1660,11 @@ def compile_addon(
         os.path.join(release_folder, _ADDONS_FOLDER, "__init__.py"),
     )
 
-    all_py_files = search_files(os.path.join(_ADDON_ROOT, addon_name), {".py"})
     # 对插件文件夹中的每一个py文件进行分析，找到每个py文件中依赖的其他py文件
-    visited_py_files = set()
-    for py_file in all_py_files:
-        visited_py_files.add(os.path.abspath(py_file))
-    # 注意不要漏掉__init__.py文件
-    visited_py_files.add(os.path.abspath(os.path.join(_ADDON_ROOT, "__init__.py")))
+    visited_py_files = _build_initial_visited_py_files(addon_name)
 
     dependencies = find_all_dependencies(list(visited_py_files), PROJECT_ROOT)
-    for dependency in dependencies:
-        dependency = os.path.abspath(dependency)
-        if dependency in visited_py_files:
-            continue
+    for dependency in _new_dependency_paths(dependencies, visited_py_files):
         visited_py_files.add(dependency)
         target_path = os.path.join(
             release_folder, os.path.relpath(dependency, PROJECT_ROOT)
@@ -1674,26 +1722,19 @@ def compile_addon(
                         )
                     shutil.copy(wheel_source, wheel_folder)
 
-    real_addon_name = "{addon_name}".format(addon_name=release_folder)
-    if is_extension:
-        real_addon_name = f"{real_addon_name}_ext"
-    if with_version:
-        _version: str
-        if not is_extension:
-            bl_info = get_addon_info(target_init_file)
-            if bl_info is not None:
-                _version = ".".join([str(x) for x in bl_info["version"]])
-            else:
-                raise ValueError("bl_info not found in:", target_init_file)
-        else:
-            if "version" in addon_config:
-                _version = addon_config["version"]
-            else:
-                raise ValueError("version not found in:", addon_config_file)
-        real_addon_name = f"{real_addon_name}_V{_version}"
-    if with_timestamp:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        real_addon_name = f"{real_addon_name}_{timestamp}"
+    version_suffix = _resolve_version_suffix(
+        with_version=with_version,
+        is_extension=is_extension,
+        bl_info=bl_info,
+        addon_config=addon_config,
+        addon_config_file=addon_config_file,
+    )
+    real_addon_name = _build_release_artifact_name(
+        release_folder,
+        is_extension=is_extension,
+        version_suffix=version_suffix,
+        with_timestamp=with_timestamp,
+    )
 
     released_addon_path = os.path.abspath(
         os.path.join(release_dir, real_addon_name) + ".zip"
