@@ -31,6 +31,8 @@ addon-deps = "src.commands.addon_deps:main"
 test-framework = "src.commands.test_framework:main"
 rename-addon = "src.commands.rename_addon:main"
 template = "src.commands.template:main"
+completion = "src.commands.completion:main"
+baf = "src.commands.baf:main"
 
 [tool.uv]
 # Enable package mode to install console scripts

@@ -55,6 +55,7 @@ Reusable template catalog:
 
 - Location: `code_templates/`
 - Apply command: `uv run template apply <template_name> <addon_name>`
+- Extract command: `uv run template extract <template_name> <source_addon> <source_path> --target-prefix <path>`
 - Initial templates adapted from subtitle_studio:
   - `ui/basic_panel`
   - `ui/panel_with_sections`

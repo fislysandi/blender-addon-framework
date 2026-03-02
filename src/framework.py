@@ -414,11 +414,128 @@ def apply_code_template(
     }
 
 
+def extract_code_template(
+    template_name: str,
+    source_addon: str,
+    source_path: str,
+    *,
+    target_prefix: str,
+    description: str,
+    dry_run: bool = False,
+    overwrite: bool = False,
+) -> dict:
+    _assert_valid_addon_name(source_addon)
+    _assert_valid_template_name(template_name)
+
+    source_root = _resolve_addon_source_path(source_addon, source_path)
+    template_root = _resolve_new_template_root(template_name)
+    files = _collect_template_source_files(source_root)
+    if not files:
+        raise ValueError(f"No files found to extract from: {source_root}")
+
+    if os.path.exists(template_root) and not overwrite:
+        raise ValueError(f"Template already exists: {template_name}")
+
+    metadata = {
+        "name": Path(template_name).name,
+        "source_addon": source_addon,
+        "description": description,
+        "target_prefix": target_prefix,
+        "compatibility": _CODE_TEMPLATE_COMPATIBILITY,
+        "dependencies": [],
+    }
+
+    if dry_run:
+        return {
+            "status": "dry-run",
+            "template": template_name,
+            "source_addon": source_addon,
+            "source_path": source_path,
+            "template_root": template_root,
+            "files": len(files),
+        }
+
+    if os.path.exists(template_root) and overwrite:
+        shutil.rmtree(template_root)
+
+    files_root = os.path.join(template_root, "files")
+    _ensure_directory(files_root)
+    write_utf8(
+        os.path.join(template_root, _CODE_TEMPLATE_METADATA_FILE),
+        _template_metadata_toml(metadata),
+    )
+    for file_path in files:
+        relative_path = os.path.relpath(file_path, source_root)
+        target_path = os.path.join(files_root, relative_path)
+        _ensure_directory(os.path.dirname(target_path))
+        content = read_utf8(file_path).replace(source_addon, _CODE_TEMPLATE_ADDON_TOKEN)
+        write_utf8(target_path, content)
+
+    return {
+        "status": "ok",
+        "template": template_name,
+        "source_addon": source_addon,
+        "source_path": source_path,
+        "template_root": template_root,
+        "files": len(files),
+    }
+
+
 def _assert_valid_conflict_mode(on_conflict: str):
     if on_conflict in {"skip", "overwrite", "rename"}:
         return
     raise ValueError(
         f"Invalid conflict mode: {on_conflict}. Use 'skip', 'overwrite', or 'rename'."
+    )
+
+
+def _assert_valid_template_name(template_name: str):
+    normalized = template_name.strip().strip("/")
+    if not normalized:
+        raise ValueError("Template name must be non-empty")
+    if normalized.startswith(".") or ".." in normalized.split("/"):
+        raise ValueError(f"Invalid template name: {template_name}")
+
+
+def _resolve_addon_source_path(source_addon: str, source_path: str) -> str:
+    addon_root = _addon_path(source_addon)
+    if not os.path.isdir(addon_root):
+        raise ValueError(f"Source addon not found: {addon_root}")
+    resolved = os.path.normpath(os.path.join(addon_root, source_path))
+    if not resolved.startswith(os.path.normpath(addon_root)):
+        raise ValueError(f"Invalid source path for extraction: {source_path}")
+    if not os.path.exists(resolved):
+        raise ValueError(f"Source path not found: {resolved}")
+    return resolved
+
+
+def _resolve_new_template_root(template_name: str) -> str:
+    normalized = template_name.strip().strip("/")
+    return os.path.normpath(os.path.join(_CODE_TEMPLATES_ROOT, normalized))
+
+
+def _collect_template_source_files(source_root: str) -> list[str]:
+    if os.path.isfile(source_root):
+        return [source_root]
+    collected = []
+    for root, _, files in os.walk(source_root):
+        for file_name in files:
+            if file_name.startswith("."):
+                continue
+            collected.append(os.path.join(root, file_name))
+    return sorted(collected)
+
+
+def _template_metadata_toml(metadata: dict) -> str:
+    dependencies = metadata.get("dependencies", [])
+    dependency_items = ", ".join([json.dumps(dep) for dep in dependencies])
+    return (
+        f"name = {json.dumps(metadata['name'])}\n"
+        f"source_addon = {json.dumps(metadata['source_addon'])}\n"
+        f"description = {json.dumps(metadata['description'])}\n"
+        f"target_prefix = {json.dumps(metadata['target_prefix'])}\n"
+        f"compatibility = {json.dumps(metadata['compatibility'])}\n"
+        f"dependencies = [{dependency_items}]\n"
     )
 
 

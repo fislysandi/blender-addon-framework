@@ -82,6 +82,8 @@ uv run python -c "import watchdog; print('✓ UV setup complete')"
 | Test addon | `uv run test <addon>` | `python3 -m src.commands.test <addon>` |
 | Compile addon | `uv run compile <addon>` | `python3 -m src.commands.compile <addon>` |
 
+You can also use the top-level launcher: `baf <command> ...`.
+
 ### Framework Files
 
 - [src/main.py](src/main.py): Configures the Blender path, add-on installation path, default add-on, package ignore files, and
@@ -258,6 +260,19 @@ uv run template apply ui/basic_panel my_addon --dry-run
 
 # Apply with conflict strategy
 uv run template apply ui/basic_panel my_addon --on-conflict rename
+
+# Extract a template from existing addon code
+uv run template extract ui/new_panel sample_addon src/ui --target-prefix src/ui --description "Panel template"
+```
+
+### Shell Completion and Suggestions
+
+```bash
+# Generate completion script
+uv run completion script bash
+
+# Use top-level launcher (with typo suggestions)
+baf renmae-addon old_addon new_addon
 ```
 
 Each test run now prints a `[DEBUG] Blender PID: ... (session <id>)` line and writes a session file under `.tmp/debugger_sessions/<id>.json` plus a matching `.log`. Agents can inspect the JSON for the PID, command, and duration, and tail the log file to read the latest Blender output while the debugger is running.
@@ -433,14 +448,17 @@ The command will now show you a list of available addons in the `addons/` folder
 | `uv run create <addon>` | Create a new addon from template |
 | `uv run template list` | List reusable templates from code_templates/ |
 | `uv run template apply <template> <addon>` | Apply reusable template into addon |
+| `uv run template extract <template> <addon> <source_path>` | Extract reusable template from addon code |
 | `uv run rename-addon <old> <new>` | Rename addon with metadata/reference rewrite |
 | `uv run test <addon>` | Test addon with hot reload |
 | `uv run compile <addon>` | Compile/package addon for distribution |
 | `uv run release <addon>` | Deprecated alias for compile |
+| `uv run completion script <bash\|zsh\|fish>` | Print shell completion script |
 | `uv run addon-deps init <addon>` | Initialize addon dependencies |
 | `uv run addon-deps add <addon> <pkg>` | Add dependency to addon |
 | `uv run addon-deps list <addon>` | List addon dependencies |
 | `uv run addon-deps sync <addon>` | Sync addon dependencies |
+| `baf <command> ...` | Top-level launcher with command suggestions |
 
 # Blender 插件开发框架及打包工具
 
