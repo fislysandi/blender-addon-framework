@@ -1528,11 +1528,245 @@ def _debug_eval_is_addon_module(module_name):
     return module_name.startswith("{addon_name}.")
 
 
-def _debug_eval_tracer(frame, event, arg):
+def _debug_eval_call_event(frame, func_name, target_context, frame_id, compared):
     global _debug_eval_active_root
     global _debug_eval_active_depth
     global _debug_eval_operator_seq
 
+    _debug_eval_clock[frame_id] = time.perf_counter()
+    parent_meta = _debug_eval_frame_meta.get(id(frame.f_back), {{}})
+    parent_call_eid = parent_meta.get("call_eid")
+    opid = parent_meta.get("opid")
+
+    module_name = str(frame.f_globals.get("__name__", ""))
+    is_root_operator = (
+        func_name in {{"invoke", "execute"}}
+        and bool(target_context.get("operator_id") or target_context.get("target"))
+        and _debug_eval_is_addon_module(module_name)
+    )
+    if is_root_operator:
+        _debug_eval_operator_seq += 1
+        opid = f"op-{{_debug_eval_operator_seq:06d}}"
+        _debug_eval_operator_stats[opid] = {{
+            "started_perf": time.perf_counter(),
+            "call_count": 0,
+            "decision_count": 0,
+            "warning_count": 0,
+        }}
+        _debug_eval_active_root = frame_id
+        _debug_eval_active_depth = 0
+    elif _debug_eval_active_root is not None and _debug_eval_is_addon_module(module_name):
+        _debug_eval_active_depth += 1
+
+    if opid and opid in _debug_eval_operator_stats:
+        _debug_eval_operator_stats[opid]["call_count"] += 1
+
+    decision_reason = "branch-allowlist"
+    if is_root_operator:
+        decision_reason = "branch-operator-entry"
+    elif _debug_eval_active_root is not None:
+        decision_reason = "branch-active-root"
+
+    _debug_eval_emit_decision(
+        _debug_eval_action(frame),
+        decision_reason,
+        {{
+            "module": frame.f_globals.get("__name__"),
+            "function": func_name,
+            "chosen": "trace",
+            "compared": compared,
+            "depth": _debug_eval_active_depth,
+            **target_context,
+        }},
+        opid=opid,
+        parent_eid=parent_call_eid,
+        level="detailed",
+    )
+
+    domain_before = _debug_eval_extract_domain_state(frame)
+    call_eid = _debug_eval_log(
+        _debug_eval_action(frame),
+        "start",
+        "ok",
+        "call",
+        {{
+            "module": frame.f_globals.get("__name__"),
+            "function": func_name,
+            "line": frame.f_lineno,
+            "file": os.path.basename(frame.f_code.co_filename),
+            "depth": _debug_eval_active_depth,
+            **domain_before,
+            **target_context,
+        }},
+        level="basic",
+        event_type="event",
+        opid=opid,
+        parent_eid=parent_call_eid,
+    )
+
+    _debug_eval_frame_meta[frame_id] = {{
+        "opid": opid,
+        "call_eid": call_eid,
+        "before_state": domain_before,
+        "target_context": target_context,
+        "action": _debug_eval_action(frame),
+    }}
+
+
+def _debug_eval_pop_frame_meta(frame, frame_id):
+    frame_meta = _debug_eval_frame_meta.pop(frame_id, {{}})
+    opid = frame_meta.get("opid")
+    call_eid = frame_meta.get("call_eid")
+    domain_before = frame_meta.get("before_state", {{}})
+    action = frame_meta.get("action", _debug_eval_action(frame))
+    return frame_meta, opid, call_eid, domain_before, action
+
+
+def _debug_eval_finalize_trace_depth(frame_id):
+    global _debug_eval_active_root
+    global _debug_eval_active_depth
+
+    if frame_id == _debug_eval_active_root:
+        _debug_eval_active_root = None
+        _debug_eval_active_depth = 0
+    elif _debug_eval_active_root is not None and _debug_eval_active_depth > 0:
+        _debug_eval_active_depth -= 1
+
+
+def _debug_eval_handle_return_event(
+    frame,
+    func_name,
+    target_context,
+    frame_id,
+    opid,
+    call_eid,
+    action,
+    duration_ms,
+    domain_after,
+    arg,
+):
+    _debug_eval_log(
+        action,
+        "success",
+        "ok",
+        "return",
+        {{
+            "module": frame.f_globals.get("__name__"),
+            "function": func_name,
+            "duration_ms": duration_ms,
+            **_debug_eval_result_meta(arg),
+            "depth": _debug_eval_active_depth,
+            **domain_after,
+            **target_context,
+        }},
+        level="basic",
+        event_type="event",
+        opid=opid,
+        parent_eid=call_eid,
+    )
+
+    is_root_end = frame_id == _debug_eval_active_root
+    if is_root_end and opid in _debug_eval_operator_stats:
+        stats = _debug_eval_operator_stats.pop(opid)
+        total_duration_ms = round(
+            (time.perf_counter() - stats["started_perf"]) * 1000.0,
+            3,
+        )
+        _debug_eval_log(
+            action,
+            "summary",
+            "ok",
+            "operator-complete",
+            context={{
+                "total-duration-ms": total_duration_ms,
+                "call-count": stats.get("call_count", 0),
+                "decision-count": stats.get("decision_count", 0),
+                "warning-count": stats.get("warning_count", 0),
+                "final-outcome": "ok",
+                **target_context,
+            }},
+            level="basic",
+            event_type="summary",
+            opid=opid,
+            parent_eid=call_eid,
+        )
+
+    _debug_eval_finalize_trace_depth(frame_id)
+
+
+def _debug_eval_handle_exception_event(
+    frame,
+    func_name,
+    target_context,
+    frame_id,
+    opid,
+    call_eid,
+    action,
+    duration_ms,
+    domain_after,
+    arg,
+):
+    exc_type = None
+    exc_message = None
+    if isinstance(arg, tuple) and len(arg) > 0 and arg[0] is not None:
+        exc_type = getattr(arg[0], "__name__", str(arg[0]))
+    if isinstance(arg, tuple) and len(arg) > 1 and arg[1] is not None:
+        exc_message = str(arg[1])
+
+    _debug_eval_log(
+        action,
+        "fail",
+        "error",
+        "exception",
+        {{
+            "module": frame.f_globals.get("__name__"),
+            "function": func_name,
+            "error-type": exc_type,
+            "message": exc_message,
+            "recoverable": False,
+            "next-action": "inspect-debug-log-and-stacktrace",
+            "duration_ms": duration_ms,
+            "depth": _debug_eval_active_depth,
+            **domain_after,
+            **target_context,
+        }},
+        level="basic",
+        event_type="error",
+        opid=opid,
+        parent_eid=call_eid,
+    )
+
+    is_root_end = frame_id == _debug_eval_active_root
+    if is_root_end and opid in _debug_eval_operator_stats:
+        stats = _debug_eval_operator_stats.pop(opid)
+        total_duration_ms = round(
+            (time.perf_counter() - stats["started_perf"]) * 1000.0,
+            3,
+        )
+        _debug_eval_log(
+            action,
+            "summary",
+            "error",
+            "operator-failed",
+            context={{
+                "total-duration-ms": total_duration_ms,
+                "call-count": stats.get("call_count", 0),
+                "decision-count": stats.get("decision_count", 0),
+                "warning-count": stats.get("warning_count", 0),
+                "final-outcome": "error",
+                "error-type": exc_type,
+                **target_context,
+            }},
+            level="basic",
+            event_type="summary",
+            opid=opid,
+            parent_eid=call_eid,
+        )
+
+    _debug_eval_finalize_trace_depth(frame_id)
+
+
+def _debug_eval_tracer(frame, event, arg):
     module_name = str(frame.f_globals.get("__name__", ""))
     func_name = frame.f_code.co_name
     target_context = _debug_eval_target_context(frame)
@@ -1548,7 +1782,6 @@ def _debug_eval_tracer(frame, event, arg):
     }}
 
     is_target = _debug_eval_is_target(frame)
-
     if event == "call":
         if not is_target:
             _debug_eval_emit_decision(
@@ -1564,94 +1797,15 @@ def _debug_eval_tracer(frame, event, arg):
                 level="forensic",
             )
             return
-
-        _debug_eval_clock[frame_id] = time.perf_counter()
-        parent_meta = _debug_eval_frame_meta.get(id(frame.f_back), {{}})
-        parent_call_eid = parent_meta.get("call_eid")
-        opid = parent_meta.get("opid")
-
-        is_root_operator = (
-            func_name in {{"invoke", "execute"}}
-            and bool(target_context.get("operator_id") or target_context.get("target"))
-            and _debug_eval_is_addon_module(module_name)
-        )
-        if is_root_operator:
-            _debug_eval_operator_seq += 1
-            opid = f"op-{{_debug_eval_operator_seq:06d}}"
-            _debug_eval_operator_stats[opid] = {{
-                "started_perf": time.perf_counter(),
-                "call_count": 0,
-                "decision_count": 0,
-                "warning_count": 0,
-            }}
-            _debug_eval_active_root = frame_id
-            _debug_eval_active_depth = 0
-        elif _debug_eval_active_root is not None and _debug_eval_is_addon_module(module_name):
-            _debug_eval_active_depth += 1
-
-        if opid and opid in _debug_eval_operator_stats:
-            _debug_eval_operator_stats[opid]["call_count"] += 1
-
-        decision_reason = "branch-allowlist"
-        if is_root_operator:
-            decision_reason = "branch-operator-entry"
-        elif _debug_eval_active_root is not None:
-            decision_reason = "branch-active-root"
-
-        _debug_eval_emit_decision(
-            _debug_eval_action(frame),
-            decision_reason,
-            {{
-                "module": frame.f_globals.get("__name__"),
-                "function": func_name,
-                "chosen": "trace",
-                "compared": compared,
-                "depth": _debug_eval_active_depth,
-                **target_context,
-            }},
-            opid=opid,
-            parent_eid=parent_call_eid,
-            level="detailed",
-        )
-
-        domain_before = _debug_eval_extract_domain_state(frame)
-        call_eid = _debug_eval_log(
-            _debug_eval_action(frame),
-            "start",
-            "ok",
-            "call",
-            {{
-                "module": frame.f_globals.get("__name__"),
-                "function": func_name,
-                "line": frame.f_lineno,
-                "file": os.path.basename(frame.f_code.co_filename),
-                "depth": _debug_eval_active_depth,
-                **domain_before,
-                **target_context,
-            }},
-            level="basic",
-            event_type="event",
-            opid=opid,
-            parent_eid=parent_call_eid,
-        )
-
-        _debug_eval_frame_meta[frame_id] = {{
-            "opid": opid,
-            "call_eid": call_eid,
-            "before_state": domain_before,
-            "target_context": target_context,
-            "action": _debug_eval_action(frame),
-        }}
+        _debug_eval_call_event(frame, func_name, target_context, frame_id, compared)
         return
 
     if not is_target:
         return
 
-    frame_meta = _debug_eval_frame_meta.pop(frame_id, {{}})
-    opid = frame_meta.get("opid")
-    call_eid = frame_meta.get("call_eid")
-    domain_before = frame_meta.get("before_state", {{}})
-    action = frame_meta.get("action", _debug_eval_action(frame))
+    _frame_meta, opid, call_eid, domain_before, action = _debug_eval_pop_frame_meta(
+        frame, frame_id
+    )
 
     started_at = _debug_eval_clock.pop(frame_id, None)
     duration_ms = None
@@ -1668,123 +1822,33 @@ def _debug_eval_tracer(frame, event, arg):
     )
 
     if event == "return":
-        _debug_eval_log(
+        _debug_eval_handle_return_event(
+            frame,
+            func_name,
+            target_context,
+            frame_id,
+            opid,
+            call_eid,
             action,
-            "success",
-            "ok",
-            "return",
-            {{
-                "module": frame.f_globals.get("__name__"),
-                "function": func_name,
-                "duration_ms": duration_ms,
-                **_debug_eval_result_meta(arg),
-                "depth": _debug_eval_active_depth,
-                **domain_after,
-                **target_context,
-            }},
-            level="basic",
-            event_type="event",
-            opid=opid,
-            parent_eid=call_eid,
+            duration_ms,
+            domain_after,
+            arg,
         )
-
-        is_root_end = frame_id == _debug_eval_active_root
-
-        if is_root_end and opid in _debug_eval_operator_stats:
-            stats = _debug_eval_operator_stats.pop(opid)
-            total_duration_ms = round(
-                (time.perf_counter() - stats["started_perf"]) * 1000.0,
-                3,
-            )
-            _debug_eval_log(
-                action,
-                "summary",
-                "ok",
-                "operator-complete",
-                context={{
-                    "total-duration-ms": total_duration_ms,
-                    "call-count": stats.get("call_count", 0),
-                    "decision-count": stats.get("decision_count", 0),
-                    "warning-count": stats.get("warning_count", 0),
-                    "final-outcome": "ok",
-                    **target_context,
-                }},
-                level="basic",
-                event_type="summary",
-                opid=opid,
-                parent_eid=call_eid,
-            )
-
-        if frame_id == _debug_eval_active_root:
-            _debug_eval_active_root = None
-            _debug_eval_active_depth = 0
-        elif _debug_eval_active_root is not None and _debug_eval_active_depth > 0:
-            _debug_eval_active_depth -= 1
         return
 
     if event == "exception":
-        exc_type = None
-        exc_message = None
-        if isinstance(arg, tuple) and len(arg) > 0 and arg[0] is not None:
-            exc_type = getattr(arg[0], "__name__", str(arg[0]))
-        if isinstance(arg, tuple) and len(arg) > 1 and arg[1] is not None:
-            exc_message = str(arg[1])
-
-        _debug_eval_log(
+        _debug_eval_handle_exception_event(
+            frame,
+            func_name,
+            target_context,
+            frame_id,
+            opid,
+            call_eid,
             action,
-            "fail",
-            "error",
-            "exception",
-            {{
-                "module": frame.f_globals.get("__name__"),
-                "function": func_name,
-                "error-type": exc_type,
-                "message": exc_message,
-                "recoverable": False,
-                "next-action": "inspect-debug-log-and-stacktrace",
-                "duration_ms": duration_ms,
-                "depth": _debug_eval_active_depth,
-                **domain_after,
-                **target_context,
-            }},
-            level="basic",
-            event_type="error",
-            opid=opid,
-            parent_eid=call_eid,
+            duration_ms,
+            domain_after,
+            arg,
         )
-
-        is_root_end = frame_id == _debug_eval_active_root
-        if is_root_end and opid in _debug_eval_operator_stats:
-            stats = _debug_eval_operator_stats.pop(opid)
-            total_duration_ms = round(
-                (time.perf_counter() - stats["started_perf"]) * 1000.0,
-                3,
-            )
-            _debug_eval_log(
-                action,
-                "summary",
-                "error",
-                "operator-failed",
-                context={{
-                    "total-duration-ms": total_duration_ms,
-                    "call-count": stats.get("call_count", 0),
-                    "decision-count": stats.get("decision_count", 0),
-                    "warning-count": stats.get("warning_count", 0),
-                    "final-outcome": "error",
-                    "error-type": exc_type,
-                    **target_context,
-                }},
-                level="basic",
-                event_type="summary",
-                opid=opid,
-                parent_eid=call_eid,
-            )
-
-        if frame_id == _debug_eval_active_root:
-            _debug_eval_active_root = None
-            _debug_eval_active_depth = 0
-        elif _debug_eval_active_root is not None and _debug_eval_active_depth > 0:
-            _debug_eval_active_depth -= 1
         return
 
 
