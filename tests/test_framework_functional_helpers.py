@@ -490,6 +490,46 @@ def test_wheel_index_by_distribution_groups_paths(monkeypatch):
     assert index["rich"] == ["/w/rich-13.0.0-py3-none-any.whl"]
 
 
+def test_manifest_wheel_skip_message_for_missing_manifest():
+    plan = framework._ManifestWheelPlan(
+        status="missing_manifest",
+        manifest_path="/missing",
+        wheel_paths=[],
+    )
+
+    message = framework._manifest_wheel_skip_message(plan, "demo_addon")
+
+    assert message is not None
+    assert "demo_addon" in message
+
+
+def test_assert_manifest_wheels_exist_raises_on_missing(monkeypatch):
+    monkeypatch.setattr(
+        framework,
+        "_missing_wheel_paths",
+        lambda _paths: ["/tmp/wheels/missing.whl"],
+    )
+
+    with pytest.raises(FileNotFoundError):
+        framework._assert_manifest_wheels_exist(["/tmp/wheels/missing.whl"])
+
+
+def test_install_manifest_wheel_paths_installs_all(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        framework,
+        "_install_wheel_path",
+        lambda wheel_path: calls.append(wheel_path),
+    )
+
+    installed = framework._install_manifest_wheel_paths(
+        ["/tmp/wheels/a.whl", "/tmp/wheels/b.whl"]
+    )
+
+    assert installed == ["/tmp/wheels/a.whl", "/tmp/wheels/b.whl"]
+    assert calls == ["/tmp/wheels/a.whl", "/tmp/wheels/b.whl"]
+
+
 def test_build_blender_exec_request_collects_runtime_inputs(monkeypatch):
     monkeypatch.setattr(
         framework.uuid, "uuid4", lambda: type("U", (), {"hex": "sid-1"})()

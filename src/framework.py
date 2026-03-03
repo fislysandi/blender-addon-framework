@@ -2996,25 +2996,30 @@ def _install_wheel_path(wheel_path: str):
     subprocess.run(_pip_install_command(wheel_path), check=True)
 
 
-def install_manifest_wheels(addon_name: str):
-    plan = _manifest_wheel_plan(addon_name)
+def _manifest_wheel_skip_message(
+    plan: _ManifestWheelPlan, addon_name: str
+) -> str | None:
     if plan.status == "missing_manifest":
-        print(
-            f"No {_ADDON_MANIFEST_FILE} found for '{addon_name}'; skipping wheel installation."
+        return (
+            f"No {_ADDON_MANIFEST_FILE} found for '{addon_name}'; "
+            "skipping wheel installation."
         )
-        return []
+    if plan.status == "no_wheels" or not plan.wheel_paths:
+        return "No wheels declared in blender_manifest.toml; skipping."
+    return None
 
-    wheel_paths = plan.wheel_paths
-    if plan.status == "no_wheels" or not wheel_paths:
-        print("No wheels declared in blender_manifest.toml; skipping.")
-        return []
 
+def _assert_manifest_wheels_exist(wheel_paths: list[str]):
     missing_paths = _missing_wheel_paths(wheel_paths)
-    if missing_paths:
-        raise FileNotFoundError(
-            f"Wheel file not found: {missing_paths[0]}. Please download it into the wheels/ folder."
-        )
+    if not missing_paths:
+        return
+    raise FileNotFoundError(
+        f"Wheel file not found: {missing_paths[0]}. "
+        "Please download it into the wheels/ folder."
+    )
 
+
+def _install_manifest_wheel_paths(wheel_paths: list[str]) -> list[str]:
     installed = []
     for wheel_path in wheel_paths:
         print(f"Installing wheel for tests: {wheel_path}")
@@ -3025,6 +3030,19 @@ def install_manifest_wheels(addon_name: str):
                 f"Failed to install wheel {wheel_path}: {exc.stderr or exc}".strip()
             ) from exc
         installed.append(wheel_path)
+    return installed
+
+
+def install_manifest_wheels(addon_name: str):
+    plan = _manifest_wheel_plan(addon_name)
+    skip_message = _manifest_wheel_skip_message(plan, addon_name)
+    if skip_message is not None:
+        print(skip_message)
+        return []
+
+    wheel_paths = plan.wheel_paths
+    _assert_manifest_wheels_exist(wheel_paths)
+    installed = _install_manifest_wheel_paths(wheel_paths)
 
     print(f"Installed {len(installed)} wheel(s) before running tests.")
     return installed

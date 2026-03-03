@@ -1,5 +1,12 @@
 from pathlib import Path
+import os
+import shutil
+import subprocess
+import statistics
+import sys
 import time
+
+import pytest
 
 from src.commands import baf, completion
 from src.commands import repl
@@ -115,3 +122,76 @@ def test_repl_fast_reload_has_low_overhead(monkeypatch):
 
     assert reloaded is True
     assert elapsed < 0.05
+
+
+def test_repl_speed_report(monkeypatch):
+    """Print launcher/reload timings; run with `pytest -s` to view."""
+
+    def _measure(label, func, runs=30):
+        samples_ms = []
+        for _ in range(runs):
+            started = time.perf_counter()
+            func()
+            samples_ms.append((time.perf_counter() - started) * 1000.0)
+        print(
+            f"[speed] {label}: "
+            f"avg={statistics.mean(samples_ms):.3f}ms "
+            f"p95={statistics.quantiles(samples_ms, n=20)[18]:.3f}ms "
+            f"min={min(samples_ms):.3f}ms "
+            f"max={max(samples_ms):.3f}ms"
+        )
+        return samples_ms
+
+    monkeypatch.setattr(baf, "_run_repl_in_process", lambda _root: 0)
+    launch_samples = _measure(
+        "baf launch fast-path overhead", lambda: baf._launch_repl("/repo")
+    )
+
+    monkeypatch.setattr(repl, "_REPL_FAST_RELOAD_MODULES", ())
+    monkeypatch.setattr(repl, "_refresh_repl_module_bindings", lambda _modules: None)
+    monkeypatch.setattr(repl, "_configure_readline", lambda _root: None)
+    reload_samples = _measure(
+        "repl reload fast-path overhead", lambda: repl._fast_reload_repl_state("/repo")
+    )
+
+    assert min(launch_samples) >= 0.0
+    assert min(reload_samples) >= 0.0
+
+
+@pytest.mark.skipif(
+    os.environ.get("BAF_SPEED_INTEGRATION") != "1",
+    reason="set BAF_SPEED_INTEGRATION=1 to run slow integration timing",
+)
+def test_repl_cold_start_integration_speed_report():
+    """Measure end-to-end startup timing for one real REPL subprocess cycle."""
+
+    def _run_once(command):
+        started = time.perf_counter()
+        completed = subprocess.run(
+            command,
+            input="exit\n",
+            text=True,
+            capture_output=True,
+            timeout=30,
+        )
+        elapsed_ms = (time.perf_counter() - started) * 1000.0
+        assert completed.returncode == 0
+        assert "Blender Addon Framework REPL" in completed.stdout
+        return elapsed_ms
+
+    python_command = [sys.executable, "-m", "src.commands.baf"]
+    python_samples = [_run_once(python_command) for _ in range(3)]
+    print(
+        "[speed][integration] python -m src.commands.baf: "
+        f"avg={statistics.mean(python_samples):.1f}ms "
+        f"min={min(python_samples):.1f}ms max={max(python_samples):.1f}ms"
+    )
+
+    if shutil.which("uv"):
+        uv_command = ["uv", "run", "python", "-m", "src.commands.baf"]
+        uv_samples = [_run_once(uv_command) for _ in range(3)]
+        print(
+            "[speed][integration] uv run python -m src.commands.baf: "
+            f"avg={statistics.mean(uv_samples):.1f}ms "
+            f"min={min(uv_samples):.1f}ms max={max(uv_samples):.1f}ms"
+        )
