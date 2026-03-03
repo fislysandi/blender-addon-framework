@@ -3575,65 +3575,86 @@ def find_imported_modules(file_path):
     return imported_modules
 
 
+def _module_file_from_root(module_path: str) -> str | None:
+    if os.path.isdir(module_path):
+        return os.path.join(module_path, "__init__.py")
+    py_file = f"{module_path}.py"
+    if os.path.isfile(py_file):
+        return py_file
+    return None
+
+
+def _search_upward_for_module_file(
+    *,
+    module_path: str,
+    start_dir: str,
+    project_root: str,
+) -> str | None:
+    current_search_dir = start_dir
+    while is_subdirectory(current_search_dir, project_root):
+        candidate = _module_file_from_root(
+            os.path.join(current_search_dir, module_path)
+        )
+        if candidate:
+            return candidate
+        current_search_dir = os.path.dirname(current_search_dir)
+    return None
+
+
+def _search_upward_simple_module_files(
+    *,
+    module_name: str,
+    base_path: str,
+    project_root: str,
+) -> list[str]:
+    search_path = os.path.dirname(base_path)
+    potential_result = []
+    while is_subdirectory(search_path, project_root):
+        possible_path = os.path.join(search_path, f"{module_name}.py")
+        if os.path.isfile(possible_path):
+            potential_result.append(possible_path)
+        search_path = os.path.dirname(search_path)
+    return potential_result
+
+
 def resolve_module_path(module_name, base_path, project_root):
-    if not module_name.endswith(".*"):
-        # Handle import all
-        module_path = module_name.replace(".", "/")
-        module_path = os.path.join(project_root, module_path)
-        if os.path.isdir(module_path):
-            module_path = os.path.join(module_path, "__init__.py")
-            return [module_path]
-        elif os.path.isfile(module_path + ".py"):
-            module_path = module_path + ".py"
-            return [module_path]
-        else:
-            if "." not in module_name:
-                # most likely a standard library module
-                # 有一种可能是相对导入 from . import xxx, from .. import xxx 等
-                # 这种情况下需要根据当前文件的路径来解析 看module_name.py是否存在于当前文件的同级目录或者父级目录
-                # 从base_path开始向上查找，直到找到module_name.py或者到达project_root
-                search_path = os.path.dirname(base_path)
-                potential_result = []
-                while is_subdirectory(search_path, project_root):
-                    possible_path = os.path.join(search_path, module_name + ".py")
-                    if os.path.isfile(possible_path):
-                        potential_result.append(possible_path)
-                    search_path = os.path.dirname(search_path)
-                return potential_result
-            current_search_dir = os.path.dirname(base_path)
-            while is_subdirectory(current_search_dir, project_root):
-                module_path = module_name.replace(".", "/")
-                module_path = os.path.join(current_search_dir, module_path)
-                if os.path.isdir(module_path):
-                    module_path = os.path.join(module_path, "__init__.py")
-                    return [module_path]
-                elif os.path.isfile(module_path + ".py"):
-                    module_path = module_path + ".py"
-                    return [module_path]
-                current_search_dir = os.path.dirname(current_search_dir)
-            return []
-    else:
-        module_name = module_name[:-2]
-        module_path = module_name.replace(".", "/")
-        possible_root_path = os.path.join(project_root, module_path)
-        if os.path.isdir(possible_root_path):
-            possible_root_path = os.path.join(possible_root_path, "__init__.py")
-            return [possible_root_path]
-        elif os.path.isfile(possible_root_path + ".py"):
-            possible_root_path = possible_root_path + ".py"
-            return [possible_root_path]
-        else:
-            current_search_dir = os.path.dirname(base_path)
-            while is_subdirectory(current_search_dir, project_root):
-                possible_root_path = os.path.join(current_search_dir, module_path)
-                if os.path.isdir(possible_root_path):
-                    possible_root_path = os.path.join(possible_root_path, "__init__.py")
-                    return [possible_root_path]
-                elif os.path.isfile(possible_root_path + ".py"):
-                    possible_root_path = possible_root_path + ".py"
-                    return [possible_root_path]
-                current_search_dir = os.path.dirname(current_search_dir)
-            return []
+    search_name = module_name[:-2] if module_name.endswith(".*") else module_name
+    module_path = search_name.replace(".", "/")
+    module_file = _module_file_from_root(os.path.join(project_root, module_path))
+    if module_file:
+        return [module_file]
+
+    if "." not in search_name and not module_name.endswith(".*"):
+        return _search_upward_simple_module_files(
+            module_name=search_name,
+            base_path=base_path,
+            project_root=project_root,
+        )
+
+    module_file = _search_upward_for_module_file(
+        module_path=module_path,
+        start_dir=os.path.dirname(base_path),
+        project_root=project_root,
+    )
+    return [module_file] if module_file else []
+
+
+def _safe_imported_modules(file_path: str) -> set[str]:
+    try:
+        return find_imported_modules(file_path)
+    except SyntaxError as error:
+        raise SyntaxError(f"Syntax error in file {file_path}: {error}")
+
+
+def _resolved_dependency_paths(
+    *, imported_modules: set[str], current_file: str, project_root: str
+) -> list[str]:
+    resolved_paths: list[str] = []
+    for module in imported_modules:
+        module_paths = resolve_module_path(module, current_file, project_root)
+        for module_path in module_paths:
+            resolved_paths.append(os.path.abspath(module_path))
+    return resolved_paths
 
 
 def find_all_dependencies(file_paths: list, project_root: str):
@@ -3649,10 +3670,7 @@ def find_all_dependencies(file_paths: list, project_root: str):
         processed.add(current_file)
         dependencies.add(current_file)
 
-        try:
-            imported_modules = find_imported_modules(current_file)
-        except SyntaxError as e:
-            raise SyntaxError(f"Syntax error in file {current_file}: {e}")
+        imported_modules = _safe_imported_modules(current_file)
 
         # 以下代码会将除了当前目标插件文件夹以外的其他被引用的文件夹中的__init__.py文件也加入到依赖中，使之成为有效的模块，从而将其中的Blender
         # 类也加入到自动注册的范围中，一般来说，我们引用外部文件夹的目的是复用其内部函数，而非将插件外部模块中定义的Operator，Panel等元素
@@ -3675,13 +3693,14 @@ def find_all_dependencies(file_paths: list, project_root: str):
         #     potential_init_file = os.path.abspath(
         #         os.path.join(os.path.dirname(os.path.dirname(potential_init_file)), '__init__.py'))
 
-        for module in imported_modules:
-            module_path = resolve_module_path(module, current_file, project_root)
-            if len(module_path) > 0:
-                for each_module_path in module_path:
-                    each_module_path = os.path.abspath(each_module_path)
-                    if each_module_path not in processed:
-                        to_process.append(each_module_path)
+        resolved_module_paths = _resolved_dependency_paths(
+            imported_modules=imported_modules,
+            current_file=current_file,
+            project_root=project_root,
+        )
+        for module_path in resolved_module_paths:
+            if module_path not in processed:
+                to_process.append(module_path)
 
     return dependencies
 
