@@ -1793,13 +1793,11 @@ def _debug_eval_pop_frame_meta(frame, frame_id):
     call_eid = frame_meta.get("call_eid")
     domain_before = frame_meta.get("before_state", {{}})
     action = frame_meta.get("action", _debug_eval_action(frame))
-    return frame_meta, opid, call_eid, domain_before, action
+    return opid, call_eid, domain_before, action
 
 
 def _debug_eval_event_state(frame, frame_id, func_name, target_context):
-    _frame_meta, opid, call_eid, domain_before, action = _debug_eval_pop_frame_meta(
-        frame, frame_id
-    )
+    opid, call_eid, domain_before, action = _debug_eval_pop_frame_meta(frame, frame_id)
     started_at = _debug_eval_clock.pop(frame_id, None)
     duration_ms = None
     if started_at is not None:
@@ -3555,6 +3553,73 @@ def _maybe_zip_compiled_release(
     print("Add on released:", released_addon_path)
 
 
+def _compile_docs_step(addon_name: str, options: _CompileOptions) -> dict:
+    if not options.need_zip:
+        return {"status": "skipped", "reason": "no_zip"}
+    return _compile_docs_result(
+        addon_name,
+        need_zip=options.need_zip,
+        skip_docs=options.skip_docs,
+    )
+
+
+def _materialize_release_sources(
+    *,
+    target_init_file: str,
+    addon_name: str,
+    plan: _CompilePlan,
+    release_folder: str,
+    options: _CompileOptions,
+):
+    _write_release_bootstrap_init(
+        release_folder=release_folder,
+        addon_name=addon_name,
+        bl_info=plan.bl_info,
+    )
+    _prepare_release_source_tree(
+        target_init_file=target_init_file,
+        addon_name=addon_name,
+        release_folder=release_folder,
+        dependency_paths=plan.dependency_paths,
+    )
+    _rewrite_release_imports(
+        release_folder=release_folder,
+        is_extension=options.is_extension,
+    )
+
+
+def _finalize_compiled_release(
+    *,
+    addon_name: str,
+    plan: _CompilePlan,
+    release_folder: str,
+    docs_build_result: dict,
+    options: _CompileOptions,
+):
+    wheel_sources = _compile_release_wheels(
+        addon_name=addon_name,
+        addon_config=plan.addon_config,
+        release_folder=release_folder,
+        need_zip=options.need_zip,
+        bundle_deps=options.bundle_deps,
+    )
+    _write_release_compile_metadata(
+        addon_name=addon_name,
+        is_extension=options.is_extension,
+        plan=plan,
+        docs_build_result=docs_build_result,
+        wheel_sources=wheel_sources,
+        release_folder=release_folder,
+    )
+    _maybe_zip_compiled_release(
+        release_folder=release_folder,
+        real_addon_name=plan.real_addon_name,
+        released_addon_path=plan.released_addon_path,
+        is_extension=options.is_extension,
+        need_zip=options.need_zip,
+    )
+
+
 def _compile_addon_with_options(
     *,
     target_init_file,
@@ -3574,55 +3639,24 @@ def _compile_addon_with_options(
         with_timestamp=options.with_timestamp,
     )
 
-    if options.need_zip:
-        docs_build_result = _compile_docs_result(
-            addon_name,
-            need_zip=options.need_zip,
-            skip_docs=options.skip_docs,
-        )
-    else:
-        docs_build_result = {"status": "skipped", "reason": "no_zip"}
+    docs_build_result = _compile_docs_step(addon_name, options)
 
     release_folder = _prepare_release_folder(options.release_dir, addon_name)
 
-    _write_release_bootstrap_init(
-        release_folder=release_folder,
-        addon_name=addon_name,
-        bl_info=plan.bl_info,
-    )
-    _prepare_release_source_tree(
+    _materialize_release_sources(
         target_init_file=target_init_file,
         addon_name=addon_name,
-        release_folder=release_folder,
-        dependency_paths=plan.dependency_paths,
-    )
-    _rewrite_release_imports(
-        release_folder=release_folder,
-        is_extension=options.is_extension,
-    )
-
-    wheel_sources = _compile_release_wheels(
-        addon_name=addon_name,
-        addon_config=plan.addon_config,
-        release_folder=release_folder,
-        need_zip=options.need_zip,
-        bundle_deps=options.bundle_deps,
-    )
-    _write_release_compile_metadata(
-        addon_name=addon_name,
-        is_extension=options.is_extension,
         plan=plan,
-        docs_build_result=docs_build_result,
-        wheel_sources=wheel_sources,
         release_folder=release_folder,
+        options=options,
     )
 
-    _maybe_zip_compiled_release(
+    _finalize_compiled_release(
+        addon_name=addon_name,
+        plan=plan,
         release_folder=release_folder,
-        real_addon_name=plan.real_addon_name,
-        released_addon_path=plan.released_addon_path,
-        is_extension=options.is_extension,
-        need_zip=options.need_zip,
+        docs_build_result=docs_build_result,
+        options=options,
     )
 
     return plan.released_addon_path
