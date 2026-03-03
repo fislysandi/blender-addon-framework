@@ -618,50 +618,97 @@ def _run_repl_line(
     if not tokens:
         return False, 0
 
-    form_tokens = _parse_lisp_form(line)
-    if form_tokens is not None:
-        handled = _evaluate_lisp_form(
-            form_tokens,
-            framework_root=framework_root,
-            session_overrides=session_overrides,
-            config_values=config_values,
-            config_path=config_path,
-        )
-        if handled:
-            return False, 0
-        print(f"Unknown form: ({' '.join(form_tokens)})")
-        return False, 0
+    form_result = _run_lisp_form_line(
+        line,
+        framework_root=framework_root,
+        session_overrides=session_overrides,
+        config_values=config_values,
+        config_path=config_path,
+    )
+    if form_result is not None:
+        return form_result
 
     command, *command_args = tokens
-
-    def _handle_help() -> tuple[bool, int]:
-        _print_repl_help()
-        return False, 0
-
-    def _handle_reload() -> tuple[bool, int]:
-        _reload_repl_process(framework_root)
-        return True, 0
-
-    def _handle_repl_self() -> tuple[bool, int]:
-        print("Already in REPL. Type another command or 'exit'.")
-        return False, 0
-
-    local_handlers = {
-        "exit": lambda: (True, 0),
-        "quit": lambda: (True, 0),
-        "help": _handle_help,
-        "?": _handle_help,
-        "reload": _handle_reload,
-        "repl": _handle_repl_self,
-    }
-    local_handler = local_handlers.get(command)
-    if local_handler is not None:
-        return local_handler()
+    local_result = _dispatch_local_repl_command(command, framework_root=framework_root)
+    if local_result is not None:
+        return local_result
 
     exit_code = baf.dispatch_command(command, command_args, framework_root)
     if exit_code != 0:
         print(f"Command exited with status {exit_code}")
     return False, exit_code
+
+
+def _run_lisp_form_line(
+    line: str,
+    *,
+    framework_root: str | None,
+    session_overrides: dict[str, object],
+    config_values: dict[str, object],
+    config_path: Path,
+) -> tuple[bool, int] | None:
+    form_tokens = _parse_lisp_form(line)
+    if form_tokens is None:
+        return None
+
+    handled = _evaluate_lisp_form(
+        form_tokens,
+        framework_root=framework_root,
+        session_overrides=session_overrides,
+        config_values=config_values,
+        config_path=config_path,
+    )
+    if handled:
+        return False, 0
+    print(f"Unknown form: ({' '.join(form_tokens)})")
+    return False, 0
+
+
+def _dispatch_local_repl_command(
+    command: str,
+    *,
+    framework_root: str | None,
+) -> tuple[bool, int] | None:
+    if command in _REPL_EXIT_COMMANDS:
+        return True, 0
+    if command in _REPL_HELP_COMMANDS:
+        _print_repl_help()
+        return False, 0
+    if command in _REPL_RELOAD_COMMANDS:
+        _reload_repl_process(framework_root)
+        return True, 0
+    if command == "repl":
+        print("Already in REPL. Type another command or 'exit'.")
+        return False, 0
+    return None
+
+
+def _run_repl_iteration(
+    *,
+    framework_root: str | None,
+    config_path: Path,
+    session_overrides: dict[str, object],
+    config_values: dict[str, object],
+    terminal_state: list | None,
+    interrupt_pending: bool,
+) -> tuple[bool, bool]:
+    line, next_interrupt_pending, should_exit = _prompt_repl_line(
+        terminal_state,
+        interrupt_pending,
+    )
+    if should_exit:
+        return True, next_interrupt_pending
+    if line is None:
+        return False, next_interrupt_pending
+
+    should_exit, _exit_code = _run_repl_line(
+        line,
+        framework_root=framework_root,
+        session_overrides=session_overrides,
+        config_values=config_values,
+        config_path=config_path,
+    )
+    return should_exit, False
 
 
 def _run_repl_loop(framework_root: str | None) -> int:
@@ -676,21 +723,13 @@ def _run_repl_loop(framework_root: str | None) -> int:
     interrupt_pending = False
     try:
         while True:
-            line, interrupt_pending, should_exit = _prompt_repl_line(
-                terminal_state,
-                interrupt_pending,
-            )
-            if should_exit:
-                return 0
-            if line is None:
-                continue
-
-            should_exit, _exit_code = _run_repl_line(
-                line,
+            should_exit, interrupt_pending = _run_repl_iteration(
                 framework_root=framework_root,
+                config_path=config_path,
                 session_overrides=session_overrides,
                 config_values=config_values,
-                config_path=config_path,
+                terminal_state=terminal_state,
+                interrupt_pending=interrupt_pending,
             )
             if should_exit:
                 return 0
