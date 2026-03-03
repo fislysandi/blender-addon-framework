@@ -1711,6 +1711,30 @@ def _debug_eval_pop_frame_meta(frame, frame_id):
     return frame_meta, opid, call_eid, domain_before, action
 
 
+def _debug_eval_event_state(frame, frame_id, func_name, target_context):
+    _frame_meta, opid, call_eid, domain_before, action = _debug_eval_pop_frame_meta(
+        frame, frame_id
+    )
+    started_at = _debug_eval_clock.pop(frame_id, None)
+    duration_ms = None
+    if started_at is not None:
+        duration_ms = round((time.perf_counter() - started_at) * 1000.0, 3)
+
+    domain_after = _debug_eval_extract_domain_state(frame)
+    return {{
+        "func_name": func_name,
+        "target_context": target_context,
+        "frame_id": frame_id,
+        "opid": opid,
+        "call_eid": call_eid,
+        "action": action,
+        "duration_ms": duration_ms,
+        "domain_before": domain_before,
+        "domain_after": domain_after,
+        "link": _debug_eval_link(opid=opid, parent_eid=call_eid),
+    }}
+
+
 def _debug_eval_finalize_trace_depth(frame_id):
     global _debug_eval_active_root
     global _debug_eval_active_depth
@@ -1722,19 +1746,9 @@ def _debug_eval_finalize_trace_depth(frame_id):
         _debug_eval_active_depth -= 1
 
 
-def _debug_eval_handle_return_event(
-    frame,
-    func_name,
-    target_context,
-    frame_id,
-    opid,
-    call_eid,
-    action,
-    duration_ms,
-    domain_after,
-    arg,
-):
-    link = _debug_eval_link(opid=opid, parent_eid=call_eid)
+def _debug_eval_handle_return_event(frame, state, arg):
+    action = state["action"]
+    link = state["link"]
     _debug_eval_log_linked(
         action,
         "success",
@@ -1742,21 +1756,21 @@ def _debug_eval_handle_return_event(
         "return",
         {{
             "module": frame.f_globals.get("__name__"),
-            "function": func_name,
-            "duration_ms": duration_ms,
+            "function": state["func_name"],
+            "duration_ms": state["duration_ms"],
             **_debug_eval_result_meta(arg),
             "depth": _debug_eval_active_depth,
-            **domain_after,
-            **target_context,
+            **state["domain_after"],
+            **state["target_context"],
         }},
         level="basic",
         event_type="event",
         link=link,
     )
 
-    is_root_end = frame_id == _debug_eval_active_root
-    if is_root_end and opid in _debug_eval_operator_stats:
-        stats = _debug_eval_operator_stats.pop(opid)
+    is_root_end = state["frame_id"] == _debug_eval_active_root
+    if is_root_end and state["opid"] in _debug_eval_operator_stats:
+        stats = _debug_eval_operator_stats.pop(state["opid"])
         total_duration_ms = round(
             (time.perf_counter() - stats["started_perf"]) * 1000.0,
             3,
@@ -1772,29 +1786,19 @@ def _debug_eval_handle_return_event(
                 "decision-count": stats.get("decision_count", 0),
                 "warning-count": stats.get("warning_count", 0),
                 "final-outcome": "ok",
-                **target_context,
+                **state["target_context"],
             }},
             level="basic",
             event_type="summary",
             link=link,
         )
 
-    _debug_eval_finalize_trace_depth(frame_id)
+    _debug_eval_finalize_trace_depth(state["frame_id"])
 
 
-def _debug_eval_handle_exception_event(
-    frame,
-    func_name,
-    target_context,
-    frame_id,
-    opid,
-    call_eid,
-    action,
-    duration_ms,
-    domain_after,
-    arg,
-):
-    link = _debug_eval_link(opid=opid, parent_eid=call_eid)
+def _debug_eval_handle_exception_event(frame, state, arg):
+    action = state["action"]
+    link = state["link"]
     exc_type = None
     exc_message = None
     if isinstance(arg, tuple) and len(arg) > 0 and arg[0] is not None:
@@ -1809,24 +1813,24 @@ def _debug_eval_handle_exception_event(
         "exception",
         {{
             "module": frame.f_globals.get("__name__"),
-            "function": func_name,
+            "function": state["func_name"],
             "error-type": exc_type,
             "message": exc_message,
             "recoverable": False,
             "next-action": "inspect-debug-log-and-stacktrace",
-            "duration_ms": duration_ms,
+            "duration_ms": state["duration_ms"],
             "depth": _debug_eval_active_depth,
-            **domain_after,
-            **target_context,
+            **state["domain_after"],
+            **state["target_context"],
         }},
         level="basic",
         event_type="error",
         link=link,
     )
 
-    is_root_end = frame_id == _debug_eval_active_root
-    if is_root_end and opid in _debug_eval_operator_stats:
-        stats = _debug_eval_operator_stats.pop(opid)
+    is_root_end = state["frame_id"] == _debug_eval_active_root
+    if is_root_end and state["opid"] in _debug_eval_operator_stats:
+        stats = _debug_eval_operator_stats.pop(state["opid"])
         total_duration_ms = round(
             (time.perf_counter() - stats["started_perf"]) * 1000.0,
             3,
@@ -1843,14 +1847,14 @@ def _debug_eval_handle_exception_event(
                 "warning-count": stats.get("warning_count", 0),
                 "final-outcome": "error",
                 "error-type": exc_type,
-                **target_context,
+                **state["target_context"],
             }},
             level="basic",
             event_type="summary",
             link=link,
         )
 
-    _debug_eval_finalize_trace_depth(frame_id)
+    _debug_eval_finalize_trace_depth(state["frame_id"])
 
 
 def _debug_eval_tracer(frame, event, arg):
@@ -1891,52 +1895,20 @@ def _debug_eval_tracer(frame, event, arg):
     if not is_target:
         return
 
-    _frame_meta, opid, call_eid, domain_before, action = _debug_eval_pop_frame_meta(
-        frame, frame_id
-    )
-
-    started_at = _debug_eval_clock.pop(frame_id, None)
-    duration_ms = None
-    if started_at is not None:
-        duration_ms = round((time.perf_counter() - started_at) * 1000.0, 3)
-
-    domain_after = _debug_eval_extract_domain_state(frame)
-    link = _debug_eval_link(opid=opid, parent_eid=call_eid)
+    state = _debug_eval_event_state(frame, frame_id, func_name, target_context)
     _debug_eval_emit_delta(
-        action,
-        domain_before,
-        domain_after,
-        link=link,
+        state["action"],
+        state["domain_before"],
+        state["domain_after"],
+        link=state["link"],
     )
 
     if event == "return":
-        _debug_eval_handle_return_event(
-            frame,
-            func_name,
-            target_context,
-            frame_id,
-            opid,
-            call_eid,
-            action,
-            duration_ms,
-            domain_after,
-            arg,
-        )
+        _debug_eval_handle_return_event(frame, state, arg)
         return
 
     if event == "exception":
-        _debug_eval_handle_exception_event(
-            frame,
-            func_name,
-            target_context,
-            frame_id,
-            opid,
-            call_eid,
-            action,
-            duration_ms,
-            domain_after,
-            arg,
-        )
+        _debug_eval_handle_exception_event(frame, state, arg)
         return
 
 
