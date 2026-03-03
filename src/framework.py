@@ -1370,6 +1370,117 @@ def _debug_eval_emit_delta(action, before, after, opid=None, parent_eid=None):
     )
 
 
+def _debug_eval_compact_skip(payload, phase_code, event_type):
+    if not (_debug_eval_compact and event_type == "event"):
+        return False
+    function_name = str(payload.get("function", ""))
+    depth = int(payload.get("depth", 0) or 0)
+    result_value = str(payload.get("result-kind", payload.get("result", "")))
+    if function_name in _debug_eval_compact_noisy and depth >= 2:
+        return True
+    if (
+        phase_code == "success"
+        and depth >= 2
+        and function_name.startswith("_")
+        and result_value in {{"none", "list", "dict"}}
+    ):
+        return True
+    return False
+
+
+def _debug_eval_to_keyword(value):
+    text = str(value).strip().lower()
+    if not text:
+        return ":unknown"
+    normalized = []
+    for char in text:
+        if char.isalnum() or char in {{"-", "_", ".", "/"}}:
+            normalized.append(char)
+        else:
+            normalized.append("-")
+    symbol = "".join(normalized).strip("-")
+    if not symbol:
+        symbol = "unknown"
+    if symbol[0].isdigit():
+        symbol = f"n-{{symbol}}"
+    return f":{{symbol}}"
+
+
+def _debug_eval_to_lisp_atom(value, as_keyword=False):
+    if as_keyword and isinstance(value, str):
+        return _debug_eval_to_keyword(value)
+    if value is None:
+        return "nil"
+    if isinstance(value, bool):
+        return "t" if value else "nil"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, str):
+        escaped = value.replace('"', '\\"')
+        return f'"{{escaped}}"'
+    if isinstance(value, dict):
+        parts = []
+        for key, item in value.items():
+            keyword_value = str(key) in {{"phase", "outcome", "reason", "event"}}
+            parts.append(
+                f"{{_debug_eval_to_keyword(key)}} {{_debug_eval_to_lisp_atom(item, as_keyword=keyword_value)}}"
+            )
+        return f"({{' '.join(parts)}})"
+    if isinstance(value, (list, tuple)):
+        return f"({{' '.join(_debug_eval_to_lisp_atom(item) for item in value)}})"
+    escaped = str(value).replace('"', '\\"')
+    return f'"{{escaped}}"'
+
+
+def _debug_eval_event_record(
+    *,
+    event_id,
+    event_type,
+    phase_code,
+    action,
+    outcome,
+    reason_code,
+    payload,
+    opid,
+    parent_eid,
+):
+    return {{
+        "sid": _debug_eval_sid,
+        "eid": event_id,
+        "opid": opid,
+        "parent-eid": parent_eid,
+        "ts": round(time.time(), 6),
+        "event": event_type,
+        "phase": phase_code,
+        "action": action,
+        "outcome": outcome,
+        "reason": reason_code,
+        "context": payload,
+    }}
+
+
+def _debug_eval_print_event(
+    record,
+    *,
+    action=None,
+    phase=None,
+    outcome=None,
+    reason=None,
+):
+    if _debug_eval_format == "lisp":
+        print(f"(eval {{_debug_eval_to_lisp_atom(record)}})", flush=True)
+        return
+    payload_text = json.dumps(record.get("context", {{}}), separators=(",", ":"), ensure_ascii=True)
+    print(
+        f"[Subtitle Studio][EVAL] action={{action if action is not None else record.get('action')}} "
+        f"phase={{phase if phase is not None else record.get('phase')}} "
+        f"outcome={{outcome if outcome is not None else record.get('outcome')}} "
+        f"reason={{reason if reason is not None else record.get('reason')}} sid={{record.get('sid')}} "
+        f"eid={{record.get('eid')}} opid={{record.get('opid')}} parent_eid={{record.get('parent-eid')}} context={{payload_text}}",
+        flush=True,
+    )
+
+
 def _debug_eval_log(
     action,
     phase,
@@ -1389,83 +1500,29 @@ def _debug_eval_log(
     reason_code = _debug_eval_reason_code(reason)
     payload = _debug_eval_sanitize_context(context or {{}})
 
-    if _debug_eval_compact and event_type == "event":
-        function_name = str(payload.get("function", ""))
-        depth = int(payload.get("depth", 0) or 0)
-        result_value = str(payload.get("result-kind", payload.get("result", "")))
-        if function_name in _debug_eval_compact_noisy and depth >= 2:
-            return None
-        if phase_code == "success" and depth >= 2 and function_name.startswith("_") and result_value in {{"none", "list", "dict"}}:
-            return None
+    if _debug_eval_compact_skip(payload, phase_code, event_type):
+        return None
 
     _debug_eval_eid += 1
     event_id = _debug_eval_eid
 
-    def _to_keyword(value):
-        text = str(value).strip().lower()
-        if not text:
-            return ":unknown"
-        normalized = []
-        for char in text:
-            if char.isalnum() or char in {{"-", "_", ".", "/"}}:
-                normalized.append(char)
-            else:
-                normalized.append("-")
-        symbol = "".join(normalized).strip("-")
-        if not symbol:
-            symbol = "unknown"
-        if symbol[0].isdigit():
-            symbol = f"n-{{symbol}}"
-        return f":{{symbol}}"
-
-    def _to_lisp_atom(value, as_keyword=False):
-        if as_keyword and isinstance(value, str):
-            return _to_keyword(value)
-        if value is None:
-            return "nil"
-        if isinstance(value, bool):
-            return "t" if value else "nil"
-        if isinstance(value, (int, float)):
-            return str(value)
-        if isinstance(value, str):
-            escaped = value.replace('"', '\\"')
-            return f'"{{escaped}}"'
-        if isinstance(value, dict):
-            parts = []
-            for key, item in value.items():
-                keyword_value = str(key) in {{"phase", "outcome", "reason", "event"}}
-                parts.append(
-                    f"{{_to_keyword(key)}} {{_to_lisp_atom(item, as_keyword=keyword_value)}}"
-                )
-            return f"({{' '.join(parts)}})"
-        if isinstance(value, (list, tuple)):
-            return f"({{' '.join(_to_lisp_atom(item) for item in value)}})"
-        escaped = str(value).replace('"', '\\"')
-        return f'"{{escaped}}"'
-
-    if _debug_eval_format == "lisp":
-        event = {{
-            "sid": _debug_eval_sid,
-            "eid": event_id,
-            "opid": opid,
-            "parent-eid": parent_eid,
-            "ts": round(time.time(), 6),
-            "event": event_type,
-            "phase": phase_code,
-            "action": action,
-            "outcome": outcome,
-            "reason": reason_code,
-            "context": payload,
-        }}
-        print(f"(eval {{_to_lisp_atom(event)}})", flush=True)
-        return event_id
-
-    payload_text = json.dumps(payload, separators=(",", ":"), ensure_ascii=True)
-    print(
-        f"[Subtitle Studio][EVAL] action={{action}} phase={{phase}} "
-        f"outcome={{outcome}} reason={{reason}} sid={{_debug_eval_sid}} "
-        f"eid={{event_id}} opid={{opid}} parent_eid={{parent_eid}} context={{payload_text}}",
-        flush=True,
+    event_record = _debug_eval_event_record(
+        event_id=event_id,
+        event_type=event_type,
+        phase_code=phase_code,
+        action=action,
+        outcome=outcome,
+        reason_code=reason_code,
+        payload=payload,
+        opid=opid,
+        parent_eid=parent_eid,
+    )
+    _debug_eval_print_event(
+        event_record,
+        action=action,
+        phase=phase,
+        outcome=outcome,
+        reason=reason,
     )
     return event_id
 
