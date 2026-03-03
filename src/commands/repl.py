@@ -2,10 +2,13 @@
 """Interactive REPL for Blender Addon Framework commands."""
 
 import argparse
+import importlib
 import os
 import shlex
 import sys
 from pathlib import Path
+from types import ModuleType
+from typing import Mapping
 
 import toml
 
@@ -32,6 +35,14 @@ _REPL_HELP_COMMANDS = {"help", "?"}
 _REPL_RELOAD_COMMANDS = {"reload"}
 _REPL_LOCAL_COMMANDS = _REPL_EXIT_COMMANDS | _REPL_HELP_COMMANDS | _REPL_RELOAD_COMMANDS
 _REPL_SETTING_FORM_OPS = {"settings", "get", "set!", "unset!", "save!", "source"}
+_REPL_FAST_RELOAD_MODULES = (
+    "src.main",
+    "src.commands.context",
+    "src.commands.repl_args",
+    "src.commands.repl_completion",
+    "src.commands.completion",
+    "src.commands.baf",
+)
 
 _REPL_SETTING_SPECS = {
     ":terminal-bell": {
@@ -484,9 +495,56 @@ def _build_repl_restart_args(framework_root: str | None) -> list[str]:
     return args
 
 
-def _reload_repl_process(framework_root: str | None) -> None:
+def _reload_module_by_name(module_name: str):
+    module = sys.modules.get(module_name)
+    if module is None:
+        return importlib.import_module(module_name)
+    return importlib.reload(module)
+
+
+def _refresh_repl_module_bindings(reloaded_modules: Mapping[str, ModuleType]) -> None:
+    global runtime_main
+    global repl_args
+    global repl_completion
+    global completion
+    global baf
+    global resolve_framework_root
+
+    runtime_main = reloaded_modules["src.main"]
+    repl_args = reloaded_modules["src.commands.repl_args"]
+    repl_completion = reloaded_modules["src.commands.repl_completion"]
+    completion = reloaded_modules["src.commands.completion"]
+    baf = reloaded_modules["src.commands.baf"]
+    resolve_framework_root = getattr(
+        reloaded_modules["src.commands.context"],
+        "resolve_framework_root",
+    )
+
+
+def _fast_reload_repl_state(framework_root: str | None) -> bool:
+    try:
+        reloaded_modules = {
+            module_name: _reload_module_by_name(module_name)
+            for module_name in _REPL_FAST_RELOAD_MODULES
+        }
+        _refresh_repl_module_bindings(reloaded_modules)
+        root_path = (
+            Path(framework_root).resolve() if framework_root else Path.cwd().resolve()
+        )
+        _configure_readline(root_path)
+        print("REPL reloaded (fast mode).")
+        return True
+    except Exception as error:
+        print(f"Fast reload failed, restarting process instead: {error}")
+        return False
+
+
+def _reload_repl_process(framework_root: str | None) -> bool:
+    if _fast_reload_repl_state(framework_root):
+        return True
     args = _build_repl_restart_args(framework_root)
     os.execv(sys.executable, args)
+    return False
 
 
 def _terminal_fd() -> int | None:
@@ -675,8 +733,8 @@ def _dispatch_local_repl_command(
         _print_repl_help()
         return False, 0
     if command in _REPL_RELOAD_COMMANDS:
-        _reload_repl_process(framework_root)
-        return True, 0
+        reloaded_in_process = _reload_repl_process(framework_root)
+        return (False, 0) if reloaded_in_process else (True, 0)
     if command == "repl":
         print("Already in REPL. Type another command or 'exit'.")
         return False, 0
