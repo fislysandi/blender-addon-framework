@@ -500,6 +500,49 @@ def list_code_templates() -> list[str]:
     return sorted(_template_directories())
 
 
+def _template_operation_result(
+    *,
+    status: str,
+    template_name: str,
+    addon_name: str,
+    on_conflict: str,
+    target_prefix: str,
+    operations: int,
+    applied: int | None = None,
+) -> dict:
+    result = {
+        "status": status,
+        "template": template_name,
+        "addon": addon_name,
+        "on_conflict": on_conflict,
+        "target_prefix": target_prefix,
+        "operations": operations,
+    }
+    if applied is not None:
+        result["applied"] = applied
+    return result
+
+
+def _apply_template_plan(plan: list[tuple[str, str, str, str]]) -> int:
+    applied = 0
+    for _source_path, target_path, content, operation in plan:
+        if operation == "skip":
+            continue
+        _ensure_directory(os.path.dirname(target_path))
+        write_utf8(target_path, content)
+        applied += 1
+    return applied
+
+
+def _maybe_commit_applied_template(
+    *, addon_root: str, template_name: str, applied: int, auto_git_commit: bool
+):
+    if not auto_git_commit or applied <= 0:
+        return
+    template_commit_message = f"chore: apply template {template_name}"
+    _commit_addon_changes_if_git_repo(addon_root, template_commit_message)
+
+
 def apply_code_template(
     template_name: str,
     addon_name: str,
@@ -522,14 +565,14 @@ def apply_code_template(
     template_files = _list_template_files(template_root)
     if not template_files:
         if dry_run:
-            return {
-                "status": "dry-run",
-                "template": template_name,
-                "addon": addon_name,
-                "on_conflict": on_conflict,
-                "target_prefix": target_prefix,
-                "operations": 0,
-            }
+            return _template_operation_result(
+                status="dry-run",
+                template_name=template_name,
+                addon_name=addon_name,
+                on_conflict=on_conflict,
+                target_prefix=target_prefix,
+                operations=0,
+            )
         raise ValueError(f"Template has no files to apply: {template_name}")
 
     plan = _build_template_apply_plan(
@@ -542,36 +585,32 @@ def apply_code_template(
     )
 
     if dry_run:
-        return {
-            "status": "dry-run",
-            "template": template_name,
-            "addon": addon_name,
-            "on_conflict": on_conflict,
-            "target_prefix": target_prefix,
-            "operations": len(plan),
-        }
+        return _template_operation_result(
+            status="dry-run",
+            template_name=template_name,
+            addon_name=addon_name,
+            on_conflict=on_conflict,
+            target_prefix=target_prefix,
+            operations=len(plan),
+        )
 
-    applied = 0
-    for source_path, target_path, content, operation in plan:
-        if operation == "skip":
-            continue
-        _ensure_directory(os.path.dirname(target_path))
-        write_utf8(target_path, content)
-        applied += 1
+    applied = _apply_template_plan(plan)
+    _maybe_commit_applied_template(
+        addon_root=addon_root,
+        template_name=template_name,
+        applied=applied,
+        auto_git_commit=auto_git_commit,
+    )
 
-    if auto_git_commit and applied > 0:
-        template_commit_message = f"chore: apply template {template_name}"
-        _commit_addon_changes_if_git_repo(addon_root, template_commit_message)
-
-    return {
-        "status": "ok",
-        "template": template_name,
-        "addon": addon_name,
-        "on_conflict": on_conflict,
-        "target_prefix": target_prefix,
-        "operations": len(plan),
-        "applied": applied,
-    }
+    return _template_operation_result(
+        status="ok",
+        template_name=template_name,
+        addon_name=addon_name,
+        on_conflict=on_conflict,
+        target_prefix=target_prefix,
+        operations=len(plan),
+        applied=applied,
+    )
 
 
 def extract_code_template(
@@ -606,18 +645,62 @@ def extract_code_template(
     }
 
     if dry_run:
-        return {
-            "status": "dry-run",
-            "template": template_name,
-            "source_addon": source_addon,
-            "source_path": source_path,
-            "template_root": template_root,
-            "files": len(files),
-        }
+        return _template_extract_result(
+            status="dry-run",
+            template_name=template_name,
+            source_addon=source_addon,
+            source_path=source_path,
+            template_root=template_root,
+            file_count=len(files),
+        )
 
     if os.path.exists(template_root) and overwrite:
         shutil.rmtree(template_root)
+    _write_extracted_template(
+        template_root=template_root,
+        metadata=metadata,
+        files=files,
+        source_root=source_root,
+        source_addon=source_addon,
+    )
 
+    return _template_extract_result(
+        status="ok",
+        template_name=template_name,
+        source_addon=source_addon,
+        source_path=source_path,
+        template_root=template_root,
+        file_count=len(files),
+    )
+
+
+def _template_extract_result(
+    *,
+    status: str,
+    template_name: str,
+    source_addon: str,
+    source_path: str,
+    template_root: str,
+    file_count: int,
+) -> dict:
+    return {
+        "status": status,
+        "template": template_name,
+        "source_addon": source_addon,
+        "source_path": source_path,
+        "template_root": template_root,
+        "files": file_count,
+    }
+
+
+def _write_extracted_template(
+    *,
+    template_root: str,
+    metadata: dict,
+    files: list[str],
+    source_root: str,
+    source_addon: str,
+):
     files_root = os.path.join(template_root, "files")
     _ensure_directory(files_root)
     write_utf8(
@@ -630,15 +713,6 @@ def extract_code_template(
         _ensure_directory(os.path.dirname(target_path))
         content = read_utf8(file_path).replace(source_addon, _CODE_TEMPLATE_ADDON_TOKEN)
         write_utf8(target_path, content)
-
-    return {
-        "status": "ok",
-        "template": template_name,
-        "source_addon": source_addon,
-        "source_path": source_path,
-        "template_root": template_root,
-        "files": len(files),
-    }
 
 
 def _assert_valid_conflict_mode(on_conflict: str):
