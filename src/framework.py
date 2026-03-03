@@ -3684,6 +3684,26 @@ def _addon_pyproject(addon_name: str) -> dict:
     return _read_toml_file(pyproject_file)
 
 
+def _compile_project_metadata(plan: _CompilePlan) -> dict:
+    project_metadata = plan.pyproject.get("project", {})
+    return {
+        "name": project_metadata.get("name"),
+        "version": project_metadata.get("version"),
+        "requires_python": project_metadata.get("requires-python"),
+        "dependencies": project_metadata.get("dependencies", []),
+        "dependency_groups": plan.pyproject.get("dependency-groups", {}),
+    }
+
+
+def _compile_packaging_metadata(plan: _CompilePlan, wheel_sources: list[str]) -> dict:
+    return {
+        "dependency_module_paths": len(plan.dependency_paths),
+        "wheel_files": [os.path.basename(path) for path in wheel_sources],
+        "artifact_name": plan.real_addon_name,
+        "artifact_path": plan.released_addon_path,
+    }
+
+
 def _build_compile_metadata(
     *,
     addon_name: str,
@@ -3692,28 +3712,16 @@ def _build_compile_metadata(
     docs_build_result: dict,
     wheel_sources: list[str],
 ) -> dict:
-    project_metadata = plan.pyproject.get("project", {})
     return {
         "addon": {
             "name": addon_name,
             "is_extension": is_extension,
             "bl_info": plan.bl_info,
             "manifest": plan.addon_config,
-            "project": {
-                "name": project_metadata.get("name"),
-                "version": project_metadata.get("version"),
-                "requires_python": project_metadata.get("requires-python"),
-                "dependencies": project_metadata.get("dependencies", []),
-                "dependency_groups": plan.pyproject.get("dependency-groups", {}),
-            },
+            "project": _compile_project_metadata(plan),
         },
         "docs": docs_build_result,
-        "packaging": {
-            "dependency_module_paths": len(plan.dependency_paths),
-            "wheel_files": [os.path.basename(path) for path in wheel_sources],
-            "artifact_name": plan.real_addon_name,
-            "artifact_path": plan.released_addon_path,
-        },
+        "packaging": _compile_packaging_metadata(plan, wheel_sources),
     }
 
 
