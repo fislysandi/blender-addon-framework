@@ -1331,10 +1331,45 @@ def _debug_eval_result_meta(value):
     }}
 
 
-def _debug_eval_emit_decision(action, reason, context, opid=None, parent_eid=None, level="detailed"):
+def _debug_eval_link(opid=None, parent_eid=None):
+    return {{"opid": opid, "parent_eid": parent_eid}}
+
+
+def _debug_eval_link_parts(link):
+    if link is None:
+        return None, None
+    return link.get("opid"), link.get("parent_eid")
+
+
+def _debug_eval_log_linked(
+    action,
+    phase,
+    outcome,
+    reason,
+    context=None,
+    level="basic",
+    event_type="event",
+    link=None,
+):
+    opid, parent_eid = _debug_eval_link_parts(link)
+    return _debug_eval_log(
+        action,
+        phase,
+        outcome,
+        reason,
+        context=context,
+        level=level,
+        event_type=event_type,
+        opid=opid,
+        parent_eid=parent_eid,
+    )
+
+
+def _debug_eval_emit_decision(action, reason, context, link=None, level="detailed"):
+    opid, _ = _debug_eval_link_parts(link)
     if opid and opid in _debug_eval_operator_stats:
         _debug_eval_operator_stats[opid]["decision_count"] += 1
-    return _debug_eval_log(
+    return _debug_eval_log_linked(
         action,
         "decision",
         "ok",
@@ -1342,12 +1377,11 @@ def _debug_eval_emit_decision(action, reason, context, opid=None, parent_eid=Non
         context=context,
         level=level,
         event_type="decision",
-        opid=opid,
-        parent_eid=parent_eid,
+        link=link,
     )
 
 
-def _debug_eval_emit_delta(action, before, after, opid=None, parent_eid=None):
+def _debug_eval_emit_delta(action, before, after, link=None):
     before_keys = set(before.keys())
     after_keys = set(after.keys())
     changed = []
@@ -1357,7 +1391,7 @@ def _debug_eval_emit_delta(action, before, after, opid=None, parent_eid=None):
     if not changed and not _debug_eval_should_emit("forensic"):
         return None
     reason = "state-changed" if changed else "state-unchanged"
-    return _debug_eval_log(
+    return _debug_eval_log_linked(
         action,
         "delta",
         "ok",
@@ -1365,8 +1399,7 @@ def _debug_eval_emit_delta(action, before, after, opid=None, parent_eid=None):
         context={{"before": before, "after": after, "changed-keys": changed}},
         level="detailed",
         event_type="delta",
-        opid=opid,
-        parent_eid=parent_eid,
+        link=link,
     )
 
 
@@ -1594,6 +1627,7 @@ def _debug_eval_call_event(frame, func_name, target_context, frame_id, compared)
     parent_meta = _debug_eval_frame_meta.get(id(frame.f_back), {{}})
     parent_call_eid = parent_meta.get("call_eid")
     opid = parent_meta.get("opid")
+    parent_link = _debug_eval_link(opid=opid, parent_eid=parent_call_eid)
 
     module_name = str(frame.f_globals.get("__name__", ""))
     is_root_operator = (
@@ -1635,13 +1669,12 @@ def _debug_eval_call_event(frame, func_name, target_context, frame_id, compared)
             "depth": _debug_eval_active_depth,
             **target_context,
         }},
-        opid=opid,
-        parent_eid=parent_call_eid,
+        link=parent_link,
         level="detailed",
     )
 
     domain_before = _debug_eval_extract_domain_state(frame)
-    call_eid = _debug_eval_log(
+    call_eid = _debug_eval_log_linked(
         _debug_eval_action(frame),
         "start",
         "ok",
@@ -1657,8 +1690,7 @@ def _debug_eval_call_event(frame, func_name, target_context, frame_id, compared)
         }},
         level="basic",
         event_type="event",
-        opid=opid,
-        parent_eid=parent_call_eid,
+        link=parent_link,
     )
 
     _debug_eval_frame_meta[frame_id] = {{
@@ -1702,7 +1734,8 @@ def _debug_eval_handle_return_event(
     domain_after,
     arg,
 ):
-    _debug_eval_log(
+    link = _debug_eval_link(opid=opid, parent_eid=call_eid)
+    _debug_eval_log_linked(
         action,
         "success",
         "ok",
@@ -1718,8 +1751,7 @@ def _debug_eval_handle_return_event(
         }},
         level="basic",
         event_type="event",
-        opid=opid,
-        parent_eid=call_eid,
+        link=link,
     )
 
     is_root_end = frame_id == _debug_eval_active_root
@@ -1729,7 +1761,7 @@ def _debug_eval_handle_return_event(
             (time.perf_counter() - stats["started_perf"]) * 1000.0,
             3,
         )
-        _debug_eval_log(
+        _debug_eval_log_linked(
             action,
             "summary",
             "ok",
@@ -1744,8 +1776,7 @@ def _debug_eval_handle_return_event(
             }},
             level="basic",
             event_type="summary",
-            opid=opid,
-            parent_eid=call_eid,
+            link=link,
         )
 
     _debug_eval_finalize_trace_depth(frame_id)
@@ -1763,6 +1794,7 @@ def _debug_eval_handle_exception_event(
     domain_after,
     arg,
 ):
+    link = _debug_eval_link(opid=opid, parent_eid=call_eid)
     exc_type = None
     exc_message = None
     if isinstance(arg, tuple) and len(arg) > 0 and arg[0] is not None:
@@ -1770,7 +1802,7 @@ def _debug_eval_handle_exception_event(
     if isinstance(arg, tuple) and len(arg) > 1 and arg[1] is not None:
         exc_message = str(arg[1])
 
-    _debug_eval_log(
+    _debug_eval_log_linked(
         action,
         "fail",
         "error",
@@ -1789,8 +1821,7 @@ def _debug_eval_handle_exception_event(
         }},
         level="basic",
         event_type="error",
-        opid=opid,
-        parent_eid=call_eid,
+        link=link,
     )
 
     is_root_end = frame_id == _debug_eval_active_root
@@ -1800,7 +1831,7 @@ def _debug_eval_handle_exception_event(
             (time.perf_counter() - stats["started_perf"]) * 1000.0,
             3,
         )
-        _debug_eval_log(
+        _debug_eval_log_linked(
             action,
             "summary",
             "error",
@@ -1816,8 +1847,7 @@ def _debug_eval_handle_exception_event(
             }},
             level="basic",
             event_type="summary",
-            opid=opid,
-            parent_eid=call_eid,
+            link=link,
         )
 
     _debug_eval_finalize_trace_depth(frame_id)
@@ -1851,6 +1881,7 @@ def _debug_eval_tracer(frame, event, arg):
                     "compared": compared,
                     **target_context,
                 }},
+                link=_debug_eval_link(),
                 level="forensic",
             )
             return
@@ -1870,12 +1901,12 @@ def _debug_eval_tracer(frame, event, arg):
         duration_ms = round((time.perf_counter() - started_at) * 1000.0, 3)
 
     domain_after = _debug_eval_extract_domain_state(frame)
+    link = _debug_eval_link(opid=opid, parent_eid=call_eid)
     _debug_eval_emit_delta(
         action,
         domain_before,
         domain_after,
-        opid=opid,
-        parent_eid=call_eid,
+        link=link,
     )
 
     if event == "return":
