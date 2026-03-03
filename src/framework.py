@@ -4025,50 +4025,52 @@ def _resolved_dependency_paths(
     return resolved_paths
 
 
+def _normalize_dependency_queue(file_paths: list[str]) -> list[str]:
+    return [os.path.abspath(path) for path in file_paths]
+
+
+def _enqueue_unprocessed_paths(
+    queue: list[str],
+    *,
+    candidate_paths: list[str],
+    processed: set[str],
+):
+    for path in candidate_paths:
+        if path not in processed:
+            queue.append(path)
+
+
+def _collect_file_dependencies(current_file: str, project_root: str) -> list[str]:
+    imported_modules = _safe_imported_modules(current_file)
+    return _resolved_dependency_paths(
+        imported_modules=imported_modules,
+        current_file=current_file,
+        project_root=project_root,
+    )
+
+
 def find_all_dependencies(file_paths: list, project_root: str):
     dependencies = set()
-    to_process = file_paths.copy()
+    to_process = _normalize_dependency_queue(file_paths)
     processed = set()
 
     while to_process:
-        current_file = os.path.abspath(to_process.pop())
+        current_file = to_process.pop()
         if current_file in processed:
             continue
 
         processed.add(current_file)
         dependencies.add(current_file)
 
-        imported_modules = _safe_imported_modules(current_file)
-
-        # 以下代码会将除了当前目标插件文件夹以外的其他被引用的文件夹中的__init__.py文件也加入到依赖中，使之成为有效的模块，从而将其中的Blender
-        # 类也加入到自动注册的范围中，一般来说，我们引用外部文件夹的目的是复用其内部函数，而非将插件外部模块中定义的Operator，Panel等元素
-        # 直接加到当前插件中(如果需要使用其他插件的这些元素，更好的做法是将其直接存放到你的插件文件夹内)，因此注释掉，如果您有特殊需求，可以取消注释
-        # The following code will add __init__.py files in other
-        # referenced folders to the dependencies, in addition to the current ACTIVE ADDON ,making those folders valid
-        # modules and thus classes in them will be added the scope of automatic class registration. (The
-        # auto_load.py) It is commented out because usually we just want to reference reusable functions from
-        # modules outside the current addon Instead of directly adding their Operator's Panels into your own addon. (
-        # If you really want to do that, include them as sub package of your own addon would be a better option). But
-        # If you have special requirements, you can uncomment it.
-
-        # potential_init_file = os.path.abspath(os.path.join(os.path.dirname(current_file), '__init__.py'))
-        # while is_subdirectory(os.path.dirname(potential_init_file),
-        #                       project_root) and potential_init_file != os.path.abspath(
-        #         os.path.join(project_root, "__init__.py")):
-        #     if os.path.exists(potential_init_file) and potential_init_file not in processed:
-        #         to_process.append(potential_init_file)
-        #         dependencies.add(potential_init_file)
-        #     potential_init_file = os.path.abspath(
-        #         os.path.join(os.path.dirname(os.path.dirname(potential_init_file)), '__init__.py'))
-
-        resolved_module_paths = _resolved_dependency_paths(
-            imported_modules=imported_modules,
-            current_file=current_file,
-            project_root=project_root,
+        resolved_module_paths = _collect_file_dependencies(
+            current_file,
+            project_root,
         )
-        for module_path in resolved_module_paths:
-            if module_path not in processed:
-                to_process.append(module_path)
+        _enqueue_unprocessed_paths(
+            to_process,
+            candidate_paths=resolved_module_paths,
+            processed=processed,
+        )
 
     return dependencies
 
