@@ -3622,9 +3622,7 @@ def _compile_plan(
         raise ValueError(f"bl_info not found in: {target_init_file}")
 
     release_folder = os.path.join(release_dir, addon_name)
-    visited_py_files = _build_initial_visited_py_files(addon_name)
-    dependencies = find_all_dependencies(list(visited_py_files), PROJECT_ROOT)
-    dependency_paths = _new_dependency_paths(list(dependencies), visited_py_files)
+    dependency_paths = _compile_dependency_paths(addon_name)
     addon_config_file, addon_config = _load_extension_config(addon_name, is_extension)
     pyproject = _addon_pyproject(addon_name)
     version_suffix = _resolve_version_suffix(
@@ -3634,14 +3632,12 @@ def _compile_plan(
         addon_config=addon_config,
         addon_config_file=addon_config_file,
     )
-    real_addon_name = _build_release_artifact_name(
-        release_folder,
+    real_addon_name, released_addon_path = _compile_artifact_paths(
+        release_dir=release_dir,
+        release_folder=release_folder,
         is_extension=is_extension,
         version_suffix=version_suffix,
         with_timestamp=with_timestamp,
-    )
-    released_addon_path = os.path.abspath(
-        os.path.join(release_dir, real_addon_name) + ".zip"
     )
 
     return _CompilePlan(
@@ -3653,6 +3649,32 @@ def _compile_plan(
         real_addon_name=real_addon_name,
         released_addon_path=released_addon_path,
     )
+
+
+def _compile_dependency_paths(addon_name: str) -> list[str]:
+    visited_py_files = _build_initial_visited_py_files(addon_name)
+    dependencies = find_all_dependencies(list(visited_py_files), PROJECT_ROOT)
+    return _new_dependency_paths(list(dependencies), visited_py_files)
+
+
+def _compile_artifact_paths(
+    *,
+    release_dir: str,
+    release_folder: str,
+    is_extension: bool,
+    version_suffix: str | None,
+    with_timestamp: bool,
+) -> tuple[str, str]:
+    real_addon_name = _build_release_artifact_name(
+        release_folder,
+        is_extension=is_extension,
+        version_suffix=version_suffix,
+        with_timestamp=with_timestamp,
+    )
+    released_addon_path = os.path.abspath(
+        os.path.join(release_dir, real_addon_name) + ".zip"
+    )
+    return real_addon_name, released_addon_path
 
 
 def _addon_pyproject(addon_name: str) -> dict:
