@@ -554,3 +554,46 @@ def test_execute_blender_request_opens_process_and_tracks_session(monkeypatch):
 
     assert calls[0][0] == "open"
     assert calls[1] == ("track", "sid-xyz", "demo")
+
+
+def test_collect_enabled_addons_uses_script_builder(monkeypatch):
+    monkeypatch.setattr(
+        framework, "_collect_enabled_addons_script", lambda: "print('x')"
+    )
+    monkeypatch.setattr(
+        framework,
+        "_render_json_report",
+        lambda script: {"script": script, "enabled": ["a"]},
+    )
+
+    result = framework.collect_enabled_addons()
+
+    assert result["enabled"] == ["a"]
+    assert result["script"] == "print('x')"
+
+
+def test_disable_addons_in_blender_uses_disable_script(monkeypatch):
+    monkeypatch.setattr(
+        framework, "_disable_addons_script", lambda modules: f"mods={modules}"
+    )
+    monkeypatch.setattr(
+        framework,
+        "_render_json_report",
+        lambda script: {"script": script, "disabled": ["m1"], "failed": {}},
+    )
+
+    result = framework.disable_addons_in_blender(["m1"])
+
+    assert result["disabled"] == ["m1"]
+    assert result["script"] == "mods=['m1']"
+
+
+def test_reset_blender_preferences_uses_reset_script(monkeypatch):
+    monkeypatch.setattr(framework, "_reset_preferences_script", lambda: "reset-script")
+    monkeypatch.setattr(
+        framework, "_render_json_report", lambda script: {"script": script}
+    )
+
+    result = framework.reset_blender_preferences()
+
+    assert result["script"] == "reset-script"

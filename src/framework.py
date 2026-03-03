@@ -2773,8 +2773,8 @@ def _render_json_report(script_body: str) -> dict:
     return _run_blender_script_and_parse_json(script)
 
 
-def collect_enabled_addons():
-    script = f"""
+def _collect_enabled_addons_script() -> str:
+    return f"""
         import bpy
         import importlib
         import json
@@ -2800,15 +2800,15 @@ def collect_enabled_addons():
         print(json.dumps(payload))
         print("{_BLENDER_JSON_END}")
     """
-    return _render_json_report(script)
 
 
-def disable_addons_in_blender(modules):
-    if not modules:
-        return {"disabled": [], "failed": {}}
+def collect_enabled_addons():
+    return _render_json_report(_collect_enabled_addons_script())
 
+
+def _disable_addons_script(modules: list[str]) -> str:
     modules_json = json.dumps(modules)
-    script = f"""
+    return f"""
         import bpy
         import json
 
@@ -2830,11 +2830,17 @@ def disable_addons_in_blender(modules):
         print(json.dumps({{"disabled": disabled, "failed": failed}}))
         print("{_BLENDER_JSON_END}")
     """
-    return _render_json_report(script)
 
 
-def reset_blender_preferences():
-    script = f"""
+def disable_addons_in_blender(modules):
+    if not modules:
+        return {"disabled": [], "failed": {}}
+
+    return _render_json_report(_disable_addons_script(modules))
+
+
+def _reset_preferences_script() -> str:
+    return f"""
         import bpy
         import json
 
@@ -2845,7 +2851,10 @@ def reset_blender_preferences():
         print(json.dumps({{"reset": true}}))
         print("{_BLENDER_JSON_END}")
     """
-    return _render_json_report(script)
+
+
+def reset_blender_preferences():
+    return _render_json_report(_reset_preferences_script())
 
 
 def _audit_missing_lines(missing: list[str]) -> list[str]:
