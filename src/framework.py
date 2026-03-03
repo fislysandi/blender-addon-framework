@@ -3731,9 +3731,7 @@ def _compile_plan(
     with_version: bool,
     with_timestamp: bool,
 ) -> _CompilePlan:
-    bl_info = get_addon_info(target_init_file)
-    if bl_info is None:
-        raise ValueError(f"bl_info not found in: {target_init_file}")
+    bl_info = _compile_bl_info(target_init_file)
 
     release_folder = os.path.join(release_dir, addon_name)
     dependency_paths = _compile_dependency_paths(addon_name)
@@ -3741,19 +3739,45 @@ def _compile_plan(
         addon_name,
         is_extension,
     )
-    _version_suffix, real_addon_name, released_addon_path = (
-        _compile_plan_release_naming(
-            release_dir=release_dir,
-            release_folder=release_folder,
-            is_extension=is_extension,
-            with_version=with_version,
-            with_timestamp=with_timestamp,
-            bl_info=bl_info,
-            addon_config=addon_config,
-            addon_config_file=addon_config_file,
-        )
+    real_addon_name, released_addon_path = _compile_plan_release_naming(
+        release_dir=release_dir,
+        release_folder=release_folder,
+        is_extension=is_extension,
+        with_version=with_version,
+        with_timestamp=with_timestamp,
+        bl_info=bl_info,
+        addon_config=addon_config,
+        addon_config_file=addon_config_file,
     )
 
+    return _build_compile_plan_result(
+        bl_info=bl_info,
+        release_folder=release_folder,
+        dependency_paths=dependency_paths,
+        addon_config=addon_config,
+        pyproject=pyproject,
+        real_addon_name=real_addon_name,
+        released_addon_path=released_addon_path,
+    )
+
+
+def _compile_bl_info(target_init_file: str) -> dict:
+    bl_info = get_addon_info(target_init_file)
+    if bl_info is None:
+        raise ValueError(f"bl_info not found in: {target_init_file}")
+    return bl_info
+
+
+def _build_compile_plan_result(
+    *,
+    bl_info: dict,
+    release_folder: str,
+    dependency_paths: list[str],
+    addon_config: dict,
+    pyproject: dict,
+    real_addon_name: str,
+    released_addon_path: str,
+) -> _CompilePlan:
     return _CompilePlan(
         bl_info=bl_info,
         release_folder=release_folder,
@@ -3790,7 +3814,7 @@ def _compile_plan_release_naming(
     bl_info: dict,
     addon_config: dict,
     addon_config_file: str,
-) -> tuple[str | None, str, str]:
+) -> tuple[str, str]:
     version_suffix = _resolve_version_suffix(
         with_version=with_version,
         is_extension=is_extension,
@@ -3805,7 +3829,7 @@ def _compile_plan_release_naming(
         version_suffix=version_suffix,
         with_timestamp=with_timestamp,
     )
-    return version_suffix, real_addon_name, released_addon_path
+    return real_addon_name, released_addon_path
 
 
 def _compile_artifact_paths(
