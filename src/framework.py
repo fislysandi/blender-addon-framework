@@ -2178,117 +2178,105 @@ def start_test(
     debug_mode=True,
     runtime: _FrameworkRuntime | None = None,
 ):
+    session = _build_test_session_context(
+        init_file=init_file,
+        addon_name=addon_name,
+        debug_mode=debug_mode,
+        runtime=runtime,
+    )
+
+    if not enable_watch:
+        _run_single_test_session(session)
+        return
+
+    _run_watch_test_session(session)
+
+
+@dataclass(frozen=True)
+class _TestSessionContext:
+    init_file: str
+    addon_name: str
+    test_addon_path: str
+    debug_mode: bool
+    startup_cmd: str
+    addon_venv_path: str | None
+    startup_eval_request: dict | None
+    blender_exe_path: str
+
+
+def _build_test_session_context(
+    *,
+    init_file: str,
+    addon_name: str,
+    debug_mode: bool,
+    runtime: _FrameworkRuntime | None,
+) -> _TestSessionContext:
     runtime_config = runtime or _ensure_framework_runtime()
     update_addon_for_test(init_file, addon_name, runtime=runtime_config)
     test_addon_path = os.path.normpath(
         os.path.join(runtime_config.blender_addon_path, addon_name)
     )
-
-    # Check if addon has a virtual environment
-    addon_venv_path = get_addon_venv_site_packages(addon_name)
-    startup_eval_request = _startup_eval_request_for_test(addon_name, debug_mode)
-
-    startup_cmd = _build_debug_startup_command(addon_name, test_addon_path)
-
-    if not enable_watch:
-        _run_single_test_session(
-            addon_name=addon_name,
-            test_addon_path=test_addon_path,
-            debug_mode=debug_mode,
-            startup_cmd=startup_cmd,
-            addon_venv_path=addon_venv_path,
-            startup_eval_request=startup_eval_request,
-            blender_exe_path=runtime_config.blender_exe_path,
-        )
-        return
-
-    _run_watch_test_session(
+    return _TestSessionContext(
         init_file=init_file,
         addon_name=addon_name,
         test_addon_path=test_addon_path,
         debug_mode=debug_mode,
-        startup_cmd=startup_cmd,
-        addon_venv_path=addon_venv_path,
-        startup_eval_request=startup_eval_request,
+        startup_cmd=_build_debug_startup_command(addon_name, test_addon_path),
+        addon_venv_path=get_addon_venv_site_packages(addon_name),
+        startup_eval_request=_startup_eval_request_for_test(addon_name, debug_mode),
         blender_exe_path=runtime_config.blender_exe_path,
     )
 
 
-def _run_single_test_session(
-    *,
-    addon_name: str,
-    test_addon_path: str,
-    debug_mode: bool,
-    startup_cmd: str,
-    addon_venv_path: str | None,
-    startup_eval_request: dict | None,
-    blender_exe_path: str,
-):
+def _execute_test_session_script(context: _TestSessionContext, python_script: str):
+    execute_blender_script(
+        _build_blender_expr_args(
+            python_script,
+            context.blender_exe_path,
+        ),
+        context.test_addon_path,
+        context.addon_name,
+        debug_mode=context.debug_mode,
+        addon_venv_path=context.addon_venv_path,
+        startup_eval_request=context.startup_eval_request,
+    )
+
+
+def _run_single_test_session(context: _TestSessionContext):
 
     def single_run_exit_handler():
-        _cleanup_test_addon_path(test_addon_path)
+        _cleanup_test_addon_path(context.test_addon_path)
 
     atexit.register(single_run_exit_handler)
     try:
         python_script = _single_run_python_script(
-            addon_name=addon_name,
-            debug_mode=debug_mode,
-            startup_cmd=startup_cmd,
+            addon_name=context.addon_name,
+            debug_mode=context.debug_mode,
+            startup_cmd=context.startup_cmd,
         )
-        execute_blender_script(
-            _build_blender_expr_args(
-                python_script,
-                blender_exe_path,
-            ),
-            test_addon_path,
-            addon_name,
-            debug_mode=debug_mode,
-            addon_venv_path=addon_venv_path,
-            startup_eval_request=startup_eval_request,
-        )
+        _execute_test_session_script(context, python_script)
     finally:
         single_run_exit_handler()
 
 
-def _run_watch_test_session(
-    *,
-    init_file: str,
-    addon_name: str,
-    test_addon_path: str,
-    debug_mode: bool,
-    startup_cmd: str,
-    addon_venv_path: str | None,
-    startup_eval_request: dict | None,
-    blender_exe_path: str,
-):
-
-    stop_event, thread = _start_watch_thread(init_file, addon_name)
+def _run_watch_test_session(context: _TestSessionContext):
+    stop_event, thread = _start_watch_thread(context.init_file, context.addon_name)
 
     def watch_exit_handler():
         _stop_watch_thread(stop_event, thread)
-        _cleanup_test_addon_path(test_addon_path)
+        _cleanup_test_addon_path(context.test_addon_path)
 
     atexit.register(watch_exit_handler)
 
     python_script = _watch_mode_python_script(
-        addon_name=addon_name,
-        test_addon_path=test_addon_path,
-        debug_mode=debug_mode,
-        startup_cmd=startup_cmd,
+        addon_name=context.addon_name,
+        test_addon_path=context.test_addon_path,
+        debug_mode=context.debug_mode,
+        startup_cmd=context.startup_cmd,
     )
 
     try:
-        execute_blender_script(
-            _build_blender_expr_args(
-                python_script,
-                blender_exe_path,
-            ),
-            test_addon_path,
-            addon_name,
-            debug_mode=debug_mode,
-            addon_venv_path=addon_venv_path,
-            startup_eval_request=startup_eval_request,
-        )
+        _execute_test_session_script(context, python_script)
     finally:
         watch_exit_handler()
 
