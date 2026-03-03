@@ -2563,6 +2563,61 @@ def _run_tracked_blender_process(
             _update_debug_session_metadata(recorded_session_id, exit_code, duration)
 
 
+@dataclass(frozen=True)
+class _BlenderExecRequest:
+    args: list[str]
+    addon_path: str
+    addon_name: str
+    debug_mode: bool
+    addon_venv_path: str | None
+    startup_eval_request: dict | None
+    debug_session_id: str
+    start_time: float
+    env: dict[str, str]
+
+
+def _build_blender_exec_request(
+    *,
+    args,
+    addon_path,
+    addon_name,
+    debug_mode=False,
+    addon_venv_path=None,
+    startup_eval_request: dict | None = None,
+) -> _BlenderExecRequest:
+    debug_session_id = uuid.uuid4().hex
+    start_time = time.monotonic()
+    env = _build_exec_environment(
+        addon_venv_path,
+        debug_session_id,
+        startup_eval_request=startup_eval_request,
+    )
+    return _BlenderExecRequest(
+        args=list(args),
+        addon_path=addon_path,
+        addon_name=addon_name,
+        debug_mode=bool(debug_mode),
+        addon_venv_path=addon_venv_path,
+        startup_eval_request=startup_eval_request,
+        debug_session_id=debug_session_id,
+        start_time=start_time,
+        env=env,
+    )
+
+
+def _execute_blender_request(request: _BlenderExecRequest):
+    process = _open_blender_process(request.args, request.env)
+    _run_tracked_blender_process(
+        process=process,
+        args=request.args,
+        addon_path=request.addon_path,
+        addon_name=request.addon_name,
+        debug_mode=request.debug_mode,
+        session_id=request.debug_session_id,
+        start_time=request.start_time,
+    )
+
+
 def execute_blender_script(
     args,
     addon_path,
@@ -2580,26 +2635,17 @@ def execute_blender_script(
         addon_venv_path: Optional path to addon's venv site-packages
     """
     _ensure_framework_runtime()
-    debug_session_id = uuid.uuid4().hex
-    start_time = time.monotonic()
-    env = _build_exec_environment(
-        addon_venv_path,
-        debug_session_id,
-        startup_eval_request=startup_eval_request,
-    )
-    if addon_venv_path:
-        print(f"Using addon venv: {addon_venv_path}")
-
-    process = _open_blender_process(args, env)
-    _run_tracked_blender_process(
-        process=process,
+    request = _build_blender_exec_request(
         args=args,
         addon_path=addon_path,
         addon_name=addon_name,
         debug_mode=debug_mode,
-        session_id=debug_session_id,
-        start_time=start_time,
+        addon_venv_path=addon_venv_path,
+        startup_eval_request=startup_eval_request,
     )
+    if request.addon_venv_path:
+        print(f"Using addon venv: {request.addon_venv_path}")
+    _execute_blender_request(request)
 
 
 _BLENDER_JSON_BEGIN = "__OpenCode_Audit_JSON_BEGIN__"

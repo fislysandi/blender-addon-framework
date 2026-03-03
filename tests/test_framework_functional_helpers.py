@@ -488,3 +488,69 @@ def test_wheel_index_by_distribution_groups_paths(monkeypatch):
         "/w/requests-2.32.0-py3-none-any.whl",
     ]
     assert index["rich"] == ["/w/rich-13.0.0-py3-none-any.whl"]
+
+
+def test_build_blender_exec_request_collects_runtime_inputs(monkeypatch):
+    monkeypatch.setattr(
+        framework.uuid, "uuid4", lambda: type("U", (), {"hex": "sid-1"})()
+    )
+    monkeypatch.setattr(framework.time, "monotonic", lambda: 123.5)
+    monkeypatch.setattr(
+        framework,
+        "_build_exec_environment",
+        lambda _venv, _sid, startup_eval_request=None: {
+            "SID": _sid,
+            "HAS_STARTUP": str(bool(startup_eval_request)),
+        },
+    )
+
+    request = framework._build_blender_exec_request(
+        args=["blender", "--python-expr", "print(1)"],
+        addon_path="/tmp/addon",
+        addon_name="demo",
+        debug_mode=True,
+        addon_venv_path="/tmp/venv",
+        startup_eval_request={"mode": "auto"},
+    )
+
+    assert request.debug_session_id == "sid-1"
+    assert request.start_time == 123.5
+    assert request.env == {"SID": "sid-1", "HAS_STARTUP": "True"}
+    assert request.args[0] == "blender"
+
+
+def test_execute_blender_request_opens_process_and_tracks_session(monkeypatch):
+    calls = []
+
+    class _Proc:
+        pass
+
+    monkeypatch.setattr(
+        framework,
+        "_open_blender_process",
+        lambda args, env: calls.append(("open", args, env)) or _Proc(),
+    )
+    monkeypatch.setattr(
+        framework,
+        "_run_tracked_blender_process",
+        lambda **kwargs: calls.append(
+            ("track", kwargs["session_id"], kwargs["addon_name"])
+        ),
+    )
+
+    request = framework._BlenderExecRequest(
+        args=["blender"],
+        addon_path="/tmp/addon",
+        addon_name="demo",
+        debug_mode=False,
+        addon_venv_path=None,
+        startup_eval_request=None,
+        debug_session_id="sid-xyz",
+        start_time=10.0,
+        env={"A": "1"},
+    )
+
+    framework._execute_blender_request(request)
+
+    assert calls[0][0] == "open"
+    assert calls[1] == ("track", "sid-xyz", "demo")
