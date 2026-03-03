@@ -1618,22 +1618,30 @@ def _debug_eval_is_addon_module(module_name):
     return module_name.startswith("{addon_name}.")
 
 
-def _debug_eval_call_event(frame, func_name, target_context, frame_id, compared):
+def _debug_eval_is_root_operator(func_name, target_context, module_name):
+    return (
+        func_name in {{"invoke", "execute"}}
+        and bool(target_context.get("operator_id") or target_context.get("target"))
+        and _debug_eval_is_addon_module(module_name)
+    )
+
+
+def _debug_eval_begin_operator_scope(
+    *,
+    frame_id,
+    opid,
+    module_name,
+    func_name,
+    target_context,
+):
     global _debug_eval_active_root
     global _debug_eval_active_depth
     global _debug_eval_operator_seq
 
-    _debug_eval_clock[frame_id] = time.perf_counter()
-    parent_meta = _debug_eval_frame_meta.get(id(frame.f_back), {{}})
-    parent_call_eid = parent_meta.get("call_eid")
-    opid = parent_meta.get("opid")
-    parent_link = _debug_eval_link(opid=opid, parent_eid=parent_call_eid)
-
-    module_name = str(frame.f_globals.get("__name__", ""))
-    is_root_operator = (
-        func_name in {{"invoke", "execute"}}
-        and bool(target_context.get("operator_id") or target_context.get("target"))
-        and _debug_eval_is_addon_module(module_name)
+    is_root_operator = _debug_eval_is_root_operator(
+        func_name,
+        target_context,
+        module_name,
     )
     if is_root_operator:
         _debug_eval_operator_seq += 1
@@ -1652,45 +1660,75 @@ def _debug_eval_call_event(frame, func_name, target_context, frame_id, compared)
     if opid and opid in _debug_eval_operator_stats:
         _debug_eval_operator_stats[opid]["call_count"] += 1
 
-    decision_reason = "branch-allowlist"
+    return opid, is_root_operator
+
+
+def _debug_eval_decision_reason(is_root_operator):
     if is_root_operator:
-        decision_reason = "branch-operator-entry"
-    elif _debug_eval_active_root is not None:
-        decision_reason = "branch-active-root"
+        return "branch-operator-entry"
+    if _debug_eval_active_root is not None:
+        return "branch-active-root"
+    return "branch-allowlist"
+
+
+def _debug_eval_call_decision_context(frame, func_name, compared, target_context):
+    return {{
+        "module": frame.f_globals.get("__name__"),
+        "function": func_name,
+        "chosen": "trace",
+        "compared": compared,
+        "depth": _debug_eval_active_depth,
+        **target_context,
+    }}
+
+
+def _debug_eval_call_start_context(frame, func_name, domain_before, target_context):
+    return {{
+        "module": frame.f_globals.get("__name__"),
+        "function": func_name,
+        "line": frame.f_lineno,
+        "file": os.path.basename(frame.f_code.co_filename),
+        "depth": _debug_eval_active_depth,
+        **domain_before,
+        **target_context,
+    }}
+
+
+def _debug_eval_call_event(frame, func_name, target_context, frame_id, compared):
+    _debug_eval_clock[frame_id] = time.perf_counter()
+    parent_meta = _debug_eval_frame_meta.get(id(frame.f_back), {{}})
+    parent_call_eid = parent_meta.get("call_eid")
+    opid = parent_meta.get("opid")
+    action = _debug_eval_action(frame)
+    module_name = str(frame.f_globals.get("__name__", ""))
+    opid, is_root_operator = _debug_eval_begin_operator_scope(
+        frame_id=frame_id,
+        opid=opid,
+        module_name=module_name,
+        func_name=func_name,
+        target_context=target_context,
+    )
+    link = _debug_eval_link(opid=opid, parent_eid=parent_call_eid)
+    decision_reason = _debug_eval_decision_reason(is_root_operator)
 
     _debug_eval_emit_decision(
-        _debug_eval_action(frame),
+        action,
         decision_reason,
-        {{
-            "module": frame.f_globals.get("__name__"),
-            "function": func_name,
-            "chosen": "trace",
-            "compared": compared,
-            "depth": _debug_eval_active_depth,
-            **target_context,
-        }},
-        link=parent_link,
+        _debug_eval_call_decision_context(frame, func_name, compared, target_context),
+        link=link,
         level="detailed",
     )
 
     domain_before = _debug_eval_extract_domain_state(frame)
     call_eid = _debug_eval_log_linked(
-        _debug_eval_action(frame),
+        action,
         "start",
         "ok",
         "call",
-        {{
-            "module": frame.f_globals.get("__name__"),
-            "function": func_name,
-            "line": frame.f_lineno,
-            "file": os.path.basename(frame.f_code.co_filename),
-            "depth": _debug_eval_active_depth,
-            **domain_before,
-            **target_context,
-        }},
+        _debug_eval_call_start_context(frame, func_name, domain_before, target_context),
         level="basic",
         event_type="event",
-        link=parent_link,
+        link=link,
     )
 
     _debug_eval_frame_meta[frame_id] = {{
@@ -1698,7 +1736,7 @@ def _debug_eval_call_event(frame, func_name, target_context, frame_id, compared)
         "call_eid": call_eid,
         "before_state": domain_before,
         "target_context": target_context,
-        "action": _debug_eval_action(frame),
+        "action": action,
     }}
 
 
