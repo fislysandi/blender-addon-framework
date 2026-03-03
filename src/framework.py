@@ -4121,43 +4121,60 @@ def find_all_py_modules(root_dir: str) -> set:
     return all_py_modules
 
 
-def start_watch_for_update(init_file, addon_name, stop_event: threading.Event):
+class _AddonWatchHandler:
+    def __init__(self):
+        self.has_update = False
+
+    def on_any_event(self, event):
+        source_path: str = _event_source_path(event.src_path)
+        if source_path.endswith(".py"):
+            self.has_update = True
+
+    def clear_update(self):
+        self.has_update = False
+
+
+def _apply_watch_update(
+    event_handler: _AddonWatchHandler,
+    init_file: str,
+    addon_name: str,
+):
+    if not event_handler.has_update:
+        return
+    try:
+        update_addon_for_test(init_file, addon_name)
+        event_handler.clear_update()
+    except Exception as error:
+        print(error)
+        print(
+            "Addon updated failed: Please make sure no other process is"
+            " using the addon folder. You might need to restart the test to update the addon in Blender."
+        )
+
+
+def _build_watch_observer(path: str):
     install_if_missing("watchdog")
     from watchdog.events import FileSystemEventHandler
     from watchdog.observers import Observer
 
-    class FileUpdateHandler(FileSystemEventHandler):
-        def __init__(self):
-            super(FileUpdateHandler, self).__init__()
-            self.has_update = False
+    class _WatchHandler(FileSystemEventHandler, _AddonWatchHandler):
+        pass
 
-        def on_any_event(self, event):
-            source_path: str = _event_source_path(event.src_path)
-            if source_path.endswith(".py"):
-                self.has_update = True
-
-        def clear_update(self):
-            self.has_update = False
-
-    path = PROJECT_ROOT
-    event_handler = FileUpdateHandler()
+    event_handler = _WatchHandler()
     observer = Observer()
     observer.schedule(event_handler, path, recursive=True)
+    return observer, event_handler
+
+
+def start_watch_for_update(init_file, addon_name, stop_event: threading.Event):
+    path = PROJECT_ROOT
+    observer, event_handler = _build_watch_observer(path)
     observer.start()
 
     try:
         while not stop_event.is_set():
             time.sleep(1)
-            if event_handler.has_update:
-                try:
-                    update_addon_for_test(init_file, addon_name)
-                    event_handler.clear_update()
-                except Exception as e:
-                    print(e)
-                    print(
-                        "Addon updated failed: Please make sure no other process is"
-                        " using the addon folder. You might need to restart the test to update the addon in Blender."
-                    )
+            _apply_watch_update(event_handler, init_file, addon_name)
         print("Stop watching for update...")
     except KeyboardInterrupt:
         print("Stop watching for update...")
