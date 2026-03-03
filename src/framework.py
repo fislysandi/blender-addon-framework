@@ -33,8 +33,6 @@ from src.common.io.FileManagerClient import (
 )
 from src.main import (
     PROJECT_ROOT,
-    BLENDER_ADDON_PATH,
-    BLENDER_EXE_PATH,
     DEFAULT_RELEASE_DIR,
     TEST_RELEASE_DIR,
     IS_EXTENSION,
@@ -75,6 +73,12 @@ _REQ_NAME_PATTERN = re.compile(r"^\s*([A-Za-z0-9_.-]+)")
 
 _RUNTIME_READY = False
 _STARTUP_EVAL_MODES = {"off", "auto", "manual"}
+
+
+@dataclass(frozen=True)
+class _FrameworkRuntime:
+    blender_exe_path: str
+    blender_addon_path: str
 
 
 def _normalize_startup_eval_mode(mode: str | None) -> str:
@@ -119,22 +123,26 @@ def startup_evaluation_env_overrides(
     }
 
 
-def _ensure_framework_runtime(*, warn_on_fake_bpy_mismatch: bool = True):
+def _ensure_framework_runtime(
+    *, warn_on_fake_bpy_mismatch: bool = True
+) -> _FrameworkRuntime:
     global _RUNTIME_READY
-    global BLENDER_EXE_PATH
-    global BLENDER_ADDON_PATH
-
-    if _RUNTIME_READY:
-        return
-
-    ensure_runtime_configuration(auto_detect=True)
     from src import main as _main
 
-    BLENDER_EXE_PATH = _main.BLENDER_EXE_PATH
-    BLENDER_ADDON_PATH = _main.BLENDER_ADDON_PATH
-    if os.path.isfile(BLENDER_EXE_PATH):
-        install_fake_bpy(BLENDER_EXE_PATH, warn_on_mismatch=warn_on_fake_bpy_mismatch)
-    _RUNTIME_READY = True
+    if not _RUNTIME_READY:
+        ensure_runtime_configuration(auto_detect=True)
+        blender_exe_path = _main.BLENDER_EXE_PATH
+        if os.path.isfile(blender_exe_path):
+            install_fake_bpy(
+                blender_exe_path,
+                warn_on_mismatch=warn_on_fake_bpy_mismatch,
+            )
+        _RUNTIME_READY = True
+
+    return _FrameworkRuntime(
+        blender_exe_path=_main.BLENDER_EXE_PATH,
+        blender_addon_path=_main.BLENDER_ADDON_PATH,
+    )
 
 
 def new_addon(
@@ -853,14 +861,19 @@ def _apply_template_substitutions(
 
 
 def test_addon(addon_name, enable_watch=True, debug_mode=True, install_wheels=False):
-    _ensure_framework_runtime(warn_on_fake_bpy_mismatch=False)
+    runtime = _ensure_framework_runtime(warn_on_fake_bpy_mismatch=False)
     init_file = get_init_file_path(addon_name)
     if install_wheels:
         install_manifest_wheels(addon_name)
     watch_message = _test_watch_message(enable_watch)
     if watch_message:
         print(watch_message)
-    start_test(init_file, addon_name, **_test_start_options(enable_watch, debug_mode))
+    start_test(
+        init_file,
+        addon_name,
+        runtime=runtime,
+        **_test_start_options(enable_watch, debug_mode),
+    )
 
 
 def _test_watch_message(enable_watch: bool) -> str | None:
@@ -1878,9 +1891,18 @@ bpy.app.handlers.load_post.append(register_watch_update_tick)
 """
 
 
-def start_test(init_file, addon_name, enable_watch=True, debug_mode=True):
-    update_addon_for_test(init_file, addon_name)
-    test_addon_path = os.path.normpath(os.path.join(BLENDER_ADDON_PATH, addon_name))
+def start_test(
+    init_file,
+    addon_name,
+    enable_watch=True,
+    debug_mode=True,
+    runtime: _FrameworkRuntime | None = None,
+):
+    runtime_config = runtime or _ensure_framework_runtime()
+    update_addon_for_test(init_file, addon_name, runtime=runtime_config)
+    test_addon_path = os.path.normpath(
+        os.path.join(runtime_config.blender_addon_path, addon_name)
+    )
 
     # Check if addon has a virtual environment
     addon_venv_path = get_addon_venv_site_packages(addon_name)
@@ -1888,28 +1910,77 @@ def start_test(init_file, addon_name, enable_watch=True, debug_mode=True):
 
     startup_cmd = _build_debug_startup_command(addon_name, test_addon_path)
 
+    if not enable_watch:
+        _run_single_test_session(
+            addon_name=addon_name,
+            test_addon_path=test_addon_path,
+            debug_mode=debug_mode,
+            startup_cmd=startup_cmd,
+            addon_venv_path=addon_venv_path,
+            startup_eval_request=startup_eval_request,
+            blender_exe_path=runtime_config.blender_exe_path,
+        )
+        return
+
+    _run_watch_test_session(
+        init_file=init_file,
+        addon_name=addon_name,
+        test_addon_path=test_addon_path,
+        debug_mode=debug_mode,
+        startup_cmd=startup_cmd,
+        addon_venv_path=addon_venv_path,
+        startup_eval_request=startup_eval_request,
+        blender_exe_path=runtime_config.blender_exe_path,
+    )
+
+
+def _run_single_test_session(
+    *,
+    addon_name: str,
+    test_addon_path: str,
+    debug_mode: bool,
+    startup_cmd: str,
+    addon_venv_path: str | None,
+    startup_eval_request: dict | None,
+    blender_exe_path: str,
+):
+
     def single_run_exit_handler():
         _cleanup_test_addon_path(test_addon_path)
 
-    if not enable_watch:
-        atexit.register(single_run_exit_handler)
-        try:
-            python_script = _single_run_python_script(
-                addon_name=addon_name,
-                debug_mode=debug_mode,
-                startup_cmd=startup_cmd,
-            )
-            execute_blender_script(
-                _build_blender_expr_args(python_script),
-                test_addon_path,
-                addon_name,
-                debug_mode=debug_mode,
-                addon_venv_path=addon_venv_path,
-                startup_eval_request=startup_eval_request,
-            )
-        finally:
-            single_run_exit_handler()
-        return
+    atexit.register(single_run_exit_handler)
+    try:
+        python_script = _single_run_python_script(
+            addon_name=addon_name,
+            debug_mode=debug_mode,
+            startup_cmd=startup_cmd,
+        )
+        execute_blender_script(
+            _build_blender_expr_args(
+                python_script,
+                blender_exe_path,
+            ),
+            test_addon_path,
+            addon_name,
+            debug_mode=debug_mode,
+            addon_venv_path=addon_venv_path,
+            startup_eval_request=startup_eval_request,
+        )
+    finally:
+        single_run_exit_handler()
+
+
+def _run_watch_test_session(
+    *,
+    init_file: str,
+    addon_name: str,
+    test_addon_path: str,
+    debug_mode: bool,
+    startup_cmd: str,
+    addon_venv_path: str | None,
+    startup_eval_request: dict | None,
+    blender_exe_path: str,
+):
 
     stop_event, thread = _start_watch_thread(init_file, addon_name)
 
@@ -1928,7 +1999,10 @@ def start_test(init_file, addon_name, enable_watch=True, debug_mode=True):
 
     try:
         execute_blender_script(
-            _build_blender_expr_args(python_script),
+            _build_blender_expr_args(
+                python_script,
+                blender_exe_path,
+            ),
             test_addon_path,
             addon_name,
             debug_mode=debug_mode,
@@ -1957,9 +2031,9 @@ def _build_watch_startup_command(addon_name: str, test_addon_path: str) -> str:
     )
 
 
-def _build_blender_expr_args(python_script: str) -> list[str]:
+def _build_blender_expr_args(python_script: str, blender_exe_path: str) -> list[str]:
     return [
-        BLENDER_EXE_PATH,
+        blender_exe_path,
         "--python-use-system-env",
         "--python-expr",
         python_script,
@@ -2195,9 +2269,9 @@ class _BlenderScriptOutput:
         return f"{self.stdout}\n{self.stderr}"
 
 
-def _ensure_blender_executable():
-    if not os.path.isfile(BLENDER_EXE_PATH):
-        raise FileNotFoundError(f"Blender executable not found: {BLENDER_EXE_PATH}")
+def _ensure_blender_executable(blender_exe_path: str):
+    if not os.path.isfile(blender_exe_path):
+        raise FileNotFoundError(f"Blender executable not found: {blender_exe_path}")
 
 
 def _prepare_blender_env(addon_venv_path=None):
@@ -2214,10 +2288,10 @@ def _prepare_blender_env(addon_venv_path=None):
 def _run_blender_python_with_output(
     script, addon_venv_path=None, timeout=_BLENDER_JSON_TIMEOUT
 ) -> _BlenderScriptOutput:
-    _ensure_framework_runtime()
-    _ensure_blender_executable()
+    runtime = _ensure_framework_runtime()
+    _ensure_blender_executable(runtime.blender_exe_path)
     args = [
-        BLENDER_EXE_PATH,
+        runtime.blender_exe_path,
         "--background",
         "--python-use-system-env",
         "--python-expr",
@@ -3167,11 +3241,14 @@ def compile_addon(
         with_timestamp=with_timestamp,
     )
 
-    docs_build_result = _compile_docs_result(
-        addon_name,
-        need_zip=need_zip,
-        skip_docs=skip_docs,
-    )
+    if need_zip:
+        docs_build_result = _compile_docs_result(
+            addon_name,
+            need_zip=need_zip,
+            skip_docs=skip_docs,
+        )
+    else:
+        docs_build_result = {"status": "skipped", "reason": "no_zip"}
 
     release_folder = _prepare_release_folder(release_dir, addon_name)
 
@@ -3609,8 +3686,13 @@ def _event_source_path(source_path) -> str:
     return str(source_path)
 
 
-def update_addon_for_test(init_file, addon_name):
-    if BLENDER_ADDON_PATH is None:
+def update_addon_for_test(
+    init_file,
+    addon_name,
+    runtime: _FrameworkRuntime | None = None,
+):
+    runtime_config = runtime or _ensure_framework_runtime()
+    if runtime_config.blender_addon_path is None:
         # 无法得到Blender插件路径 请检查在main.py或config.toml中的配置
         raise ValueError(
             "Could not find Blender addon installation path. Please check the configuration in main.py or config.toml"
@@ -3626,7 +3708,7 @@ def update_addon_for_test(init_file, addon_name):
     )
     executable_path = os.path.join(os.path.dirname(addon_path), addon_name)
 
-    test_addon_path = os.path.join(BLENDER_ADDON_PATH, addon_name)
+    test_addon_path = os.path.join(runtime_config.blender_addon_path, addon_name)
     if os.path.exists(test_addon_path):
         shutil.rmtree(test_addon_path)
     shutil.copytree(executable_path, test_addon_path)

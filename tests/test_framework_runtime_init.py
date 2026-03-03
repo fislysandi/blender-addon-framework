@@ -24,12 +24,14 @@ def test_ensure_framework_runtime_initializes_once(monkeypatch):
     monkeypatch.setattr(framework, "install_fake_bpy", _fake_install_fake_bpy)
     monkeypatch.setattr(framework.os.path, "isfile", lambda path: path == blender_path)
 
-    framework._ensure_framework_runtime()
-    framework._ensure_framework_runtime()
+    first_runtime = framework._ensure_framework_runtime()
+    second_runtime = framework._ensure_framework_runtime()
 
     assert calls == {"ensure": 1, "install": 1}
-    assert framework.BLENDER_EXE_PATH == blender_path
-    assert framework.BLENDER_ADDON_PATH == addon_path
+    assert first_runtime.blender_exe_path == blender_path
+    assert first_runtime.blender_addon_path == addon_path
+    assert second_runtime.blender_exe_path == blender_path
+    assert second_runtime.blender_addon_path == addon_path
     assert framework._RUNTIME_READY is True
 
 
@@ -51,7 +53,9 @@ def test_ensure_framework_runtime_skips_fake_bpy_when_path_missing(monkeypatch):
     monkeypatch.setattr(framework, "install_fake_bpy", _fake_install_fake_bpy)
     monkeypatch.setattr(framework.os.path, "isfile", lambda _: False)
 
-    framework._ensure_framework_runtime()
+    runtime = framework._ensure_framework_runtime()
 
     assert calls["install"] == 0
+    assert runtime.blender_exe_path == "/missing/blender"
+    assert runtime.blender_addon_path == "/missing/addons"
     assert framework._RUNTIME_READY is True
