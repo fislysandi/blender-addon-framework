@@ -1820,6 +1820,66 @@ def _debug_eval_event_state(frame, frame_id, func_name, target_context):
     }}
 
 
+def _debug_eval_operator_summary_context(
+    *, total_duration_ms: float, stats: dict, target_context: dict
+):
+    return {
+        "total-duration-ms": total_duration_ms,
+        "call-count": stats.get("call_count", 0),
+        "decision-count": stats.get("decision_count", 0),
+        "warning-count": stats.get("warning_count", 0),
+        **target_context,
+    }
+
+
+def _debug_eval_maybe_log_operator_summary(
+    *,
+    state,
+    phase: str,
+    outcome: str,
+    reason: str,
+    target_context: dict,
+    extra_context: dict | None = None,
+):
+    is_root_end = state["frame_id"] == _debug_eval_active_root
+    if not is_root_end or state["opid"] not in _debug_eval_operator_stats:
+        return
+
+    stats = _debug_eval_operator_stats.pop(state["opid"])
+    total_duration_ms = round(
+        (time.perf_counter() - stats["started_perf"]) * 1000.0,
+        3,
+    )
+    summary_context = _debug_eval_operator_summary_context(
+        total_duration_ms=total_duration_ms,
+        stats=stats,
+        target_context=target_context,
+    )
+    if extra_context:
+        summary_context.update(extra_context)
+
+    _debug_eval_log_linked(
+        state["action"],
+        phase,
+        outcome,
+        reason,
+        context=summary_context,
+        level="basic",
+        event_type="summary",
+        link=state["link"],
+    )
+
+
+def _debug_eval_exception_info(arg):
+    exc_type = None
+    exc_message = None
+    if isinstance(arg, tuple) and len(arg) > 0 and arg[0] is not None:
+        exc_type = getattr(arg[0], "__name__", str(arg[0]))
+    if isinstance(arg, tuple) and len(arg) > 1 and arg[1] is not None:
+        exc_message = str(arg[1])
+    return exc_type, exc_message
+
+
 def _debug_eval_finalize_trace_depth(frame_id):
     global _debug_eval_active_root
     global _debug_eval_active_depth
@@ -1853,30 +1913,14 @@ def _debug_eval_handle_return_event(frame, state, arg):
         link=link,
     )
 
-    is_root_end = state["frame_id"] == _debug_eval_active_root
-    if is_root_end and state["opid"] in _debug_eval_operator_stats:
-        stats = _debug_eval_operator_stats.pop(state["opid"])
-        total_duration_ms = round(
-            (time.perf_counter() - stats["started_perf"]) * 1000.0,
-            3,
-        )
-        _debug_eval_log_linked(
-            action,
-            "summary",
-            "ok",
-            "operator-complete",
-            context={{
-                "total-duration-ms": total_duration_ms,
-                "call-count": stats.get("call_count", 0),
-                "decision-count": stats.get("decision_count", 0),
-                "warning-count": stats.get("warning_count", 0),
-                "final-outcome": "ok",
-                **state["target_context"],
-            }},
-            level="basic",
-            event_type="summary",
-            link=link,
-        )
+    _debug_eval_maybe_log_operator_summary(
+        state=state,
+        phase="summary",
+        outcome="ok",
+        reason="operator-complete",
+        target_context=state["target_context"],
+        extra_context={"final-outcome": "ok"},
+    )
 
     _debug_eval_finalize_trace_depth(state["frame_id"])
 
@@ -1884,12 +1928,7 @@ def _debug_eval_handle_return_event(frame, state, arg):
 def _debug_eval_handle_exception_event(frame, state, arg):
     action = state["action"]
     link = state["link"]
-    exc_type = None
-    exc_message = None
-    if isinstance(arg, tuple) and len(arg) > 0 and arg[0] is not None:
-        exc_type = getattr(arg[0], "__name__", str(arg[0]))
-    if isinstance(arg, tuple) and len(arg) > 1 and arg[1] is not None:
-        exc_message = str(arg[1])
+    exc_type, exc_message = _debug_eval_exception_info(arg)
 
     _debug_eval_log_linked(
         action,
@@ -1913,31 +1952,14 @@ def _debug_eval_handle_exception_event(frame, state, arg):
         link=link,
     )
 
-    is_root_end = state["frame_id"] == _debug_eval_active_root
-    if is_root_end and state["opid"] in _debug_eval_operator_stats:
-        stats = _debug_eval_operator_stats.pop(state["opid"])
-        total_duration_ms = round(
-            (time.perf_counter() - stats["started_perf"]) * 1000.0,
-            3,
-        )
-        _debug_eval_log_linked(
-            action,
-            "summary",
-            "error",
-            "operator-failed",
-            context={{
-                "total-duration-ms": total_duration_ms,
-                "call-count": stats.get("call_count", 0),
-                "decision-count": stats.get("decision_count", 0),
-                "warning-count": stats.get("warning_count", 0),
-                "final-outcome": "error",
-                "error-type": exc_type,
-                **state["target_context"],
-            }},
-            level="basic",
-            event_type="summary",
-            link=link,
-        )
+    _debug_eval_maybe_log_operator_summary(
+        state=state,
+        phase="summary",
+        outcome="error",
+        reason="operator-failed",
+        target_context=state["target_context"],
+        extra_context={{"final-outcome": "error", "error-type": exc_type}},
+    )
 
     _debug_eval_finalize_trace_depth(state["frame_id"])
 
