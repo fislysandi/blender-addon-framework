@@ -390,14 +390,16 @@ def _unified_test_template(addon_name: str) -> str:
     )
 
 
-def rename_addon(
-    old_name: str,
-    new_name: str,
-    *,
-    dry_run: bool = False,
-    validate: bool = True,
-    auto_git_commit: bool = True,
-) -> dict:
+@dataclass(frozen=True)
+class _RenameAddonPlan:
+    old_name: str
+    new_name: str
+    old_path: str
+    new_path: str
+    rewrite_plan: list[tuple[str, str]]
+
+
+def _rename_addon_plan(old_name: str, new_name: str) -> _RenameAddonPlan:
     _assert_valid_addon_name(old_name)
     _assert_valid_addon_name(new_name)
     _assert_rename_preconditions(old_name, new_name)
@@ -406,37 +408,80 @@ def rename_addon(
     new_path = _addon_path(new_name)
     rewrite_paths = _rename_rewrite_file_paths(old_path)
     rewrite_plan = _rename_rewrite_plan(rewrite_paths, old_path, old_name, new_name)
+    return _RenameAddonPlan(
+        old_name=old_name,
+        new_name=new_name,
+        old_path=old_path,
+        new_path=new_path,
+        rewrite_plan=rewrite_plan,
+    )
 
-    if dry_run:
-        return {
-            "status": "dry-run",
-            "old_name": old_name,
-            "new_name": new_name,
-            "old_path": old_path,
-            "new_path": new_path,
-            "files_to_rewrite": len(rewrite_plan),
-        }
 
+def _rename_addon_result(
+    *,
+    status: str,
+    plan: _RenameAddonPlan,
+    files_key: str,
+) -> dict:
+    return {
+        "status": status,
+        "old_name": plan.old_name,
+        "new_name": plan.new_name,
+        "old_path": plan.old_path,
+        "new_path": plan.new_path,
+        files_key: len(plan.rewrite_plan),
+    }
+
+
+def _execute_rename_addon_plan(
+    plan: _RenameAddonPlan,
+    *,
+    validate: bool,
+    auto_git_commit: bool,
+):
     moved = False
     try:
-        shutil.move(old_path, new_path)
+        shutil.move(plan.old_path, plan.new_path)
         moved = True
-        _rewrite_name_references(new_path, rewrite_plan)
+        _rewrite_name_references(plan.new_path, plan.rewrite_plan)
         if validate:
-            _validate_renamed_addon(new_name)
+            _validate_renamed_addon(plan.new_name)
         if auto_git_commit:
-            _commit_addon_changes_if_git_repo(new_path, _RENAME_ADDON_COMMIT_MESSAGE)
-        return {
-            "status": "ok",
-            "old_name": old_name,
-            "new_name": new_name,
-            "old_path": old_path,
-            "new_path": new_path,
-            "files_rewritten": len(rewrite_plan),
-        }
+            _commit_addon_changes_if_git_repo(
+                plan.new_path, _RENAME_ADDON_COMMIT_MESSAGE
+            )
     except Exception as error:
-        _rollback_rename_move(old_path, new_path, moved)
+        _rollback_rename_move(plan.old_path, plan.new_path, moved)
         raise RuntimeError(f"Rename failed and rollback completed: {error}") from error
+
+
+def rename_addon(
+    old_name: str,
+    new_name: str,
+    *,
+    dry_run: bool = False,
+    validate: bool = True,
+    auto_git_commit: bool = True,
+) -> dict:
+    plan = _rename_addon_plan(old_name, new_name)
+
+    if dry_run:
+        return _rename_addon_result(
+            status="dry-run",
+            plan=plan,
+            files_key="files_to_rewrite",
+        )
+
+    _execute_rename_addon_plan(
+        plan,
+        validate=validate,
+        auto_git_commit=auto_git_commit,
+    )
+    return _rename_addon_result(
+        status="ok",
+        plan=plan,
+        files_key="files_rewritten",
+    )
 
 
 def _assert_rename_preconditions(old_name: str, new_name: str):
