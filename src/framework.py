@@ -1694,6 +1694,53 @@ def _debug_eval_call_start_context(frame, func_name, domain_before, target_conte
     }}
 
 
+def _debug_eval_compared_context(module_name, func_name, target_context):
+    return {{
+        "in-addon-module": _debug_eval_is_addon_module(module_name),
+        "allowlisted": func_name in _debug_eval_allowlist,
+        "has-active-root": _debug_eval_active_root is not None,
+        "operator-entry": _debug_eval_is_root_operator(
+            func_name,
+            target_context,
+            module_name,
+        ),
+    }}
+
+
+def _debug_eval_emit_skip_not_target(frame, func_name, target_context, compared):
+    _debug_eval_emit_decision(
+        "trace.filter",
+        "skip-not-target",
+        {{
+            "module": frame.f_globals.get("__name__"),
+            "function": func_name,
+            "chosen": "skip",
+            "compared": compared,
+            **target_context,
+        }},
+        link=_debug_eval_link(),
+        level="forensic",
+    )
+
+
+def _debug_eval_trace_non_call_event(frame, event, arg, func_name, target_context, frame_id):
+    state = _debug_eval_event_state(frame, frame_id, func_name, target_context)
+    _debug_eval_emit_delta(
+        state["action"],
+        state["domain_before"],
+        state["domain_after"],
+        link=state["link"],
+    )
+
+    if event == "return":
+        _debug_eval_handle_return_event(frame, state, arg)
+        return
+
+    if event == "exception":
+        _debug_eval_handle_exception_event(frame, state, arg)
+        return
+
+
 def _debug_eval_call_event(frame, func_name, target_context, frame_id, compared):
     _debug_eval_clock[frame_id] = time.perf_counter()
     parent_meta = _debug_eval_frame_meta.get(id(frame.f_back), {{}})
@@ -1900,31 +1947,16 @@ def _debug_eval_tracer(frame, event, arg):
     func_name = frame.f_code.co_name
     target_context = _debug_eval_target_context(frame)
     frame_id = id(frame)
-
-    compared = {{
-        "in-addon-module": _debug_eval_is_addon_module(module_name),
-        "allowlisted": func_name in _debug_eval_allowlist,
-        "has-active-root": _debug_eval_active_root is not None,
-        "operator-entry": func_name in {{"invoke", "execute"}} and bool(
-            target_context.get("operator_id") or target_context.get("target")
-        ),
-    }}
+    compared = _debug_eval_compared_context(module_name, func_name, target_context)
 
     is_target = _debug_eval_is_target(frame)
     if event == "call":
         if not is_target:
-            _debug_eval_emit_decision(
-                "trace.filter",
-                "skip-not-target",
-                {{
-                    "module": frame.f_globals.get("__name__"),
-                    "function": func_name,
-                    "chosen": "skip",
-                    "compared": compared,
-                    **target_context,
-                }},
-                link=_debug_eval_link(),
-                level="forensic",
+            _debug_eval_emit_skip_not_target(
+                frame,
+                func_name,
+                target_context,
+                compared,
             )
             return
         _debug_eval_call_event(frame, func_name, target_context, frame_id, compared)
@@ -1932,22 +1964,14 @@ def _debug_eval_tracer(frame, event, arg):
 
     if not is_target:
         return
-
-    state = _debug_eval_event_state(frame, frame_id, func_name, target_context)
-    _debug_eval_emit_delta(
-        state["action"],
-        state["domain_before"],
-        state["domain_after"],
-        link=state["link"],
+    _debug_eval_trace_non_call_event(
+        frame,
+        event,
+        arg,
+        func_name,
+        target_context,
+        frame_id,
     )
-
-    if event == "return":
-        _debug_eval_handle_return_event(frame, state, arg)
-        return
-
-    if event == "exception":
-        _debug_eval_handle_exception_event(frame, state, arg)
-        return
 
 
 if _debug_eval_enabled:
