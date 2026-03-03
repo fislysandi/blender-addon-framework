@@ -6,7 +6,9 @@ def test_init_addon_pyproject_includes_dependency_groups(tmp_path, monkeypatch):
     addon_root.mkdir(parents=True)
 
     monkeypatch.setattr(
-        uv_integration, "get_addon_path", lambda _addon_name: addon_root
+        uv_integration,
+        "get_addon_path",
+        lambda _addon_name, **_kwargs: addon_root,
     )
 
     uv_integration.init_addon_pyproject("demo_addon")

@@ -14,7 +14,7 @@ def test_ensure_framework_runtime_initializes_once(monkeypatch):
         main_module.BLENDER_EXE_PATH = blender_path
         main_module.BLENDER_ADDON_PATH = addon_path
 
-    def _fake_install_fake_bpy(path):
+    def _fake_install_fake_bpy(path, **_kwargs):
         calls["install"] += 1
         assert path == blender_path
 
@@ -42,7 +42,7 @@ def test_ensure_framework_runtime_skips_fake_bpy_when_path_missing(monkeypatch):
         main_module.BLENDER_EXE_PATH = "/missing/blender"
         main_module.BLENDER_ADDON_PATH = "/missing/addons"
 
-    def _fake_install_fake_bpy(_):
+    def _fake_install_fake_bpy(_, **_kwargs):
         calls["install"] += 1
 
     monkeypatch.setattr(

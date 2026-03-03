@@ -6,8 +6,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 from src.common.uv_integration import (
     init_addon_pyproject,
     add_addon_dependency,
@@ -94,17 +92,18 @@ def main():
     try:
         if args.command == "init":
             addon_name = _resolve_command_addon(args, addons_dir)
-            init_addon_pyproject(addon_name)
+            init_addon_pyproject(addon_name, framework_root=framework_root)
         elif args.command == "add":
             addon_name = _resolve_command_addon(args, addons_dir)
             add_addon_dependency(
                 addon_name,
                 args.package,
                 use_uv_override=resolve_uv_override(args),
+                framework_root=framework_root,
             )
         elif args.command == "list":
             addon_name = _resolve_command_addon(args, addons_dir)
-            deps = list_addon_dependencies(addon_name)
+            deps = list_addon_dependencies(addon_name, framework_root=framework_root)
             if deps:
                 print(f"Dependencies for {addon_name}:")
                 for dep in deps:
@@ -116,6 +115,7 @@ def main():
             sync_addon_dependencies(
                 addon_name,
                 use_uv_override=resolve_uv_override(args),
+                framework_root=framework_root,
             )
     except subprocess.CalledProcessError as e:
         stderr = e.stderr.strip() if e.stderr else ""

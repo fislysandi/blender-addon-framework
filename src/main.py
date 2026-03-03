@@ -27,7 +27,8 @@ ACTIVE_ADDON = ""
 
 # The path of the blender executable. Blender2.93 is the minimum version required
 # Blender可执行文件的路径，Blender2.93是所需的最低版本
-BLENDER_EXE_PATH = "C:/software/general/Blender/blender-3.6.0-windows-x64/blender.exe"
+# Prefer setting BLENDER_EXE_PATH via environment variable or config.toml.
+BLENDER_EXE_PATH = os.environ.get("BLENDER_EXE_PATH", "").strip()
 
 # Linux example Linux示例
 # BLENDER_EXE_PATH = "/usr/local/blender/blender-3.6.0-linux-x64/blender"

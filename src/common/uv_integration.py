@@ -8,8 +8,23 @@ from typing import List, Optional
 import toml
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CONFIG_PATH = PROJECT_ROOT / "config.toml"
+DEFAULT_FRAMEWORK_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_CONFIG_PATH = DEFAULT_FRAMEWORK_ROOT / "config.toml"
+
+
+def _resolve_framework_root(framework_root: Path | str | None = None) -> Path:
+    if framework_root is None:
+        return DEFAULT_FRAMEWORK_ROOT
+    return Path(framework_root).expanduser().resolve()
+
+
+def _resolve_config_path(
+    config_path: Path | str | None = None,
+    framework_root: Path | str | None = None,
+) -> Path:
+    if config_path is not None:
+        return Path(config_path).expanduser().resolve()
+    return _resolve_framework_root(framework_root) / "config.toml"
 
 
 def _coerce_bool(value, default: bool) -> bool:
@@ -26,13 +41,18 @@ def _coerce_bool(value, default: bool) -> bool:
     return default
 
 
-def get_use_uv_by_default() -> bool:
+def get_use_uv_by_default(
+    *,
+    config_path: Path | str | None = None,
+    framework_root: Path | str | None = None,
+) -> bool:
     """Read default UV preference from config.toml."""
-    if not CONFIG_PATH.exists():
+    resolved_config_path = _resolve_config_path(config_path, framework_root)
+    if not resolved_config_path.exists():
         return True
 
     try:
-        config = toml.load(CONFIG_PATH)
+        config = toml.load(resolved_config_path)
     except Exception as error:
         print(f"⚠ Failed to read config.toml: {error}. Using UV by default.")
         return True
@@ -49,26 +69,42 @@ def get_use_uv_by_default() -> bool:
     return use_uv
 
 
-def resolve_use_uv(use_uv_override: Optional[bool] = None) -> bool:
+def resolve_use_uv(
+    use_uv_override: Optional[bool] = None,
+    *,
+    config_path: Path | str | None = None,
+    framework_root: Path | str | None = None,
+) -> bool:
     """Resolve UV preference with CLI override precedence."""
     if use_uv_override is not None:
         return use_uv_override
-    return get_use_uv_by_default()
+    return get_use_uv_by_default(
+        config_path=config_path,
+        framework_root=framework_root,
+    )
 
 
-def get_addon_path(addon_name: str) -> Path:
+def get_addon_path(
+    addon_name: str, *, framework_root: Path | str | None = None
+) -> Path:
     """Get the path to an addon directory."""
-    return Path("addons") / addon_name
+    return _resolve_framework_root(framework_root) / "addons" / addon_name
 
 
-def addon_has_pyproject(addon_name: str) -> bool:
+def addon_has_pyproject(
+    addon_name: str, *, framework_root: Path | str | None = None
+) -> bool:
     """Check if an addon has a pyproject.toml."""
-    return (get_addon_path(addon_name) / "pyproject.toml").exists()
+    return (
+        get_addon_path(addon_name, framework_root=framework_root) / "pyproject.toml"
+    ).exists()
 
 
-def init_addon_pyproject(addon_name: str) -> None:
+def init_addon_pyproject(
+    addon_name: str, *, framework_root: Path | str | None = None
+) -> None:
     """Initialize pyproject.toml for an addon."""
-    addon_path = get_addon_path(addon_name)
+    addon_path = get_addon_path(addon_name, framework_root=framework_root)
     if not addon_path.exists():
         raise ValueError(f"Addon {addon_name} does not exist")
 
@@ -95,14 +131,23 @@ package = false
 
 
 def add_addon_dependency(
-    addon_name: str, package: str, use_uv_override: Optional[bool] = None
+    addon_name: str,
+    package: str,
+    use_uv_override: Optional[bool] = None,
+    *,
+    framework_root: Path | str | None = None,
+    config_path: Path | str | None = None,
 ) -> None:
     """Add a dependency to an addon."""
-    addon_path = get_addon_path(addon_name)
-    if not addon_has_pyproject(addon_name):
-        init_addon_pyproject(addon_name)
+    addon_path = get_addon_path(addon_name, framework_root=framework_root)
+    if not addon_has_pyproject(addon_name, framework_root=framework_root):
+        init_addon_pyproject(addon_name, framework_root=framework_root)
 
-    use_uv = resolve_use_uv(use_uv_override)
+    use_uv = resolve_use_uv(
+        use_uv_override,
+        config_path=config_path,
+        framework_root=framework_root,
+    )
 
     if use_uv:
         try:
@@ -159,27 +204,39 @@ def add_addon_dependency(
     print(f"✓ Added {package} to {addon_name} using pip fallback")
 
 
-def list_addon_dependencies(addon_name: str) -> List[str]:
+def list_addon_dependencies(
+    addon_name: str, *, framework_root: Path | str | None = None
+) -> List[str]:
     """List dependencies for an addon."""
-    if not addon_has_pyproject(addon_name):
+    if not addon_has_pyproject(addon_name, framework_root=framework_root):
         return []
 
-    pyproject_path = get_addon_path(addon_name) / "pyproject.toml"
+    pyproject_path = (
+        get_addon_path(addon_name, framework_root=framework_root) / "pyproject.toml"
+    )
     data = toml.load(pyproject_path)
 
     return data.get("project", {}).get("dependencies", [])
 
 
 def sync_addon_dependencies(
-    addon_name: str, use_uv_override: Optional[bool] = None
+    addon_name: str,
+    use_uv_override: Optional[bool] = None,
+    *,
+    framework_root: Path | str | None = None,
+    config_path: Path | str | None = None,
 ) -> None:
     """Sync dependencies for an addon."""
-    if not addon_has_pyproject(addon_name):
+    if not addon_has_pyproject(addon_name, framework_root=framework_root):
         print(f"Addon {addon_name} has no dependencies configured")
         return
 
-    addon_path = get_addon_path(addon_name)
-    use_uv = resolve_use_uv(use_uv_override)
+    addon_path = get_addon_path(addon_name, framework_root=framework_root)
+    use_uv = resolve_use_uv(
+        use_uv_override,
+        config_path=config_path,
+        framework_root=framework_root,
+    )
 
     if use_uv:
         try:
@@ -207,7 +264,7 @@ def sync_addon_dependencies(
             )
             print(f"⚠ UV {reason} but not available. Falling back to pip install.")
 
-    dependencies = list_addon_dependencies(addon_name)
+    dependencies = list_addon_dependencies(addon_name, framework_root=framework_root)
     if not dependencies:
         print(f"Addon {addon_name} has no dependencies configured")
         return
