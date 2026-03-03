@@ -74,6 +74,49 @@ _PYTHON_VERSION_PATTERN = re.compile(r"^\d+\.\d+(?:\.\d+)?$")
 _REQ_NAME_PATTERN = re.compile(r"^\s*([A-Za-z0-9_.-]+)")
 
 _RUNTIME_READY = False
+_STARTUP_EVAL_MODES = {"off", "auto", "manual"}
+
+
+def _normalize_startup_eval_mode(mode: str | None) -> str:
+    mode_text = str(mode or "").strip().lower()
+    if mode_text in _STARTUP_EVAL_MODES:
+        return mode_text
+    return "manual"
+
+
+def build_startup_evaluation_request(
+    addon_name: str,
+    *,
+    session_id: str | None = None,
+    mode: str = "manual",
+    force: bool = False,
+    fail_fast: bool = True,
+) -> dict:
+    request = {
+        "addon_name": addon_name,
+        "mode": _normalize_startup_eval_mode(mode),
+        "force": bool(force),
+        "fail_fast": bool(fail_fast),
+    }
+    if session_id:
+        request["session_id"] = session_id
+    return request
+
+
+def startup_evaluation_env_overrides(
+    startup_eval_request: dict | None,
+) -> dict[str, str]:
+    if startup_eval_request is None:
+        return {}
+
+    mode = _normalize_startup_eval_mode(startup_eval_request.get("mode", "manual"))
+    force = bool(startup_eval_request.get("force", False))
+    fail_fast = bool(startup_eval_request.get("fail_fast", True))
+    return {
+        "BAF_STARTUP_EVAL": mode,
+        "BAF_STARTUP_EVAL_FORCE": "1" if force else "0",
+        "BAF_STARTUP_EVAL_FAIL_FAST": "1" if fail_fast else "0",
+    }
 
 
 def _ensure_framework_runtime(*, warn_on_fake_bpy_mismatch: bool = True):
@@ -830,6 +873,17 @@ def _test_start_options(enable_watch: bool, debug_mode: bool) -> dict:
     return {"enable_watch": enable_watch, "debug_mode": debug_mode}
 
 
+def _startup_eval_request_for_test(addon_name: str, debug_mode: bool) -> dict | None:
+    if not debug_mode:
+        return None
+    return build_startup_evaluation_request(
+        addon_name,
+        mode="auto",
+        force=False,
+        fail_fast=True,
+    )
+
+
 def get_init_file_path(addon_name):
     # addon_name is the name defined in addon's config.py
     target_init_file_path = _addon_init_path(addon_name)
@@ -1083,6 +1137,82 @@ elif _debug_eval_mode in _debug_falsy:
     _debug_eval_enabled = False
 else:
     _debug_eval_enabled = not _debug_release_mode
+
+_startup_eval_mode = _first_env_value(
+    "BAF_STARTUP_EVAL",
+    "SUBTITLE_STARTUP_EVAL",
+    default="auto",
+).strip().lower()
+_startup_eval_force = _first_env_value(
+    "BAF_STARTUP_EVAL_FORCE",
+    "SUBTITLE_STARTUP_EVAL_FORCE",
+    default="0",
+).strip().lower() in _debug_truthy
+_startup_eval_fail_fast = _first_env_value(
+    "BAF_STARTUP_EVAL_FAIL_FAST",
+    "SUBTITLE_STARTUP_EVAL_FAIL_FAST",
+    default="1",
+).strip().lower() in _debug_truthy
+_startup_eval_enabled = _first_env_value("BAF_TEST_MODE", default="0").strip().lower() in _debug_truthy
+_startup_eval_ran_sessions = set()
+
+
+def _startup_eval_event(reason, payload):
+    event = dict(phase="startup-eval", reason=reason, sid=_debug_eval_sid)
+    event.update(payload)
+    print("[STARTUP-EVAL] " + json.dumps(event, sort_keys=True))
+
+
+def _startup_eval_check(name, ok, severity, message):
+    return dict(name=name, ok=bool(ok), severity=severity, message=message)
+
+
+def run_startup_evaluation(addon_name, session_id, mode="auto", force=False):
+    mode_text = str(mode).strip().lower()
+    guard_key = addon_name + ":" + session_id
+    if mode_text == "auto" and (not force) and guard_key in _startup_eval_ran_sessions:
+        result = dict(status="skipped", mode=mode_text, reason="already-ran", session_id=session_id)
+        _startup_eval_event("already-ran", result)
+        return result
+
+    context_obj = bpy.context
+    preferences_obj = getattr(context_obj, "preferences", None)
+    enabled_addons = getattr(preferences_obj, "addons", None)
+    addon_enabled = False
+    if enabled_addons is not None:
+        try:
+            addon_enabled = any(getattr(item, "module", "") == addon_name for item in enabled_addons)
+        except Exception:
+            addon_enabled = False
+    addon_module_loaded = any(
+        module_name == addon_name or module_name.startswith(addon_name + ".")
+        for module_name in sys.modules
+    )
+
+    checks = [
+        _startup_eval_check("context-available", context_obj is not None, "critical", "bpy.context must exist"),
+        _startup_eval_check("preferences-available", preferences_obj is not None, "critical", "bpy.context.preferences must exist"),
+        _startup_eval_check("addon-enabled", addon_enabled, "critical", "addon should be enabled in Blender preferences"),
+        _startup_eval_check("addon-module-loaded", addon_module_loaded, "warning", "addon module should be loaded in sys.modules"),
+    ]
+
+    failed_checks = [check for check in checks if not check["ok"]]
+    critical_failures = [check["message"] for check in failed_checks if check["severity"] == "critical"]
+    warning_failures = [check["message"] for check in failed_checks if check["severity"] != "critical"]
+    status = "failed" if critical_failures else ("warn" if warning_failures else "passed")
+    result = dict(
+        status=status,
+        mode=mode_text,
+        session_id=session_id,
+        check_count=len(checks),
+        failed_count=len(failed_checks),
+        critical_failures=critical_failures,
+        warning_failures=warning_failures,
+        checks=checks,
+    )
+    _startup_eval_ran_sessions.add(guard_key)
+    _startup_eval_event(status, dict(mode=mode_text, check_count=len(checks), failed_count=len(failed_checks)))
+    return result
 
 
 def _debug_eval_sanitize_value(value):
@@ -1670,6 +1800,18 @@ try:
     addon_start = time.time()
     bpy.ops.preferences.addon_enable(module="{addon_name}")
     addon_load_time = time.time() - addon_start
+    if _startup_eval_enabled and _startup_eval_mode not in _debug_falsy:
+        startup_eval_result = run_startup_evaluation(
+            "{addon_name}",
+            _debug_eval_sid,
+            mode=_startup_eval_mode,
+            force=_startup_eval_force,
+        )
+        if startup_eval_result.get("status") == "failed" and _startup_eval_fail_fast:
+            raise RuntimeError(
+                "Startup evaluation failed: "
+                + "; ".join(startup_eval_result.get("critical_failures", []))
+            )
     
     # Print performance summary
     print("\\n" + "="*70)
@@ -1742,6 +1884,7 @@ def start_test(init_file, addon_name, enable_watch=True, debug_mode=True):
 
     # Check if addon has a virtual environment
     addon_venv_path = get_addon_venv_site_packages(addon_name)
+    startup_eval_request = _startup_eval_request_for_test(addon_name, debug_mode)
 
     startup_cmd = _build_debug_startup_command(addon_name, test_addon_path)
 
@@ -1762,6 +1905,7 @@ def start_test(init_file, addon_name, enable_watch=True, debug_mode=True):
                 addon_name,
                 debug_mode=debug_mode,
                 addon_venv_path=addon_venv_path,
+                startup_eval_request=startup_eval_request,
             )
         finally:
             single_run_exit_handler()
@@ -1789,6 +1933,7 @@ def start_test(init_file, addon_name, enable_watch=True, debug_mode=True):
             addon_name,
             debug_mode=debug_mode,
             addon_venv_path=addon_venv_path,
+            startup_eval_request=startup_eval_request,
         )
     finally:
         watch_exit_handler()
@@ -1938,11 +2083,17 @@ def _update_debug_session_metadata(session_id, exit_code, duration):
     write_utf8(metadata_path, json.dumps(payload, indent=2))
 
 
-def _build_exec_environment(addon_venv_path, debug_session_id):
+def _build_exec_environment(
+    addon_venv_path,
+    debug_session_id,
+    startup_eval_request: dict | None = None,
+):
     env = _prepare_blender_env(addon_venv_path)
     env["PYTHONUNBUFFERED"] = "1"
+    env["BAF_TEST_MODE"] = "1"
     env["BAF_DEBUG_SESSION_ID"] = debug_session_id
     env["SUBTITLE_DEBUG_SESSION_ID"] = debug_session_id
+    env.update(startup_evaluation_env_overrides(startup_eval_request))
     return env
 
 
@@ -1981,7 +2132,12 @@ def _stream_process_output(process, addon_path, output_handle):
 
 
 def execute_blender_script(
-    args, addon_path, addon_name, debug_mode=False, addon_venv_path=None
+    args,
+    addon_path,
+    addon_name,
+    debug_mode=False,
+    addon_venv_path=None,
+    startup_eval_request: dict | None = None,
 ):
     """
     Execute Blender with optional addon venv in PYTHONPATH.
@@ -1994,7 +2150,11 @@ def execute_blender_script(
     _ensure_framework_runtime()
     debug_session_id = uuid.uuid4().hex
     start_time = time.monotonic()
-    env = _build_exec_environment(addon_venv_path, debug_session_id)
+    env = _build_exec_environment(
+        addon_venv_path,
+        debug_session_id,
+        startup_eval_request=startup_eval_request,
+    )
     if addon_venv_path:
         print(f"Using addon venv: {addon_venv_path}")
 

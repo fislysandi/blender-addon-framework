@@ -78,14 +78,61 @@ def test_build_exec_environment_sets_framework_debug_session_id(monkeypatch):
 
     env = framework._build_exec_environment("/tmp/venv", "session-123")
 
+    assert env["BAF_TEST_MODE"] == "1"
     assert env["BAF_DEBUG_SESSION_ID"] == "session-123"
     assert env["SUBTITLE_DEBUG_SESSION_ID"] == "session-123"
+
+
+def test_build_exec_environment_applies_startup_eval_overrides(monkeypatch):
+    monkeypatch.setattr(
+        framework,
+        "_prepare_blender_env",
+        lambda _addon_venv_path: {"EXISTING": "1"},
+    )
+    request = framework.build_startup_evaluation_request(
+        "demo_addon",
+        mode="auto",
+        force=True,
+        fail_fast=False,
+    )
+
+    env = framework._build_exec_environment(
+        "/tmp/venv",
+        "session-123",
+        startup_eval_request=request,
+    )
+
+    assert env["BAF_STARTUP_EVAL"] == "auto"
+    assert env["BAF_STARTUP_EVAL_FORCE"] == "1"
+    assert env["BAF_STARTUP_EVAL_FAIL_FAST"] == "0"
+
+
+def test_startup_evaluation_request_normalizes_mode():
+    request = framework.build_startup_evaluation_request(
+        "demo_addon",
+        mode="unexpected",
+    )
+
+    assert request["mode"] == "manual"
+
+
+def test_startup_eval_request_for_test_requires_debug_mode():
+    assert framework._startup_eval_request_for_test("demo", debug_mode=False) is None
+    request = framework._startup_eval_request_for_test("demo", debug_mode=True)
+    assert request is not None
+    assert request["mode"] == "auto"
 
 
 def test_start_up_command_supports_framework_debug_env_keys():
     assert "BAF_DEBUG_EVAL" in framework.debug_start_up_command
     assert "BAF_DEBUG_EVAL_FORMAT" in framework.debug_start_up_command
     assert "BAF_DEBUG_SESSION_ID" in framework.debug_start_up_command
+
+
+def test_start_up_command_includes_startup_evaluation_runner():
+    assert "def run_startup_evaluation(" in framework.debug_start_up_command
+    assert "already-ran" in framework.debug_start_up_command
+    assert "BAF_STARTUP_EVAL_FAIL_FAST" in framework.debug_start_up_command
 
 
 def test_assert_valid_compile_inputs_rejects_invalid_namespace():
