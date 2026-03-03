@@ -749,47 +749,16 @@ def extract_code_template(
     _assert_valid_addon_name(source_addon)
     _assert_valid_template_name(template_name)
 
-    source_root, template_root, files = _resolve_template_extract_inputs(
+    context = _template_extract_context(
         template_name=template_name,
         source_addon=source_addon,
         source_path=source_path,
+        target_prefix=target_prefix,
+        description=description,
+        dry_run=dry_run,
         overwrite=overwrite,
     )
-    metadata = _build_template_extract_metadata(
-        template_name=template_name,
-        source_addon=source_addon,
-        description=description,
-        target_prefix=target_prefix,
-    )
-
-    if dry_run:
-        return _template_extract_result(
-            status="dry-run",
-            template_name=template_name,
-            source_addon=source_addon,
-            source_path=source_path,
-            template_root=template_root,
-            file_count=len(files),
-        )
-
-    if os.path.exists(template_root) and overwrite:
-        shutil.rmtree(template_root)
-    _write_extracted_template(
-        template_root=template_root,
-        metadata=metadata,
-        files=files,
-        source_root=source_root,
-        source_addon=source_addon,
-    )
-
-    return _template_extract_result(
-        status="ok",
-        template_name=template_name,
-        source_addon=source_addon,
-        source_path=source_path,
-        template_root=template_root,
-        file_count=len(files),
-    )
+    return _template_extract_run(context)
 
 
 def _resolve_template_extract_inputs(
@@ -824,6 +793,85 @@ def _build_template_extract_metadata(
         "compatibility": _CODE_TEMPLATE_COMPATIBILITY,
         "dependencies": [],
     }
+
+
+@dataclass(frozen=True)
+class _TemplateExtractContext:
+    template_name: str
+    source_addon: str
+    source_path: str
+    template_root: str
+    source_root: str
+    files: list[str]
+    metadata: dict
+    dry_run: bool
+    overwrite: bool
+
+
+def _template_extract_context(
+    *,
+    template_name: str,
+    source_addon: str,
+    source_path: str,
+    target_prefix: str,
+    description: str,
+    dry_run: bool,
+    overwrite: bool,
+) -> _TemplateExtractContext:
+    source_root, template_root, files = _resolve_template_extract_inputs(
+        template_name=template_name,
+        source_addon=source_addon,
+        source_path=source_path,
+        overwrite=overwrite,
+    )
+    metadata = _build_template_extract_metadata(
+        template_name=template_name,
+        source_addon=source_addon,
+        description=description,
+        target_prefix=target_prefix,
+    )
+    return _TemplateExtractContext(
+        template_name=template_name,
+        source_addon=source_addon,
+        source_path=source_path,
+        template_root=template_root,
+        source_root=source_root,
+        files=files,
+        metadata=metadata,
+        dry_run=dry_run,
+        overwrite=overwrite,
+    )
+
+
+def _template_extract_run(context: _TemplateExtractContext) -> dict:
+    if context.dry_run:
+        return _template_extract_result(
+            status="dry-run",
+            template_name=context.template_name,
+            source_addon=context.source_addon,
+            source_path=context.source_path,
+            template_root=context.template_root,
+            file_count=len(context.files),
+        )
+
+    if os.path.exists(context.template_root) and context.overwrite:
+        shutil.rmtree(context.template_root)
+    _write_extracted_template(
+        template_root=context.template_root,
+        metadata=context.metadata,
+        files=context.files,
+        source_root=context.source_root,
+        source_addon=context.source_addon,
+    )
+
+    return _template_extract_result(
+        status="ok",
+        template_name=context.template_name,
+        source_addon=context.source_addon,
+        source_path=context.source_path,
+        template_root=context.template_root,
+        file_count=len(context.files),
+    )
 
 
 def _template_extract_result(
