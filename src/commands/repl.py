@@ -289,68 +289,68 @@ def _handle_settings_form(
         return False
 
     op = form_tokens[0]
-    if op == "settings":
-        if len(form_tokens) != 1:
-            return False
-        _handle_settings_show(
-            session_overrides=session_overrides,
-            config_values=config_values,
-        )
-        return True
+    args = form_tokens[1:]
 
-    if op == "get":
-        if len(form_tokens) != 2:
-            return False
-        _handle_settings_get(
-            form_tokens[1],
-            session_overrides=session_overrides,
-            config_values=config_values,
-        )
-        return True
+    handlers = {
+        "settings": (
+            0,
+            lambda _args: _handle_settings_show(
+                session_overrides=session_overrides,
+                config_values=config_values,
+            ),
+        ),
+        "get": (
+            1,
+            lambda op_args: _handle_settings_get(
+                op_args[0],
+                session_overrides=session_overrides,
+                config_values=config_values,
+            ),
+        ),
+        "source": (
+            1,
+            lambda op_args: _handle_settings_source(
+                op_args[0],
+                session_overrides=session_overrides,
+                config_values=config_values,
+            ),
+        ),
+        "set!": (
+            2,
+            lambda op_args: _handle_settings_set_session(
+                op_args[0],
+                op_args[1],
+                session_overrides=session_overrides,
+            ),
+        ),
+        "unset!": (
+            1,
+            lambda op_args: _handle_settings_unset(
+                op_args[0],
+                session_overrides=session_overrides,
+                config_values=config_values,
+            ),
+        ),
+        "save!": (
+            2,
+            lambda op_args: _handle_settings_save(
+                op_args[0],
+                op_args[1],
+                session_overrides=session_overrides,
+                config_values=config_values,
+                config_path=config_path,
+            ),
+        ),
+    }
 
-    if op == "source":
-        if len(form_tokens) != 2:
-            return False
-        _handle_settings_source(
-            form_tokens[1],
-            session_overrides=session_overrides,
-            config_values=config_values,
-        )
-        return True
-
-    if op == "set!":
-        if len(form_tokens) != 3:
-            return False
-        _handle_settings_set_session(
-            form_tokens[1],
-            form_tokens[2],
-            session_overrides=session_overrides,
-        )
-        return True
-
-    if op == "unset!":
-        if len(form_tokens) != 2:
-            return False
-        _handle_settings_unset(
-            form_tokens[1],
-            session_overrides=session_overrides,
-            config_values=config_values,
-        )
-        return True
-
-    if op == "save!":
-        if len(form_tokens) != 3:
-            return False
-        _handle_settings_save(
-            form_tokens[1],
-            form_tokens[2],
-            session_overrides=session_overrides,
-            config_values=config_values,
-            config_path=config_path,
-        )
-        return True
-
-    return False
+    handler_entry = handlers.get(op)
+    if handler_entry is None:
+        return False
+    expected_arity, handler = handler_entry
+    if len(args) != expected_arity:
+        return False
+    handler(args)
+    return True
 
 
 def _handle_lisp_command_form(
