@@ -113,6 +113,7 @@ def test_compile_plan_returns_expected_contract(monkeypatch):
     assert isinstance(plan, framework._CompilePlan)
     assert plan.release_folder == "/repo/releases/valid_addon"
     assert plan.dependency_paths == ["/repo/lib/dep_a.py", "/repo/lib/dep_b.py"]
+    assert plan.pyproject == {}
     assert plan.real_addon_name == "/repo/releases/valid_addon"
     assert plan.released_addon_path == "/repo/releases/valid_addon.zip"
 
@@ -159,6 +160,55 @@ def test_validate_manifest_contract_reports_page_count_mismatch():
         framework._validate_manifest_contract(manifest, "/tmp/manifest.json")
 
 
+def test_compile_docs_result_skips_when_no_zip(monkeypatch):
+    monkeypatch.setattr(
+        framework,
+        "build_docs_for_addon",
+        lambda _addon_name: (_ for _ in ()).throw(RuntimeError("should not run")),
+    )
+
+    result = framework._compile_docs_result(
+        "demo_addon",
+        need_zip=False,
+        skip_docs=False,
+    )
+
+    assert result == {"status": "skipped", "reason": "no_zip"}
+
+
+def test_build_compile_metadata_reflects_addon_package_info():
+    plan = framework._CompilePlan(
+        bl_info={"name": "demo", "version": (1, 2, 3)},
+        release_folder="/tmp/release/demo",
+        dependency_paths=["/tmp/dep/a.py"],
+        addon_config={"id": "demo", "version": "1.2.3"},
+        pyproject={
+            "project": {
+                "name": "demo",
+                "version": "1.2.3",
+                "requires-python": ">=3.10",
+                "dependencies": ["requests>=2"],
+            },
+            "dependency-groups": {"dev": ["pytest"], "test": ["pytest-cov"]},
+        },
+        real_addon_name="demo_release",
+        released_addon_path="/tmp/release/demo_release.zip",
+    )
+
+    metadata = framework._build_compile_metadata(
+        addon_name="demo",
+        is_extension=True,
+        plan=plan,
+        docs_build_result={"status": "ok", "page_count": 3},
+        wheel_sources=["/tmp/wheels/requests.whl"],
+    )
+
+    assert metadata["addon"]["name"] == "demo"
+    assert metadata["addon"]["project"]["dependency_groups"]["dev"] == ["pytest"]
+    assert metadata["packaging"]["wheel_files"] == ["requests.whl"]
+    assert metadata["docs"]["status"] == "ok"
+
+
 def test_compile_addon_orchestrates_side_effect_steps(monkeypatch):
     calls = []
 
@@ -178,22 +228,12 @@ def test_compile_addon_orchestrates_side_effect_steps(monkeypatch):
             release_folder="/tmp/release/valid_addon",
             dependency_paths=["/tmp/deps/a.py"],
             addon_config={"wheels": ["./wheels/a.whl"]},
+            pyproject={"project": {"dependencies": []}},
             real_addon_name="/tmp/release/valid_addon",
             released_addon_path="/tmp/release/valid_addon.zip",
         ),
     )
-    monkeypatch.setattr(
-        framework,
-        "build_docs_for_addon",
-        lambda addon_name: {
-            "status": "ok",
-            "manifest_path": f"/{addon_name}/manifest.json",
-            "page_count": 2,
-        },
-    )
-    monkeypatch.setattr(
-        framework, "_maybe_print_docs_contract", _record("docs_contract")
-    )
+    monkeypatch.setattr(framework, "_compile_docs_result", _record("docs_result"))
     monkeypatch.setattr(
         framework,
         "_prepare_release_folder",
@@ -219,7 +259,10 @@ def test_compile_addon_orchestrates_side_effect_steps(monkeypatch):
     monkeypatch.setattr(
         framework, "enhance_import_for_py_files", _record("enhance_imports")
     )
-    monkeypatch.setattr(framework, "_copy_extension_wheels", _record("copy_wheels"))
+    monkeypatch.setattr(framework, "_resolve_wheel_sources", _record("resolve_wheels"))
+    monkeypatch.setattr(framework, "_copy_wheels_to_release", _record("copy_wheels"))
+    monkeypatch.setattr(framework, "_build_compile_metadata", _record("metadata"))
+    monkeypatch.setattr(framework, "_write_compile_metadata", _record("write_metadata"))
     monkeypatch.setattr(framework, "zip_folder", _record("zip"))
 
     result = framework.compile_addon(
@@ -238,7 +281,7 @@ def test_compile_addon_orchestrates_side_effect_steps(monkeypatch):
     assert call_names == [
         "validate",
         "ensure_dir",
-        "docs_contract",
+        "docs_result",
         "write",
         "copy_siblings",
         "copy_tree",
@@ -246,6 +289,9 @@ def test_compile_addon_orchestrates_side_effect_steps(monkeypatch):
         "clean",
         "convert_ext",
         "enhance_imports",
+        "resolve_wheels",
         "copy_wheels",
+        "metadata",
+        "write_metadata",
         "zip",
     ]

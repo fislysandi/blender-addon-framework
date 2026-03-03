@@ -1046,6 +1046,17 @@ _debug_eval_compact_noisy = {{
 _debug_eval_sid = os.environ.get("SUBTITLE_DEBUG_SESSION_ID", uuid.uuid4().hex)
 _debug_eval_eid = 0
 
+_debug_truthy = {{"1", "true", "yes", "on"}}
+_debug_falsy = {{"0", "false", "no", "off"}}
+_debug_eval_mode = os.environ.get("SUBTITLE_DEBUG_EVAL", "auto").strip().lower()
+_debug_release_mode = os.environ.get("BAF_RELEASE_BUILD", "0").strip().lower() in _debug_truthy
+if _debug_eval_mode in _debug_truthy:
+    _debug_eval_enabled = True
+elif _debug_eval_mode in _debug_falsy:
+    _debug_eval_enabled = False
+else:
+    _debug_eval_enabled = not _debug_release_mode
+
 
 def _debug_eval_sanitize_value(value):
     if isinstance(value, (bool, int, float)) or value is None:
@@ -1323,16 +1334,23 @@ def _debug_eval_action(frame):
 def _debug_eval_target_context(frame):
     context = {{}}
     self_obj = frame.f_locals.get("self")
-    if self_obj is not None:
-        class_name = self_obj.__class__.__name__
+    if self_obj is None:
+        return context
+
+    try:
+        class_obj = self_obj.__class__
+        class_name = getattr(class_obj, "__name__", None)
         if class_name:
             context["target"] = class_name
-        class_dict = getattr(self_obj.__class__, "__dict__", {{}})
+        class_dict = getattr(class_obj, "__dict__", {{}})
         class_bl_idname = class_dict.get("bl_idname")
         instance_bl_idname = getattr(self_obj, "bl_idname", None)
         bl_idname = class_bl_idname or instance_bl_idname
         if bl_idname:
             context["operator_id"] = bl_idname
+    except (ReferenceError, RuntimeError):
+        return context
+
     return context
 
 
@@ -1600,17 +1618,23 @@ def _debug_eval_tracer(frame, event, arg):
         return
 
 
-sys.setprofile(_debug_eval_tracer)
+if _debug_eval_enabled:
+    sys.setprofile(_debug_eval_tracer)
 
 print("\\n" + "="*70)
 print(f"[DEBUG] Starting addon '{addon_name}' with debug mode enabled")
 print("="*70)
 print("[DEBUG] Performance tracking: ON")
 print("[DEBUG] Import tracking: ON")
-print("[DEBUG] Evaluation tracing: ON")
-print(f"[DEBUG] Evaluation format: {{_debug_eval_format}}")
-print(f"[DEBUG] Evaluation verbosity: {{_debug_eval_verbosity}}")
-print(f"[DEBUG] Evaluation compact mode: {{'ON' if _debug_eval_compact else 'OFF'}}")
+if _debug_eval_enabled:
+    print("[DEBUG] Evaluation tracing: ON")
+    print(f"[DEBUG] Evaluation format: {{_debug_eval_format}}")
+    print(f"[DEBUG] Evaluation verbosity: {{_debug_eval_verbosity}}")
+    print(f"[DEBUG] Evaluation compact mode: {{'ON' if _debug_eval_compact else 'OFF'}}")
+else:
+    print("[DEBUG] Evaluation tracing: OFF")
+    if _debug_release_mode:
+        print("[DEBUG] Evaluation tracing disabled for release mode")
 print("[DEBUG] Full tracebacks: ON")
 print("="*70 + "\\n")
 
@@ -2310,6 +2334,13 @@ class _DocsPaths:
     manifest_path: str
 
 
+@dataclass(frozen=True)
+class _BDocGenRequest:
+    addon_name: str
+    docs_root_rel: str
+    output_dir_rel: str
+
+
 def _docs_paths(addon_name: str) -> _DocsPaths:
     docs_root_rel = os.path.join(_ADDONS_FOLDER, addon_name, "docs")
     output_dir_rel = os.path.join(docs_root_rel, "_build")
@@ -2368,11 +2399,15 @@ def _validate_manifest_contract(manifest: dict, manifest_path: str):
         )
 
 
-def _run_bdocgen(addon_name: str, docs_root_rel: str, output_dir_rel: str):
+def _run_bdocgen_command(request: _BDocGenRequest):
     if not os.path.isdir(_BDOCGEN_ROOT):
         raise RuntimeError(f"BDocGen project not found: {_BDOCGEN_ROOT}")
 
-    command = _bdocgen_command(addon_name, docs_root_rel, output_dir_rel)
+    command = _bdocgen_command(
+        request.addon_name,
+        request.docs_root_rel,
+        request.output_dir_rel,
+    )
 
     result = subprocess.run(
         command,
@@ -2384,12 +2419,12 @@ def _run_bdocgen(addon_name: str, docs_root_rel: str, output_dir_rel: str):
     if result.returncode != 0:
         details = (result.stderr or result.stdout).strip()
         raise RuntimeError(
-            f"BDocGen failed for addon '{addon_name}' (exit {result.returncode}): {details}"
+            f"BDocGen failed for addon '{request.addon_name}' (exit {result.returncode}): {details}"
         )
 
 
-def _validate_bdocgen_contract(output_dir_rel: str):
-    output_dir_abs = os.path.join(PROJECT_ROOT, output_dir_rel)
+def _validate_bdocgen_contract(request: _BDocGenRequest):
+    output_dir_abs = os.path.join(PROJECT_ROOT, request.output_dir_rel)
     index_path = os.path.join(output_dir_abs, "index.html")
     manifest_path = os.path.join(output_dir_abs, "manifest.json")
 
@@ -2413,6 +2448,11 @@ def _validate_bdocgen_contract(output_dir_rel: str):
     }
 
 
+def run_bdocgen(request: _BDocGenRequest) -> dict:
+    _run_bdocgen_command(request)
+    return _validate_bdocgen_contract(request)
+
+
 def build_docs_for_addon(addon_name: str):
     paths = _docs_paths(addon_name)
     docs_root_rel = paths.docs_root_rel
@@ -2420,11 +2460,14 @@ def build_docs_for_addon(addon_name: str):
         print(f"No docs directory for addon '{addon_name}', skipping BDocGen.")
         return {"status": "skipped", "page_count": 0}
 
-    output_dir_rel = paths.output_dir_rel
-    _run_bdocgen(addon_name, docs_root_rel, output_dir_rel)
-    contract = _validate_bdocgen_contract(output_dir_rel)
+    request = _BDocGenRequest(
+        addon_name=addon_name,
+        docs_root_rel=docs_root_rel,
+        output_dir_rel=paths.output_dir_rel,
+    )
+    contract = run_bdocgen(request)
     print(
-        f"BDocGen generated {contract['page_count']} page(s) for '{addon_name}' at {output_dir_rel}"
+        f"BDocGen generated {contract['page_count']} page(s) for '{addon_name}' at {paths.output_dir_rel}"
     )
     return {"status": "ok", **contract}
 
@@ -2780,6 +2823,7 @@ class _CompilePlan:
     release_folder: str
     dependency_paths: list[str]
     addon_config: dict
+    pyproject: dict
     real_addon_name: str
     released_addon_path: str
 
@@ -2802,6 +2846,7 @@ def _compile_plan(
     dependencies = find_all_dependencies(list(visited_py_files), PROJECT_ROOT)
     dependency_paths = _new_dependency_paths(list(dependencies), visited_py_files)
     addon_config_file, addon_config = _load_extension_config(addon_name, is_extension)
+    pyproject = _addon_pyproject(addon_name)
     version_suffix = _resolve_version_suffix(
         with_version=with_version,
         is_extension=is_extension,
@@ -2824,9 +2869,70 @@ def _compile_plan(
         release_folder=release_folder,
         dependency_paths=dependency_paths,
         addon_config=addon_config,
+        pyproject=pyproject,
         real_addon_name=real_addon_name,
         released_addon_path=released_addon_path,
     )
+
+
+def _addon_pyproject(addon_name: str) -> dict:
+    pyproject_file = os.path.join(_ADDON_ROOT, addon_name, "pyproject.toml")
+    if not os.path.isfile(pyproject_file):
+        return {}
+    return _read_toml_file(pyproject_file)
+
+
+def _build_compile_metadata(
+    *,
+    addon_name: str,
+    is_extension: bool,
+    plan: _CompilePlan,
+    docs_build_result: dict,
+    wheel_sources: list[str],
+) -> dict:
+    project_metadata = plan.pyproject.get("project", {})
+    return {
+        "addon": {
+            "name": addon_name,
+            "is_extension": is_extension,
+            "bl_info": plan.bl_info,
+            "manifest": plan.addon_config,
+            "project": {
+                "name": project_metadata.get("name"),
+                "version": project_metadata.get("version"),
+                "requires_python": project_metadata.get("requires-python"),
+                "dependencies": project_metadata.get("dependencies", []),
+                "dependency_groups": plan.pyproject.get("dependency-groups", {}),
+            },
+        },
+        "docs": docs_build_result,
+        "packaging": {
+            "dependency_module_paths": len(plan.dependency_paths),
+            "wheel_files": [os.path.basename(path) for path in wheel_sources],
+            "artifact_name": plan.real_addon_name,
+            "artifact_path": plan.released_addon_path,
+        },
+    }
+
+
+def _write_compile_metadata(release_folder: str, metadata: dict) -> str:
+    metadata_path = os.path.join(release_folder, "compile_metadata.json")
+    write_utf8(metadata_path, json.dumps(metadata, indent=2, ensure_ascii=True) + "\n")
+    return metadata_path
+
+
+def _compile_docs_result(addon_name: str, *, need_zip: bool, skip_docs: bool) -> dict:
+    if skip_docs:
+        print("Skipping docs generation (--skip-docs).")
+        return {"status": "skipped", "reason": "skip_docs"}
+    if not need_zip:
+        print(
+            "Skipping docs generation (docs are generated only for final zip package)."
+        )
+        return {"status": "skipped", "reason": "no_zip"}
+    docs_build_result = build_docs_for_addon(addon_name)
+    _maybe_print_docs_contract(docs_build_result)
+    return docs_build_result
 
 
 def compile_addon(
@@ -2853,11 +2959,11 @@ def compile_addon(
         with_timestamp=with_timestamp,
     )
 
-    if skip_docs:
-        print("Skipping docs generation (--skip-docs).")
-    else:
-        docs_build_result = build_docs_for_addon(addon_name)
-        _maybe_print_docs_contract(docs_build_result)
+    docs_build_result = _compile_docs_result(
+        addon_name,
+        need_zip=need_zip,
+        skip_docs=skip_docs,
+    )
 
     release_folder = _prepare_release_folder(release_dir, addon_name)
 
@@ -2884,12 +2990,21 @@ def compile_addon(
     #                                     _ADDONS_FOLDER, addon_name)
 
     # include wheel files when need to be zipped
+    wheel_sources: list[str] = []
     if need_zip and bundle_deps:
-        _copy_wheels_to_release(
-            _resolve_wheel_sources(addon_name, plan.addon_config), release_folder
-        )
+        wheel_sources = _resolve_wheel_sources(addon_name, plan.addon_config)
+        _copy_wheels_to_release(wheel_sources, release_folder)
     elif need_zip and not bundle_deps:
         print("Skipping dependency wheel packaging (--no-deps).")
+
+    compile_metadata = _build_compile_metadata(
+        addon_name=addon_name,
+        is_extension=is_extension,
+        plan=plan,
+        docs_build_result=docs_build_result,
+        wheel_sources=wheel_sources,
+    )
+    _write_compile_metadata(release_folder, compile_metadata)
 
     real_addon_name = plan.real_addon_name
     released_addon_path = plan.released_addon_path

@@ -97,7 +97,7 @@ def main():
         "--skip-docs",
         action="store_true",
         default=SKIP_DOCS_BY_DEFAULT,
-        help="Skip BDocGen docs generation before packaging",
+        help="Skip BDocGen docs generation for final zip packaging",
     )
     parser.add_argument(
         "--with-docs",
@@ -124,7 +124,7 @@ def main():
     addons_dir = framework_root / "addons"
     addon_name = resolve_addon_name(args.addon, addons_dir, ACTIVE_ADDON)
     is_valid, error_message, addon_path, addon_names = _validate_addon_name(
-        addon_name, addons_dir
+        addon_name or "", addons_dir
     )
     if not is_valid and error_message == "No addon name provided":
         print(f"Error: {error_message}")

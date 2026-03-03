@@ -105,6 +105,8 @@ uv run compile my_addon --no-deps
 By default, compile bundles dependency wheels for extension packaging when matching wheel files exist in `wheels/`.
 Dependency names are discovered from `addons/<addon>/pyproject.toml` (`project.dependencies`) and merged with wheels declared in `blender_manifest.toml`.
 
+BDocGen runs during final zip packaging. If you run compile with `--no-zip`, docs generation is skipped.
+
 Deprecated alias:
 
 ```bash

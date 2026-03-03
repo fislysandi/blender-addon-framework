@@ -51,7 +51,7 @@ Options:
 
 - `--framework-root <path>`
 - `--release-dir <path>`
-- `--no-zip`
+- `--no-zip` (skip final zip artifact; docs generation is skipped in this mode)
 - `--extension`
 - `--with-version`
 - `--with-timestamp`
