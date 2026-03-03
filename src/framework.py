@@ -1954,13 +1954,13 @@ def _debug_eval_event_state(frame, frame_id, func_name, target_context):
 def _debug_eval_operator_summary_context(
     *, total_duration_ms: float, stats: dict, target_context: dict
 ):
-    return {
+    return {{
         "total-duration-ms": total_duration_ms,
         "call-count": stats.get("call_count", 0),
         "decision-count": stats.get("decision_count", 0),
         "warning-count": stats.get("warning_count", 0),
         **target_context,
-    }
+    }}
 
 
 def _debug_eval_maybe_log_operator_summary(
@@ -2050,7 +2050,7 @@ def _debug_eval_handle_return_event(frame, state, arg):
         outcome="ok",
         reason="operator-complete",
         target_context=state["target_context"],
-        extra_context={"final-outcome": "ok"},
+        extra_context={{"final-outcome": "ok"}},
     )
 
     _debug_eval_finalize_trace_depth(state["frame_id"])
