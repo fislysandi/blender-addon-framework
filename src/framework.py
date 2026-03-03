@@ -3974,57 +3974,71 @@ def convert_absolute_to_relative(file_path: str, project_root: str):
     changed = False
 
     for line in lines:
-        # help skipping expensive path check
-        stripped_line = line.strip()
-        if (not stripped_line.startswith("from ")) or stripped_line.startswith(
-            "from ."
-        ):
-            # Leave non-import lines unchanged
-            modified_lines.append(line)
-            continue
-        match = _absolute_import_pattern.match(line)
-        if match:
-            # get whitespace before the import statement
-            leading_space = line[: line.index("from")]
-            absolute_module = match.group(1)
-            import_items = match.group(2)
-            # Check if the absolute module is within the project
-            absolute_module_path = absolute_module.replace(".", os.sep)
-            full_module_path = os.path.join(project_root, absolute_module_path)
-            if os.path.exists(full_module_path) or os.path.exists(
-                f"{full_module_path}.py"
-            ):
-                # Calculate the relative import path
-
-                target_relative_path = os.path.relpath(
-                    os.path.join(project_root, absolute_module_path),
-                    os.path.dirname(file_path),
-                )
-                # Count the levels for leading dots
-                levels_up = target_relative_path.count("..") + 1
-                leading_dots = "." * levels_up
-
-                # Build the relative import line
-                target_relative_path = target_relative_path.strip("." + os.sep)
-                relative_import_line = (
-                    leading_space
-                    + f"from {leading_dots}{target_relative_path.replace(os.sep, '.')} import {import_items}\n"
-                )
-                if relative_import_line != line:
-                    modified_lines.append(relative_import_line)
-                    changed = True
-                    continue
-            else:
-                # Leave non-matching lines unchanged
-                modified_lines.append(line)
-        else:
-            # Leave non-matching lines unchanged
-            modified_lines.append(line)
-        # print(f"not match {line} in {timer() - start3} seconds")
+        rewritten_line = _rewrite_absolute_import_line(line, file_path, project_root)
+        modified_lines.append(rewritten_line)
+        if rewritten_line != line:
+            changed = True
 
     # Write the modified content back to the file if changes were made
     if changed:
         write_utf8_in_lines(file_path, modified_lines)
+
+
+def _is_absolute_import_candidate(stripped_line: str) -> bool:
+    return stripped_line.startswith("from ") and not stripped_line.startswith("from .")
+
+
+def _project_module_exists(project_root: str, absolute_module: str) -> bool:
+    absolute_module_path = absolute_module.replace(".", os.sep)
+    full_module_path = os.path.join(project_root, absolute_module_path)
+    return os.path.exists(full_module_path) or os.path.exists(f"{full_module_path}.py")
+
+
+def _relative_import_line_for_module(
+    line: str,
+    *,
+    file_path: str,
+    project_root: str,
+    absolute_module: str,
+    import_items: str,
+) -> str:
+    leading_space = line[: line.index("from")]
+    absolute_module_path = absolute_module.replace(".", os.sep)
+    target_relative_path = os.path.relpath(
+        os.path.join(project_root, absolute_module_path),
+        os.path.dirname(file_path),
+    )
+    levels_up = target_relative_path.count("..") + 1
+    leading_dots = "." * levels_up
+    target_relative_path = target_relative_path.strip("." + os.sep)
+    return (
+        leading_space
+        + f"from {leading_dots}{target_relative_path.replace(os.sep, '.')} import {import_items}\n"
+    )
+
+
+def _rewrite_absolute_import_line(line: str, file_path: str, project_root: str) -> str:
+    stripped_line = line.strip()
+    if not _is_absolute_import_candidate(stripped_line):
+        return line
+
+    match = _absolute_import_pattern.match(line)
+    if not match:
+        return line
+
+    absolute_module = match.group(1)
+    import_items = match.group(2)
+    if not _project_module_exists(project_root, absolute_module):
+        return line
+
+    rewritten_line = _relative_import_line_for_module(
+        line,
+        file_path=file_path,
+        project_root=project_root,
+        absolute_module=absolute_module,
+        import_items=import_items,
+    )
+    return rewritten_line if rewritten_line != line else line
 
 
 def find_all_py_modules(root_dir: str) -> set:
