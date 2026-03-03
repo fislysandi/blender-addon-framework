@@ -543,6 +543,43 @@ def _maybe_commit_applied_template(
     _commit_addon_changes_if_git_repo(addon_root, template_commit_message)
 
 
+def _resolve_template_apply_inputs(
+    template_name: str,
+    addon_name: str,
+) -> tuple[str, str, str, list[str]]:
+    addon_root = _addon_path(addon_name)
+    if not os.path.isdir(addon_root):
+        raise ValueError(f"Addon not found: {addon_root}")
+    template_root = _resolve_template_root(template_name)
+    metadata = _read_code_template_metadata(template_root)
+    target_prefix = _resolve_template_target_prefix(template_name, metadata)
+    template_files = _list_template_files(template_root)
+    return addon_root, template_root, target_prefix, template_files
+
+
+def _ensure_template_files_for_apply(
+    *,
+    template_name: str,
+    addon_name: str,
+    on_conflict: str,
+    target_prefix: str,
+    template_files: list[str],
+    dry_run: bool,
+) -> dict | None:
+    if template_files:
+        return None
+    if dry_run:
+        return _template_operation_result(
+            status="dry-run",
+            template_name=template_name,
+            addon_name=addon_name,
+            on_conflict=on_conflict,
+            target_prefix=target_prefix,
+            operations=0,
+        )
+    raise ValueError(f"Template has no files to apply: {template_name}")
+
+
 def apply_code_template(
     template_name: str,
     addon_name: str,
@@ -554,26 +591,19 @@ def apply_code_template(
     _assert_valid_addon_name(addon_name)
     _assert_valid_conflict_mode(on_conflict)
 
-    addon_root = _addon_path(addon_name)
-    if not os.path.isdir(addon_root):
-        raise ValueError(f"Addon not found: {addon_root}")
-
-    template_root = _resolve_template_root(template_name)
-    metadata = _read_code_template_metadata(template_root)
-    target_prefix = _resolve_template_target_prefix(template_name, metadata)
-
-    template_files = _list_template_files(template_root)
-    if not template_files:
-        if dry_run:
-            return _template_operation_result(
-                status="dry-run",
-                template_name=template_name,
-                addon_name=addon_name,
-                on_conflict=on_conflict,
-                target_prefix=target_prefix,
-                operations=0,
-            )
-        raise ValueError(f"Template has no files to apply: {template_name}")
+    addon_root, template_root, target_prefix, template_files = (
+        _resolve_template_apply_inputs(template_name, addon_name)
+    )
+    empty_result = _ensure_template_files_for_apply(
+        template_name=template_name,
+        addon_name=addon_name,
+        on_conflict=on_conflict,
+        target_prefix=target_prefix,
+        template_files=template_files,
+        dry_run=dry_run,
+    )
+    if empty_result is not None:
+        return empty_result
 
     plan = _build_template_apply_plan(
         template_root,
@@ -626,23 +656,18 @@ def extract_code_template(
     _assert_valid_addon_name(source_addon)
     _assert_valid_template_name(template_name)
 
-    source_root = _resolve_addon_source_path(source_addon, source_path)
-    template_root = _resolve_new_template_root(template_name)
-    files = _collect_template_source_files(source_root)
-    if not files:
-        raise ValueError(f"No files found to extract from: {source_root}")
-
-    if os.path.exists(template_root) and not overwrite:
-        raise ValueError(f"Template already exists: {template_name}")
-
-    metadata = {
-        "name": Path(template_name).name,
-        "source_addon": source_addon,
-        "description": description,
-        "target_prefix": target_prefix,
-        "compatibility": _CODE_TEMPLATE_COMPATIBILITY,
-        "dependencies": [],
-    }
+    source_root, template_root, files = _resolve_template_extract_inputs(
+        template_name=template_name,
+        source_addon=source_addon,
+        source_path=source_path,
+        overwrite=overwrite,
+    )
+    metadata = _build_template_extract_metadata(
+        template_name=template_name,
+        source_addon=source_addon,
+        description=description,
+        target_prefix=target_prefix,
+    )
 
     if dry_run:
         return _template_extract_result(
@@ -672,6 +697,40 @@ def extract_code_template(
         template_root=template_root,
         file_count=len(files),
     )
+
+
+def _resolve_template_extract_inputs(
+    *,
+    template_name: str,
+    source_addon: str,
+    source_path: str,
+    overwrite: bool,
+) -> tuple[str, str, list[str]]:
+    source_root = _resolve_addon_source_path(source_addon, source_path)
+    template_root = _resolve_new_template_root(template_name)
+    files = _collect_template_source_files(source_root)
+    if not files:
+        raise ValueError(f"No files found to extract from: {source_root}")
+    if os.path.exists(template_root) and not overwrite:
+        raise ValueError(f"Template already exists: {template_name}")
+    return source_root, template_root, files
+
+
+def _build_template_extract_metadata(
+    *,
+    template_name: str,
+    source_addon: str,
+    description: str,
+    target_prefix: str,
+) -> dict:
+    return {
+        "name": Path(template_name).name,
+        "source_addon": source_addon,
+        "description": description,
+        "target_prefix": target_prefix,
+        "compatibility": _CODE_TEMPLATE_COMPATIBILITY,
+        "dependencies": [],
+    }
 
 
 def _template_extract_result(
