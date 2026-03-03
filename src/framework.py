@@ -2269,6 +2269,37 @@ def _stream_process_output(process, addon_path, output_handle):
         output_handle.flush()
 
 
+def _run_tracked_blender_process(
+    *,
+    process,
+    args,
+    addon_path: str,
+    addon_name: str,
+    debug_mode: bool,
+    session_id: str,
+    start_time: float,
+):
+    recorded_session_id, log_path = _record_debug_session(
+        process,
+        args,
+        addon_name,
+        debug_mode,
+        session_id=session_id,
+    )
+    _print_debug_session_banner(process, recorded_session_id, log_path)
+    with open(log_path, "w", encoding="utf-8") as log_file:
+        try:
+            _stream_process_output(process, addon_path, log_file)
+        except KeyboardInterrupt:
+            sys.stderr.write("interrupted, terminating the child process...\n")
+        finally:
+            if process.poll() is None:
+                process.terminate()
+            exit_code = process.wait()
+            duration = time.monotonic() - start_time
+            _update_debug_session_metadata(recorded_session_id, exit_code, duration)
+
+
 def execute_blender_script(
     args,
     addon_path,
@@ -2297,25 +2328,15 @@ def execute_blender_script(
         print(f"Using addon venv: {addon_venv_path}")
 
     process = _open_blender_process(args, env)
-    session_id, log_path = _record_debug_session(
-        process,
-        args,
-        addon_name,
-        debug_mode,
+    _run_tracked_blender_process(
+        process=process,
+        args=args,
+        addon_path=addon_path,
+        addon_name=addon_name,
+        debug_mode=debug_mode,
         session_id=debug_session_id,
+        start_time=start_time,
     )
-    _print_debug_session_banner(process, session_id, log_path)
-    with open(log_path, "w", encoding="utf-8") as log_file:
-        try:
-            _stream_process_output(process, addon_path, log_file)
-        except KeyboardInterrupt:
-            sys.stderr.write("interrupted, terminating the child process...\n")
-        finally:
-            if process.poll() is None:
-                process.terminate()
-            exit_code = process.wait()
-            duration = time.monotonic() - start_time
-            _update_debug_session_metadata(session_id, exit_code, duration)
 
 
 _BLENDER_JSON_BEGIN = "__OpenCode_Audit_JSON_BEGIN__"
@@ -3281,6 +3302,83 @@ def _compile_docs_result(addon_name: str, *, need_zip: bool, skip_docs: bool) ->
     return docs_build_result
 
 
+def _write_release_bootstrap_init(
+    *, release_folder: str, addon_name: str, bl_info: dict
+):
+    bootstrap_init_file = generate_bootstrap_init_file(addon_name, bl_info)
+    write_utf8(os.path.join(release_folder, "__init__.py"), bootstrap_init_file)
+
+
+def _prepare_release_source_tree(
+    *,
+    target_init_file: str,
+    addon_name: str,
+    release_folder: str,
+    dependency_paths: list[str],
+):
+    _copy_non_python_siblings(target_init_file, release_folder)
+    _copy_addon_tree_to_release(addon_name, release_folder)
+    _copy_dependencies_to_release(dependency_paths, release_folder)
+    _clean_release_tree(release_folder)
+
+
+def _rewrite_release_imports(*, release_folder: str, is_extension: bool):
+    _apply_extension_import_conversion(release_folder, is_extension)
+    enhance_import_for_py_files(release_folder)
+
+
+def _compile_release_wheels(
+    *,
+    addon_name: str,
+    addon_config: dict,
+    release_folder: str,
+    need_zip: bool,
+    bundle_deps: bool,
+) -> list[str]:
+    if not need_zip:
+        return []
+    if not bundle_deps:
+        print("Skipping dependency wheel packaging (--no-deps).")
+        return []
+
+    wheel_sources = _resolve_wheel_sources(addon_name, addon_config)
+    _copy_wheels_to_release(wheel_sources, release_folder)
+    return wheel_sources
+
+
+def _write_release_compile_metadata(
+    *,
+    addon_name: str,
+    is_extension: bool,
+    plan: _CompilePlan,
+    docs_build_result: dict,
+    wheel_sources: list[str],
+    release_folder: str,
+):
+    compile_metadata = _build_compile_metadata(
+        addon_name=addon_name,
+        is_extension=is_extension,
+        plan=plan,
+        docs_build_result=docs_build_result,
+        wheel_sources=wheel_sources,
+    )
+    _write_compile_metadata(release_folder, compile_metadata)
+
+
+def _maybe_zip_compiled_release(
+    *,
+    release_folder: str,
+    real_addon_name: str,
+    released_addon_path: str,
+    is_extension: bool,
+    need_zip: bool,
+):
+    if not need_zip:
+        return
+    zip_folder(release_folder, real_addon_name, is_extension)
+    print("Add on released:", released_addon_path)
+
+
 def compile_addon(
     target_init_file,
     addon_name,
@@ -3316,51 +3414,51 @@ def compile_addon(
 
     release_folder = _prepare_release_folder(release_dir, addon_name)
 
-    bootstrap_init_file = generate_bootstrap_init_file(addon_name, plan.bl_info)
-    write_utf8(os.path.join(release_folder, "__init__.py"), bootstrap_init_file)
-
-    _copy_non_python_siblings(target_init_file, release_folder)
-    _copy_addon_tree_to_release(addon_name, release_folder)
-
-    # 对插件文件夹中的每一个py文件进行分析，找到每个py文件中依赖的其他py文件
-    _copy_dependencies_to_release(plan.dependency_paths, release_folder)
-
-    _clean_release_tree(release_folder)
-
-    # 必须先将绝对导入转换为相对导入，否则enhance_import_for_py_files一步会改变绝对导入的路径导致出错
-    # convert absolute import to relative import if it's an extension
-    _apply_extension_import_conversion(release_folder, is_extension)
-
-    # 更新打包后的绝对导入路径：由于打包后文件夹的层级关系发生了变化，需要更新打包后的绝对导入路径
-    enhance_import_for_py_files(release_folder)
+    _write_release_bootstrap_init(
+        release_folder=release_folder,
+        addon_name=addon_name,
+        bl_info=plan.bl_info,
+    )
+    _prepare_release_source_tree(
+        target_init_file=target_init_file,
+        addon_name=addon_name,
+        release_folder=release_folder,
+        dependency_paths=plan.dependency_paths,
+    )
+    _rewrite_release_imports(
+        release_folder=release_folder,
+        is_extension=is_extension,
+    )
 
     # enhance relative import for root __init__.py
     # enhance_relative_import_for_init_py(os.path.join(release_folder, "__init__.py"),
     #                                     _ADDONS_FOLDER, addon_name)
 
-    # include wheel files when need to be zipped
-    wheel_sources: list[str] = []
-    if need_zip and bundle_deps:
-        wheel_sources = _resolve_wheel_sources(addon_name, plan.addon_config)
-        _copy_wheels_to_release(wheel_sources, release_folder)
-    elif need_zip and not bundle_deps:
-        print("Skipping dependency wheel packaging (--no-deps).")
-
-    compile_metadata = _build_compile_metadata(
+    wheel_sources = _compile_release_wheels(
+        addon_name=addon_name,
+        addon_config=plan.addon_config,
+        release_folder=release_folder,
+        need_zip=need_zip,
+        bundle_deps=bundle_deps,
+    )
+    _write_release_compile_metadata(
         addon_name=addon_name,
         is_extension=is_extension,
         plan=plan,
         docs_build_result=docs_build_result,
         wheel_sources=wheel_sources,
+        release_folder=release_folder,
     )
-    _write_compile_metadata(release_folder, compile_metadata)
 
     real_addon_name = plan.real_addon_name
     released_addon_path = plan.released_addon_path
-    # zip the addon
-    if need_zip:
-        zip_folder(release_folder, real_addon_name, is_extension)
-        print("Add on released:", released_addon_path)
+    _maybe_zip_compiled_release(
+        release_folder=release_folder,
+        real_addon_name=real_addon_name,
+        released_addon_path=released_addon_path,
+        is_extension=is_extension,
+        need_zip=need_zip,
+    )
 
     return released_addon_path
 
