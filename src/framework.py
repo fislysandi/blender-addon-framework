@@ -3641,21 +3641,21 @@ def _compile_plan(
 
     release_folder = os.path.join(release_dir, addon_name)
     dependency_paths = _compile_dependency_paths(addon_name)
-    addon_config_file, addon_config = _load_extension_config(addon_name, is_extension)
-    pyproject = _addon_pyproject(addon_name)
-    version_suffix = _resolve_version_suffix(
-        with_version=with_version,
-        is_extension=is_extension,
-        bl_info=bl_info,
-        addon_config=addon_config,
-        addon_config_file=addon_config_file,
+    addon_config_file, addon_config, pyproject = _compile_plan_project_config(
+        addon_name,
+        is_extension,
     )
-    real_addon_name, released_addon_path = _compile_artifact_paths(
-        release_dir=release_dir,
-        release_folder=release_folder,
-        is_extension=is_extension,
-        version_suffix=version_suffix,
-        with_timestamp=with_timestamp,
+    _version_suffix, real_addon_name, released_addon_path = (
+        _compile_plan_release_naming(
+            release_dir=release_dir,
+            release_folder=release_folder,
+            is_extension=is_extension,
+            with_version=with_version,
+            with_timestamp=with_timestamp,
+            bl_info=bl_info,
+            addon_config=addon_config,
+            addon_config_file=addon_config_file,
+        )
     )
 
     return _CompilePlan(
@@ -3673,6 +3673,43 @@ def _compile_dependency_paths(addon_name: str) -> list[str]:
     visited_py_files = _build_initial_visited_py_files(addon_name)
     dependencies = find_all_dependencies(list(visited_py_files), PROJECT_ROOT)
     return _new_dependency_paths(list(dependencies), visited_py_files)
+
+
+def _compile_plan_project_config(
+    addon_name: str,
+    is_extension: bool,
+) -> tuple[str, dict, dict]:
+    addon_config_file, addon_config = _load_extension_config(addon_name, is_extension)
+    pyproject = _addon_pyproject(addon_name)
+    return addon_config_file, addon_config, pyproject
+
+
+def _compile_plan_release_naming(
+    *,
+    release_dir: str,
+    release_folder: str,
+    is_extension: bool,
+    with_version: bool,
+    with_timestamp: bool,
+    bl_info: dict,
+    addon_config: dict,
+    addon_config_file: str,
+) -> tuple[str | None, str, str]:
+    version_suffix = _resolve_version_suffix(
+        with_version=with_version,
+        is_extension=is_extension,
+        bl_info=bl_info,
+        addon_config=addon_config,
+        addon_config_file=addon_config_file,
+    )
+    real_addon_name, released_addon_path = _compile_artifact_paths(
+        release_dir=release_dir,
+        release_folder=release_folder,
+        is_extension=is_extension,
+        version_suffix=version_suffix,
+        with_timestamp=with_timestamp,
+    )
+    return version_suffix, real_addon_name, released_addon_path
 
 
 def _compile_artifact_paths(
