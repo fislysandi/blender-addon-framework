@@ -625,6 +625,73 @@ def _ensure_template_files_for_apply(
     raise ValueError(f"Template has no files to apply: {template_name}")
 
 
+@dataclass(frozen=True)
+class _TemplateApplyContext:
+    template_name: str
+    addon_name: str
+    addon_root: str
+    template_root: str
+    target_prefix: str
+    template_files: list[str]
+    on_conflict: str
+    dry_run: bool
+    auto_git_commit: bool
+
+
+def _template_apply_context(
+    template_name: str,
+    addon_name: str,
+    *,
+    on_conflict: str,
+    dry_run: bool,
+    auto_git_commit: bool,
+) -> _TemplateApplyContext:
+    addon_root, template_root, target_prefix, template_files = (
+        _resolve_template_apply_inputs(template_name, addon_name)
+    )
+    return _TemplateApplyContext(
+        template_name=template_name,
+        addon_name=addon_name,
+        addon_root=addon_root,
+        template_root=template_root,
+        target_prefix=target_prefix,
+        template_files=template_files,
+        on_conflict=on_conflict,
+        dry_run=dry_run,
+        auto_git_commit=auto_git_commit,
+    )
+
+
+def _template_apply_dry_result(context: _TemplateApplyContext, operations: int) -> dict:
+    return _template_operation_result(
+        status="dry-run",
+        template_name=context.template_name,
+        addon_name=context.addon_name,
+        on_conflict=context.on_conflict,
+        target_prefix=context.target_prefix,
+        operations=operations,
+    )
+
+
+def _apply_template_with_plan(context: _TemplateApplyContext, plan) -> dict:
+    applied = _apply_template_plan(plan)
+    _maybe_commit_applied_template(
+        addon_root=context.addon_root,
+        template_name=context.template_name,
+        applied=applied,
+        auto_git_commit=context.auto_git_commit,
+    )
+    return _template_operation_result(
+        status="ok",
+        template_name=context.template_name,
+        addon_name=context.addon_name,
+        on_conflict=context.on_conflict,
+        target_prefix=context.target_prefix,
+        operations=len(plan),
+        applied=applied,
+    )
+
+
 def apply_code_template(
     template_name: str,
     addon_name: str,
@@ -636,56 +703,37 @@ def apply_code_template(
     _assert_valid_addon_name(addon_name)
     _assert_valid_conflict_mode(on_conflict)
 
-    addon_root, template_root, target_prefix, template_files = (
-        _resolve_template_apply_inputs(template_name, addon_name)
+    context = _template_apply_context(
+        template_name,
+        addon_name,
+        on_conflict=on_conflict,
+        dry_run=dry_run,
+        auto_git_commit=auto_git_commit,
     )
     empty_result = _ensure_template_files_for_apply(
         template_name=template_name,
         addon_name=addon_name,
         on_conflict=on_conflict,
-        target_prefix=target_prefix,
-        template_files=template_files,
+        target_prefix=context.target_prefix,
+        template_files=context.template_files,
         dry_run=dry_run,
     )
     if empty_result is not None:
         return empty_result
 
     plan = _build_template_apply_plan(
-        template_root,
-        template_files,
-        addon_root,
-        target_prefix,
+        context.template_root,
+        context.template_files,
+        context.addon_root,
+        context.target_prefix,
         addon_name,
         on_conflict,
     )
 
     if dry_run:
-        return _template_operation_result(
-            status="dry-run",
-            template_name=template_name,
-            addon_name=addon_name,
-            on_conflict=on_conflict,
-            target_prefix=target_prefix,
-            operations=len(plan),
-        )
+        return _template_apply_dry_result(context, len(plan))
 
-    applied = _apply_template_plan(plan)
-    _maybe_commit_applied_template(
-        addon_root=addon_root,
-        template_name=template_name,
-        applied=applied,
-        auto_git_commit=auto_git_commit,
-    )
-
-    return _template_operation_result(
-        status="ok",
-        template_name=template_name,
-        addon_name=addon_name,
-        on_conflict=on_conflict,
-        target_prefix=target_prefix,
-        operations=len(plan),
-        applied=applied,
-    )
+    return _apply_template_with_plan(context, plan)
 
 
 def extract_code_template(
