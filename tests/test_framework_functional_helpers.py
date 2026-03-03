@@ -374,3 +374,117 @@ def test_compile_addon_orchestrates_side_effect_steps(monkeypatch):
         "write_metadata",
         "zip",
     ]
+
+
+def test_compile_addon_skips_docs_step_when_no_zip(monkeypatch):
+    calls = []
+
+    def _record(name):
+        def _inner(*args, **kwargs):
+            calls.append((name, args, kwargs))
+
+        return _inner
+
+    monkeypatch.setattr(framework, "_assert_valid_compile_inputs", _record("validate"))
+    monkeypatch.setattr(framework, "_ensure_directory", _record("ensure_dir"))
+    monkeypatch.setattr(
+        framework,
+        "_compile_plan",
+        lambda **_kwargs: framework._CompilePlan(
+            bl_info={"version": (1, 0, 0)},
+            release_folder="/tmp/release/valid_addon",
+            dependency_paths=["/tmp/deps/a.py"],
+            addon_config={"wheels": ["./wheels/a.whl"]},
+            pyproject={"project": {"dependencies": []}},
+            real_addon_name="/tmp/release/valid_addon",
+            released_addon_path="/tmp/release/valid_addon.zip",
+        ),
+    )
+    monkeypatch.setattr(framework, "_compile_docs_result", _record("docs_result"))
+    monkeypatch.setattr(
+        framework,
+        "_prepare_release_folder",
+        lambda release_dir, addon_name: "/tmp/release/valid_addon",
+    )
+    monkeypatch.setattr(
+        framework,
+        "generate_bootstrap_init_file",
+        lambda addon_name, bl_info: f"bootstrap:{addon_name}:{bl_info['version']}",
+    )
+    monkeypatch.setattr(framework, "write_utf8", _record("write"))
+    monkeypatch.setattr(
+        framework, "_copy_non_python_siblings", _record("copy_siblings")
+    )
+    monkeypatch.setattr(framework, "_copy_addon_tree_to_release", _record("copy_tree"))
+    monkeypatch.setattr(
+        framework, "_copy_dependencies_to_release", _record("copy_deps")
+    )
+    monkeypatch.setattr(framework, "_clean_release_tree", _record("clean"))
+    monkeypatch.setattr(
+        framework, "_apply_extension_import_conversion", _record("convert_ext")
+    )
+    monkeypatch.setattr(
+        framework, "enhance_import_for_py_files", _record("enhance_imports")
+    )
+    monkeypatch.setattr(framework, "_resolve_wheel_sources", _record("resolve_wheels"))
+    monkeypatch.setattr(framework, "_copy_wheels_to_release", _record("copy_wheels"))
+    monkeypatch.setattr(framework, "_build_compile_metadata", _record("metadata"))
+    monkeypatch.setattr(framework, "_write_compile_metadata", _record("write_metadata"))
+    monkeypatch.setattr(framework, "zip_folder", _record("zip"))
+
+    result = framework.compile_addon(
+        target_init_file="/tmp/addons/valid_addon/__init__.py",
+        addon_name="valid_addon",
+        release_dir="/tmp/release",
+        need_zip=False,
+        is_extension=True,
+        with_timestamp=False,
+        with_version=True,
+        skip_docs=False,
+    )
+
+    assert result == "/tmp/release/valid_addon.zip"
+    call_names = [name for name, _, _ in calls]
+    assert "docs_result" not in call_names
+    assert "zip" not in call_names
+
+
+def test_dependency_download_command_prefers_uv_when_available():
+    command = framework._dependency_download_command(
+        ["requests>=2"],
+        "/tmp/wheels",
+        use_uv=True,
+        uv_available=True,
+    )
+    assert command[:7] == ["uv", "tool", "run", "--from", "pip", "pip", "download"]
+
+
+def test_dependency_download_command_falls_back_to_pip():
+    command = framework._dependency_download_command(
+        ["requests>=2"],
+        "/tmp/wheels",
+        use_uv=True,
+        uv_available=False,
+    )
+    assert command[0] == framework.sys.executable
+    assert command[1:4] == ["-m", "pip", "download"]
+
+
+def test_wheel_index_by_distribution_groups_paths(monkeypatch):
+    monkeypatch.setattr(
+        framework,
+        "_available_wheel_sources",
+        lambda: [
+            "/w/requests-2.32.0-py3-none-any.whl",
+            "/w/requests-2.31.0-py3-none-any.whl",
+            "/w/rich-13.0.0-py3-none-any.whl",
+        ],
+    )
+
+    index = framework._wheel_index_by_distribution()
+
+    assert sorted(index["requests"]) == [
+        "/w/requests-2.31.0-py3-none-any.whl",
+        "/w/requests-2.32.0-py3-none-any.whl",
+    ]
+    assert index["rich"] == ["/w/rich-13.0.0-py3-none-any.whl"]

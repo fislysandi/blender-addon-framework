@@ -3300,6 +3300,43 @@ def _available_wheel_sources() -> list[str]:
     ]
 
 
+def _dependency_download_command(
+    dependency_specs: list[str],
+    wheel_root: str,
+    *,
+    use_uv: bool,
+    uv_available: bool,
+) -> list[str]:
+    prefix = [
+        "uv",
+        "tool",
+        "run",
+        "--from",
+        "pip",
+        "pip",
+    ]
+    if not (use_uv and uv_available):
+        prefix = [sys.executable, "-m", "pip"]
+    return [
+        *prefix,
+        "download",
+        "--only-binary=:all:",
+        "--dest",
+        wheel_root,
+        *dependency_specs,
+    ]
+
+
+def _run_dependency_download(command: list[str], dependency_specs: list[str]):
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            "Failed to download wheels for addon dependencies: "
+            + ", ".join(dependency_specs)
+        ) from exc
+
+
 def _download_dependency_wheels(dependency_specs: list[str]):
     if not dependency_specs:
         return
@@ -3307,51 +3344,49 @@ def _download_dependency_wheels(dependency_specs: list[str]):
     os.makedirs(wheel_root, exist_ok=True)
     use_uv = resolve_use_uv()
     uv_available = shutil.which("uv") is not None
-    if use_uv and uv_available:
-        command = [
-            "uv",
-            "tool",
-            "run",
-            "--from",
-            "pip",
-            "pip",
-            "download",
-            "--only-binary=:all:",
-            "--dest",
-            wheel_root,
-            *dependency_specs,
-        ]
-    else:
-        command = [
-            sys.executable,
-            "-m",
-            "pip",
-            "download",
-            "--only-binary=:all:",
-            "--dest",
-            wheel_root,
-            *dependency_specs,
-        ]
+    command = _dependency_download_command(
+        dependency_specs,
+        wheel_root,
+        use_uv=use_uv,
+        uv_available=uv_available,
+    )
     try:
-        subprocess.run(command, check=True)
-    except subprocess.CalledProcessError as exc:
-        if use_uv and uv_available:
-            fallback_command = [
-                sys.executable,
-                "-m",
-                "pip",
-                "download",
-                "--only-binary=:all:",
-                "--dest",
-                wheel_root,
-                *dependency_specs,
-            ]
-            subprocess.run(fallback_command, check=True)
-            return
-        raise RuntimeError(
-            "Failed to download wheels for addon dependencies: "
-            + ", ".join(dependency_specs)
-        ) from exc
+        _run_dependency_download(command, dependency_specs)
+    except RuntimeError:
+        if not (use_uv and uv_available):
+            raise
+        fallback_command = _dependency_download_command(
+            dependency_specs,
+            wheel_root,
+            use_uv=False,
+            uv_available=uv_available,
+        )
+        _run_dependency_download(fallback_command, dependency_specs)
+
+
+def _wheel_index_by_distribution() -> dict[str, list[str]]:
+    wheel_index: dict[str, list[str]] = {}
+    for wheel_path in _available_wheel_sources():
+        wheel_dist = _wheel_distribution_name(wheel_path)
+        if wheel_dist is None:
+            continue
+        wheel_index.setdefault(wheel_dist, []).append(wheel_path)
+    return wheel_index
+
+
+def _resolved_and_missing_dependency_wheels(
+    dependency_names: list[str],
+    wheel_by_dist: dict[str, list[str]],
+) -> tuple[list[str], list[str]]:
+    resolved = []
+    missing = []
+    for dependency_name in dependency_names:
+        matched = wheel_by_dist.get(dependency_name, [])
+        if not matched:
+            missing.append(dependency_name)
+            continue
+        resolved.extend(sorted(matched))
+    return resolved, missing
 
 
 def _dependency_wheel_sources(addon_name: str) -> tuple[list[str], list[str]]:
@@ -3366,32 +3401,15 @@ def _dependency_wheel_sources(addon_name: str) -> tuple[list[str], list[str]]:
     if not dependency_names:
         return [], []
 
-    def build_wheel_index() -> dict[str, list[str]]:
-        wheel_index: dict[str, list[str]] = {}
-        for wheel_path in _available_wheel_sources():
-            wheel_dist = _wheel_distribution_name(wheel_path)
-            if wheel_dist is None:
-                continue
-            wheel_index.setdefault(wheel_dist, []).append(wheel_path)
-        return wheel_index
-
-    wheel_by_dist = build_wheel_index()
+    wheel_by_dist = _wheel_index_by_distribution()
     missing_names = [name for name in dependency_names if not wheel_by_dist.get(name)]
     if missing_names:
         _download_dependency_wheels(
             [dependency_by_name[name] for name in missing_names]
         )
-        wheel_by_dist = build_wheel_index()
+        wheel_by_dist = _wheel_index_by_distribution()
 
-    resolved = []
-    missing = []
-    for dependency_name in dependency_names:
-        matched = wheel_by_dist.get(dependency_name, [])
-        if not matched:
-            missing.append(dependency_name)
-            continue
-        resolved.extend(sorted(matched))
-    return resolved, missing
+    return _resolved_and_missing_dependency_wheels(dependency_names, wheel_by_dist)
 
 
 def _dedupe_paths(paths: list[str]) -> list[str]:
