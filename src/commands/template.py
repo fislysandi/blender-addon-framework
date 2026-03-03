@@ -5,8 +5,6 @@ import argparse
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 from src.framework import (
     apply_code_template,
     extract_code_template,

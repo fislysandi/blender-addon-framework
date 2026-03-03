@@ -3,9 +3,6 @@
 
 import argparse
 import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.framework import rename_addon
 

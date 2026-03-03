@@ -767,11 +767,12 @@ def _template_content_for_addon(source_path: str, addon_name: str) -> str:
 
 def _next_renamed_target_path(target_path: str) -> str:
     path = Path(target_path)
-    for index in range(1, 1000):
+    index = 1
+    while True:
         candidate = path.with_name(f"{path.stem}_template_{index}{path.suffix}")
         if not candidate.exists():
             return str(candidate)
-    raise RuntimeError(f"Unable to resolve renamed target for conflict: {target_path}")
+        index += 1
 
 
 def _addon_path(addon_name: str) -> str:
@@ -1023,15 +1024,33 @@ _debug_eval_active_depth = 0
 _debug_eval_frame_meta = {{}}
 _debug_eval_operator_seq = 0
 _debug_eval_operator_stats = {{}}
-_debug_eval_format = os.environ.get("SUBTITLE_DEBUG_EVAL_FORMAT", "lisp").strip().lower()
+
+
+def _first_env_value(*keys, default):
+    for key in keys:
+        value = os.environ.get(key)
+        if value is not None:
+            return value
+    return default
+
+
+_debug_eval_format = _first_env_value(
+    "BAF_DEBUG_EVAL_FORMAT",
+    "SUBTITLE_DEBUG_EVAL_FORMAT",
+    default="lisp",
+).strip().lower()
 if _debug_eval_format not in {{"lisp", "kv"}}:
     _debug_eval_format = "lisp"
-_debug_eval_verbosity = os.environ.get("SUBTITLE_DEBUG_EVAL_VERBOSITY", "detailed").strip().lower()
+_debug_eval_verbosity = _first_env_value(
+    "BAF_DEBUG_EVAL_VERBOSITY",
+    "SUBTITLE_DEBUG_EVAL_VERBOSITY",
+    default="detailed",
+).strip().lower()
 if _debug_eval_verbosity not in {{"basic", "detailed", "forensic"}}:
     _debug_eval_verbosity = "detailed"
 _debug_eval_compact_value = os.environ.get(
     "DEBUG_TRACE_COMPACT",
-    os.environ.get("SUBTITLE_DEBUG_COMPACT", "0"),
+    _first_env_value("BAF_DEBUG_COMPACT", "SUBTITLE_DEBUG_COMPACT", default="0"),
 )
 _debug_eval_compact = _debug_eval_compact_value.strip().lower() in {{
     "1",
@@ -1043,12 +1062,20 @@ _debug_eval_compact_noisy = {{
     "_get_sequence_collection",
     "_collect_selected_text",
 }}
-_debug_eval_sid = os.environ.get("SUBTITLE_DEBUG_SESSION_ID", uuid.uuid4().hex)
+_debug_eval_sid = _first_env_value(
+    "BAF_DEBUG_SESSION_ID",
+    "SUBTITLE_DEBUG_SESSION_ID",
+    default=uuid.uuid4().hex,
+)
 _debug_eval_eid = 0
 
 _debug_truthy = {{"1", "true", "yes", "on"}}
 _debug_falsy = {{"0", "false", "no", "off"}}
-_debug_eval_mode = os.environ.get("SUBTITLE_DEBUG_EVAL", "auto").strip().lower()
+_debug_eval_mode = _first_env_value(
+    "BAF_DEBUG_EVAL",
+    "SUBTITLE_DEBUG_EVAL",
+    default="auto",
+).strip().lower()
 _debug_release_mode = os.environ.get("BAF_RELEASE_BUILD", "0").strip().lower() in _debug_truthy
 if _debug_eval_mode in _debug_truthy:
     _debug_eval_enabled = True
@@ -1914,6 +1941,7 @@ def _update_debug_session_metadata(session_id, exit_code, duration):
 def _build_exec_environment(addon_venv_path, debug_session_id):
     env = _prepare_blender_env(addon_venv_path)
     env["PYTHONUNBUFFERED"] = "1"
+    env["BAF_DEBUG_SESSION_ID"] = debug_session_id
     env["SUBTITLE_DEBUG_SESSION_ID"] = debug_session_id
     return env
 
@@ -2615,12 +2643,32 @@ def _normalize_distribution_name(raw_name: str) -> str:
     return re.sub(r"[-_.]+", "-", raw_name).lower()
 
 
-def _manifest_wheel_sources(addon_config: dict) -> list[str]:
+def _manifest_wheel_file_path(wheel_file: str, wheels_dir: str = _WHEELS_PATH) -> str:
+    normalized_wheels_dir = wheels_dir.replace("\\", "/").strip("/")
+    normalized_wheel_file = str(wheel_file).replace("\\", "/").strip()
+    accepted_prefixes = (
+        f"./{normalized_wheels_dir}/",
+        f"{normalized_wheels_dir}/",
+    )
+    if not normalized_wheel_file.startswith(accepted_prefixes):
+        raise ValueError(
+            "Invalid manifest wheel path: "
+            + normalized_wheel_file
+            + f". Expected path under './{normalized_wheels_dir}/'"
+        )
+    project_relative = normalized_wheel_file.removeprefix("./")
+    return os.path.normpath(os.path.join(PROJECT_ROOT, project_relative))
+
+
+def _manifest_wheel_sources(
+    addon_config: dict,
+    *,
+    wheels_dir: str = _WHEELS_PATH,
+) -> list[str]:
     wheel_files = addon_config.get("wheels", [])
     wheel_sources = []
     for wheel_file in wheel_files:
-        assert wheel_file.startswith("./wheels/") and wheel_file.count("/") == 2
-        wheel_source = os.path.join(PROJECT_ROOT, wheel_file)
+        wheel_source = _manifest_wheel_file_path(wheel_file, wheels_dir=wheels_dir)
         if not os.path.exists(wheel_source):
             print(
                 "Warning: manifest wheel file not found, will try dependency auto-resolution: "

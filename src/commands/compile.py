@@ -5,8 +5,6 @@ import argparse
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 from src.framework import compile_addon, get_init_file_path
 from src.commands.context import resolve_addon_name, resolve_framework_root
 from src.main import (

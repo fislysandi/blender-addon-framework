@@ -56,6 +56,38 @@ def test_pip_install_command_shape():
     assert command[1:5] == ["-m", "pip", "install", "--upgrade"]
 
 
+def test_manifest_wheel_file_path_accepts_relative_wheels_prefix(monkeypatch):
+    monkeypatch.setattr(framework, "PROJECT_ROOT", "/repo")
+
+    resolved = framework._manifest_wheel_file_path("./wheels/pkg.whl")
+
+    assert resolved == "/repo/wheels/pkg.whl"
+
+
+def test_manifest_wheel_file_path_rejects_outside_wheels_dir():
+    with pytest.raises(ValueError):
+        framework._manifest_wheel_file_path("./other/pkg.whl")
+
+
+def test_build_exec_environment_sets_framework_debug_session_id(monkeypatch):
+    monkeypatch.setattr(
+        framework,
+        "_prepare_blender_env",
+        lambda _addon_venv_path: {"EXISTING": "1"},
+    )
+
+    env = framework._build_exec_environment("/tmp/venv", "session-123")
+
+    assert env["BAF_DEBUG_SESSION_ID"] == "session-123"
+    assert env["SUBTITLE_DEBUG_SESSION_ID"] == "session-123"
+
+
+def test_start_up_command_supports_framework_debug_env_keys():
+    assert "BAF_DEBUG_EVAL" in framework.debug_start_up_command
+    assert "BAF_DEBUG_EVAL_FORMAT" in framework.debug_start_up_command
+    assert "BAF_DEBUG_SESSION_ID" in framework.debug_start_up_command
+
+
 def test_assert_valid_compile_inputs_rejects_invalid_namespace():
     with pytest.raises(ValueError):
         framework._assert_valid_compile_inputs("123-not-valid", is_extension=False)
