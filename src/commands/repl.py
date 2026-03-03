@@ -379,20 +379,22 @@ def _evaluate_lisp_form(
     if not form_tokens:
         print("()")
         return True
-    if _handle_settings_form(
-        form_tokens,
-        session_overrides=session_overrides,
-        config_values=config_values,
-        config_path=config_path,
-    ):
-        return True
 
-    if _handle_lisp_command_form(
-        form_tokens,
-        framework_root=framework_root,
-    ):
-        return True
-
+    handlers = (
+        lambda tokens: _handle_settings_form(
+            tokens,
+            session_overrides=session_overrides,
+            config_values=config_values,
+            config_path=config_path,
+        ),
+        lambda tokens: _handle_lisp_command_form(
+            tokens,
+            framework_root=framework_root,
+        ),
+    )
+    for handler in handlers:
+        if handler(form_tokens):
+            return True
     return False
 
 
@@ -631,17 +633,30 @@ def _run_repl_line(
         return False, 0
 
     command, *command_args = tokens
-    if command in _REPL_EXIT_COMMANDS:
-        return True, 0
-    if command in _REPL_HELP_COMMANDS:
+
+    def _handle_help() -> tuple[bool, int]:
         _print_repl_help()
         return False, 0
-    if command in _REPL_RELOAD_COMMANDS:
+
+    def _handle_reload() -> tuple[bool, int]:
         _reload_repl_process(framework_root)
         return True, 0
-    if command == "repl":
+
+    def _handle_repl_self() -> tuple[bool, int]:
         print("Already in REPL. Type another command or 'exit'.")
         return False, 0
+
+    local_handlers = {
+        "exit": lambda: (True, 0),
+        "quit": lambda: (True, 0),
+        "help": _handle_help,
+        "?": _handle_help,
+        "reload": _handle_reload,
+        "repl": _handle_repl_self,
+    }
+    local_handler = local_handlers.get(command)
+    if local_handler is not None:
+        return local_handler()
 
     exit_code = baf.dispatch_command(command, command_args, framework_root)
     if exit_code != 0:
