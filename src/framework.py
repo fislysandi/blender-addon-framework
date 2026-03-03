@@ -3195,6 +3195,38 @@ class _CompilePlan:
     released_addon_path: str
 
 
+@dataclass(frozen=True)
+class _CompileOptions:
+    release_dir: str
+    need_zip: bool
+    is_extension: bool
+    with_timestamp: bool
+    with_version: bool
+    skip_docs: bool
+    bundle_deps: bool
+
+
+def _compile_options(
+    *,
+    release_dir: str,
+    need_zip: bool,
+    is_extension: bool,
+    with_timestamp: bool,
+    with_version: bool,
+    skip_docs: bool,
+    bundle_deps: bool,
+) -> _CompileOptions:
+    return _CompileOptions(
+        release_dir=release_dir,
+        need_zip=need_zip,
+        is_extension=is_extension,
+        with_timestamp=with_timestamp,
+        with_version=with_version,
+        skip_docs=skip_docs,
+        bundle_deps=bundle_deps,
+    )
+
+
 def _compile_plan(
     *,
     target_init_file: str,
@@ -3379,40 +3411,35 @@ def _maybe_zip_compiled_release(
     print("Add on released:", released_addon_path)
 
 
-def compile_addon(
+def _compile_addon_with_options(
+    *,
     target_init_file,
     addon_name,
-    release_dir=DEFAULT_RELEASE_DIR,
-    need_zip=True,
-    is_extension=IS_EXTENSION,
-    with_timestamp=False,
-    with_version=False,
-    skip_docs=False,
-    bundle_deps=BUNDLE_DEPS_BY_DEFAULT,
+    options: _CompileOptions,
 ):
-    _assert_valid_compile_inputs(addon_name, is_extension)
+    _assert_valid_compile_inputs(addon_name, options.is_extension)
 
-    _ensure_directory(release_dir)
+    _ensure_directory(options.release_dir)
 
     plan = _compile_plan(
         target_init_file=target_init_file,
         addon_name=addon_name,
-        release_dir=release_dir,
-        is_extension=is_extension,
-        with_version=with_version,
-        with_timestamp=with_timestamp,
+        release_dir=options.release_dir,
+        is_extension=options.is_extension,
+        with_version=options.with_version,
+        with_timestamp=options.with_timestamp,
     )
 
-    if need_zip:
+    if options.need_zip:
         docs_build_result = _compile_docs_result(
             addon_name,
-            need_zip=need_zip,
-            skip_docs=skip_docs,
+            need_zip=options.need_zip,
+            skip_docs=options.skip_docs,
         )
     else:
         docs_build_result = {"status": "skipped", "reason": "no_zip"}
 
-    release_folder = _prepare_release_folder(release_dir, addon_name)
+    release_folder = _prepare_release_folder(options.release_dir, addon_name)
 
     _write_release_bootstrap_init(
         release_folder=release_folder,
@@ -3427,40 +3454,61 @@ def compile_addon(
     )
     _rewrite_release_imports(
         release_folder=release_folder,
-        is_extension=is_extension,
+        is_extension=options.is_extension,
     )
-
-    # enhance relative import for root __init__.py
-    # enhance_relative_import_for_init_py(os.path.join(release_folder, "__init__.py"),
-    #                                     _ADDONS_FOLDER, addon_name)
 
     wheel_sources = _compile_release_wheels(
         addon_name=addon_name,
         addon_config=plan.addon_config,
         release_folder=release_folder,
-        need_zip=need_zip,
-        bundle_deps=bundle_deps,
+        need_zip=options.need_zip,
+        bundle_deps=options.bundle_deps,
     )
     _write_release_compile_metadata(
         addon_name=addon_name,
-        is_extension=is_extension,
+        is_extension=options.is_extension,
         plan=plan,
         docs_build_result=docs_build_result,
         wheel_sources=wheel_sources,
         release_folder=release_folder,
     )
 
-    real_addon_name = plan.real_addon_name
-    released_addon_path = plan.released_addon_path
     _maybe_zip_compiled_release(
         release_folder=release_folder,
-        real_addon_name=real_addon_name,
-        released_addon_path=released_addon_path,
-        is_extension=is_extension,
-        need_zip=need_zip,
+        real_addon_name=plan.real_addon_name,
+        released_addon_path=plan.released_addon_path,
+        is_extension=options.is_extension,
+        need_zip=options.need_zip,
     )
 
-    return released_addon_path
+    return plan.released_addon_path
+
+
+def compile_addon(
+    target_init_file,
+    addon_name,
+    release_dir=DEFAULT_RELEASE_DIR,
+    need_zip=True,
+    is_extension=IS_EXTENSION,
+    with_timestamp=False,
+    with_version=False,
+    skip_docs=False,
+    bundle_deps=BUNDLE_DEPS_BY_DEFAULT,
+):
+    options = _compile_options(
+        release_dir=release_dir,
+        need_zip=need_zip,
+        is_extension=is_extension,
+        with_timestamp=with_timestamp,
+        with_version=with_version,
+        skip_docs=skip_docs,
+        bundle_deps=bundle_deps,
+    )
+    return _compile_addon_with_options(
+        target_init_file=target_init_file,
+        addon_name=addon_name,
+        options=options,
+    )
 
 
 def release_addon(
@@ -3475,9 +3523,7 @@ def release_addon(
     bundle_deps=BUNDLE_DEPS_BY_DEFAULT,
 ):
     print("Warning: release_addon is deprecated. Use compile_addon instead.")
-    return compile_addon(
-        target_init_file=target_init_file,
-        addon_name=addon_name,
+    options = _compile_options(
         release_dir=release_dir,
         need_zip=need_zip,
         is_extension=is_extension,
@@ -3485,6 +3531,11 @@ def release_addon(
         with_version=with_version,
         skip_docs=skip_docs,
         bundle_deps=bundle_deps,
+    )
+    return _compile_addon_with_options(
+        target_init_file=target_init_file,
+        addon_name=addon_name,
+        options=options,
     )
 
 
