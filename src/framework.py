@@ -4040,6 +4040,36 @@ def _finalize_compiled_release(
     )
 
 
+@dataclass(frozen=True)
+class _CompileRunContext:
+    plan: _CompilePlan
+    docs_build_result: dict
+    release_folder: str
+
+
+def _compile_run_context(
+    *,
+    target_init_file,
+    addon_name,
+    options: _CompileOptions,
+) -> _CompileRunContext:
+    plan = _compile_plan(
+        target_init_file=target_init_file,
+        addon_name=addon_name,
+        release_dir=options.release_dir,
+        is_extension=options.is_extension,
+        with_version=options.with_version,
+        with_timestamp=options.with_timestamp,
+    )
+    docs_build_result = _compile_docs_step(addon_name, options)
+    release_folder = _prepare_release_folder(options.release_dir, addon_name)
+    return _CompileRunContext(
+        plan=plan,
+        docs_build_result=docs_build_result,
+        release_folder=release_folder,
+    )
+
+
 def _compile_addon_with_options(
     *,
     target_init_file,
@@ -4050,36 +4080,29 @@ def _compile_addon_with_options(
 
     _ensure_directory(options.release_dir)
 
-    plan = _compile_plan(
+    context = _compile_run_context(
         target_init_file=target_init_file,
         addon_name=addon_name,
-        release_dir=options.release_dir,
-        is_extension=options.is_extension,
-        with_version=options.with_version,
-        with_timestamp=options.with_timestamp,
+        options=options,
     )
-
-    docs_build_result = _compile_docs_step(addon_name, options)
-
-    release_folder = _prepare_release_folder(options.release_dir, addon_name)
 
     _materialize_release_sources(
         target_init_file=target_init_file,
         addon_name=addon_name,
-        plan=plan,
-        release_folder=release_folder,
+        plan=context.plan,
+        release_folder=context.release_folder,
         options=options,
     )
 
     _finalize_compiled_release(
         addon_name=addon_name,
-        plan=plan,
-        release_folder=release_folder,
-        docs_build_result=docs_build_result,
+        plan=context.plan,
+        release_folder=context.release_folder,
+        docs_build_result=context.docs_build_result,
         options=options,
     )
 
-    return plan.released_addon_path
+    return context.plan.released_addon_path
 
 
 def compile_addon(
