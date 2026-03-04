@@ -52,6 +52,64 @@
 
 ---
 
+## Lisp REPL + Embedded Python Architecture (Future)
+
+> Goal: Build a reusable Common Lisp-centric development environment that can control Python host apps (starting with Blender) while keeping the shipped runtime minimal.
+
+- [ ] **Architecture document package (complete spec)**
+  - [ ] Write `architecture/repl_architecture.md` with full system overview and rationale
+  - [ ] Add architecture index and roadmap mapping in `architecture/README.md`
+  - [ ] Define module boundaries for: REPL core, command registry, plugin system, Python bridge, host adapters
+  - [ ] Finalize plugin boundaries in `architecture/plugin_architecture.md`
+  - [ ] Finalize host adapter boundaries in `architecture/adapter_model.md`
+  - [ ] Add minimal implementation plan with incremental milestones
+  - [ ] Document strict runtime vs tooling boundary (`src/` runtime-only, developer tools outside `src/`)
+  - [ ] Identify and document MVP scope (smallest viable implementation)
+  - [ ] Include Mermaid diagrams for execution flow and component boundaries
+
+- [ ] **Core design principles (enforced)**
+  - [ ] Simplicity over complexity
+  - [ ] Unix philosophy: each component does one thing well
+  - [ ] Functional style by default: small, self-contained functions
+  - [ ] Minimal core with extensible tooling
+  - [ ] Strict separation between runtime code and development tooling
+
+- [ ] **Target execution model**
+  - [ ] Keep architecture as: Common Lisp REPL -> embedded Python runtime -> host Python APIs -> host application
+  - [ ] Avoid RPC/network dependency for primary control path
+  - [ ] Define adapter call flow, for example `(mesh:cube :size 2)` -> `bpy.ops.mesh.primitive_cube_add(size=2)`
+
+- [ ] **Foldering decision: REPL outside `src/`**
+  - [ ] Keep `src/` runtime-only and strip all interactive tooling from it
+  - [ ] Move REPL implementation to `tools/repl/`
+  - [ ] Keep host adapters in `tools/adapters/` (`blender_adapter/`, `krita_adapter/`)
+  - [ ] Keep debugger and docs tooling in `tools/debugger/` and `tools/bdocgen/`
+  - [ ] Keep addon development roots under `addons/`
+  - [ ] Keep compiled outputs under `releases/`
+  - [ ] Define global Lisp config location as repository root `config.lisp`
+  - [ ] Ensure runtime can be packaged without any `tools/` dependency
+
+- [ ] **`src/` refactor toward minimal runtime boundaries**
+  - [ ] Introduce runtime-oriented modules: `src/runtime/`, `src/core/`, `src/interop/`, `src/platform/`, `src/contracts/`, `src/config/`
+  - [ ] Break large orchestration logic into small composable functions
+  - [ ] Replace hidden state where possible with explicit input/output function contracts
+  - [ ] Keep side effects at boundaries only (filesystem, subprocess, host API calls)
+  - [ ] Preserve backward compatibility while moving command tooling to `tools/`
+
+- [ ] **Functional programming guideline (implementation quality gate)**
+  - [ ] Functions accept required input through parameters (no implicit globals by default)
+  - [ ] Prefer returning values/results over mutating external state
+  - [ ] Keep functions single-purpose and composable
+  - [ ] Isolate side effects behind thin boundary adapters
+  - [ ] Add tests around pure logic first, then integration tests at effect boundaries
+
+- [ ] **MVP (smallest viable implementation)**
+  - [ ] Minimal Common Lisp REPL shell in `tools/repl/` (read/eval/dispatch only)
+  - [ ] Minimal command registry and one plugin injection path
+  - [ ] Minimal embedded Python bridge with Blender adapter only
+  - [ ] Demonstrate one end-to-end command translation from Lisp form to Blender Python API call
+  - [ ] Document how to disable/remove all non-essential tooling and still run core runtime
+
 ## Testing
 
 - [ ] Test framework improvements
