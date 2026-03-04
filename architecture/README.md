@@ -22,4 +22,4 @@ This folder tracks future architecture design documents referenced by `ROADMAP.m
 - Prefer small self-contained functions and keep side effects at boundaries.
 - Addon development targets live under `addons/`.
 - Compiled artifacts are written to `releases/`.
-- Global Lisp-oriented developer configuration lives at repository root `config.lisp`.
+- Global Lisp-oriented developer configuration lives at `tools/repl/config.lisp`.

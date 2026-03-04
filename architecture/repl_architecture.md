@@ -18,7 +18,7 @@ Define a Common Lisp REPL that controls Python host APIs through an embedded Pyt
 
 - `addons/` contains addon source workspaces for development.
 - `releases/` contains compiled addon artifacts.
-- `config.lisp` at repository root stores Lisp REPL/dev-environment configuration.
+- `tools/repl/config.lisp` stores Lisp REPL/dev-environment configuration.
 
 ## Linked Roadmap Items
 

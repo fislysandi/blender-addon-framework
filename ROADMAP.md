@@ -80,13 +80,14 @@
   - [ ] Define adapter call flow, for example `(mesh:cube :size 2)` -> `bpy.ops.mesh.primitive_cube_add(size=2)`
 
 - [ ] **Foldering decision: REPL outside `src/`**
+  - [ ] Standardize top-level architecture folders: `addons/` and `release/`
   - [ ] Keep `src/` runtime-only and strip all interactive tooling from it
   - [ ] Move REPL implementation to `tools/repl/`
   - [ ] Keep host adapters in `tools/adapters/` (`blender_adapter/`, `krita_adapter/`)
   - [ ] Keep debugger and docs tooling in `tools/debugger/` and `tools/bdocgen/`
   - [ ] Keep addon development roots under `addons/`
-  - [ ] Keep compiled outputs under `releases/`
-  - [ ] Define global Lisp config location as repository root `config.lisp`
+  - [ ] Keep compiled outputs under `release/`
+  - [ ] Define Lisp REPL config location as `tools/repl/config.lisp`
   - [ ] Ensure runtime can be packaged without any `tools/` dependency
 
 - [ ] **`src/` refactor toward minimal runtime boundaries**
