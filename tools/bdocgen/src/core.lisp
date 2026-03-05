@@ -680,9 +680,36 @@ summary:focus-visible {
             (compile-markdown-page docs-root output-dir entry page-entries site-name site-subtitle render-mermaid-images))
           page-entries))
 
-(defun write-style-sheet (output-dir)
+(defun compile-scss-style-sheet (project-root scss-entry style-path scss-style)
+  (let* ((entry-path (merge-pathnames (uiop:parse-native-namestring scss-entry) project-root))
+         (entry-native (uiop:native-namestring entry-path))
+         (style-native (uiop:native-namestring style-path))
+         (command (list "sass"
+                        (format nil "--style=~a" scss-style)
+                        "--no-source-map"
+                        "--no-error-css"
+                        "--stop-on-error"
+                        entry-native
+                        style-native)))
+    (unless (probe-file entry-path)
+      (error "SCSS entry not found: ~a" entry-native))
+    (let* ((process (uiop:launch-program command
+                                         :directory project-root
+                                         :output *standard-output*
+                                         :error-output *error-output*))
+           (exit-code (or (uiop:wait-process process) 1)))
+      (unless (zerop exit-code)
+        (error "Sass compile failed (exit ~d). Ensure dart-sass is installed and available as 'sass'." exit-code)))))
+
+(defun write-style-sheet (output-dir project-root config)
   (let ((style-path (merge-pathnames #P"_assets/theme.css" output-dir)))
-    (write-text-file style-path *default-style-css*)
+    (if (string= (plist-value config :theme-source "css") "scss")
+        (compile-scss-style-sheet
+         project-root
+         (plist-value config :scss-entry "tools/bdocgen/theme/main.scss")
+         style-path
+         (plist-value config :scss-style "expanded"))
+        (write-text-file style-path *default-style-css*))
     "_assets/theme.css"))
 
 (defun build-index-html (scope site-name site-subtitle page-entries)
@@ -751,7 +778,7 @@ summary:focus-visible {
              docs-root
              (mapcar #'markdown-relative-to-page-entry markdown-relative-paths)))
          (_compiled-pages (compile-markdown-pages docs-root output-dir page-entries site-name site-subtitle render-mermaid-images))
-          (style-relative-path (write-style-sheet output-dir))
+          (style-relative-path (write-style-sheet output-dir project-root config))
           (index-path (merge-pathnames #P"index.html" output-dir))
           (manifest-path (merge-pathnames #P"manifest.json" output-dir))
           (index-html (build-index-html scope site-name site-subtitle page-entries))
@@ -761,8 +788,9 @@ summary:focus-visible {
      (write-text-file manifest-path manifest-json)
      (maybe-write-nojekyll output-dir pages-target)
      (list :status :ok
-           :scope scope
-           :pages-target pages-target
-           :page-count (length markdown-relative-paths)
-           :index-path (uiop:native-namestring index-path)
-           :manifest-path (uiop:native-namestring manifest-path))))
+            :scope scope
+            :pages-target pages-target
+            :theme-source (plist-value config :theme-source "css")
+            :page-count (length markdown-relative-paths)
+            :index-path (uiop:native-namestring index-path)
+            :manifest-path (uiop:native-namestring manifest-path))))

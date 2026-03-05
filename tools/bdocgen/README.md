@@ -54,6 +54,9 @@ sbcl --script tools/bdocgen/scripts/run.lisp [options]
 - `--docs-root` (default: `docs`)
 - `--output-dir` (default: `docs/_build`)
 - `--pages-target` (default: `github`; options: `github`, `gitlab`)
+- `--theme-source` (default: `css`; options: `css`, `scss`)
+- `--scss-entry` (default: `tools/bdocgen/theme/main.scss`)
+- `--scss-style` (default: `expanded`; options: `expanded`, `compressed`)
 - `--addon-name` (default: empty; falls back to scope-based site name)
 
 Example: build addon docs
@@ -66,6 +69,22 @@ sbcl --script tools/bdocgen/scripts/run.lisp \
   --output-dir addons/<addon_name>/docs/_build \
   --addon-name <addon_name>
 ```
+
+Example: compile theme from SCSS
+
+```bash
+sbcl --script tools/bdocgen/scripts/run.lisp \
+  --scope project \
+  --project-root . \
+  --docs-root docs \
+  --theme-source scss \
+  --scss-entry tools/bdocgen/theme/main.scss \
+  --scss-style compressed
+```
+
+Sass requirement for SCSS mode:
+
+- `sass` CLI (Dart Sass) available on `PATH`
 
 ## Rebuild And Serve
 

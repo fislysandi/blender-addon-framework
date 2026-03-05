@@ -1,0 +1,100 @@
+.content {
+  max-width: 46em;
+  padding: 1.5rem 3rem;
+}
+
+.content h1 {
+  font-size: 2.2rem;
+  margin: 0 0 1rem;
+}
+
+.content h2 {
+  font-size: 1.85rem;
+  margin-top: 1.4rem;
+}
+
+.content h3 {
+  font-size: 1.28rem;
+  margin-top: 1rem;
+}
+
+.content p {
+  margin: 0.5rem 0 0.75rem;
+}
+
+.content pre,
+.content code {
+  background: #171c24;
+  border: 1px solid var(--color-background-border);
+  border-radius: var(--radius);
+}
+
+.content pre {
+  padding: 0.72rem;
+  overflow: auto;
+}
+
+.content code {
+  padding: 0.08rem 0.35rem;
+}
+
+.content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+.content th,
+.content td {
+  border: 1px solid var(--color-background-border);
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+}
+
+.content th {
+  background: #1a2230;
+}
+
+.content .admonition,
+.content .note,
+.content .warning,
+.content .tip {
+  margin: 1rem 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--color-background-border);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  background: #141a23;
+}
+
+.content .note {
+  border-left-color: #5da9ff;
+}
+
+.content .warning {
+  border-left-color: #e2a455;
+}
+
+.content .tip {
+  border-left-color: #78bf66;
+}
+
+.content img.diagram {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--color-background-border);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 0.35rem;
+}
+
+.heading-citation {
+  margin-left: 0.4rem;
+  opacity: 0;
+}
+
+.content h1:hover .heading-citation,
+.content h2:hover .heading-citation,
+.content h3:hover .heading-citation {
+  opacity: 1;
+}

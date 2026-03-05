@@ -11,6 +11,9 @@
           (output-dir nil)
           (output-dir-explicit nil)
           (pages-target "github")
+          (theme-source "css")
+          (scss-entry "tools/bdocgen/theme/main.scss")
+          (scss-style "expanded")
           (addon-name ""))
       (loop while argv
             do (let ((key (first argv)))
@@ -27,10 +30,20 @@
                     (setf output-dir-explicit t))
                    ((string= key "--pages-target")
                     (multiple-value-setq (pages-target argv) (next-value argv key)))
+                   ((string= key "--theme-source")
+                    (multiple-value-setq (theme-source argv) (next-value argv key)))
+                   ((string= key "--scss-entry")
+                    (multiple-value-setq (scss-entry argv) (next-value argv key)))
+                   ((string= key "--scss-style")
+                    (multiple-value-setq (scss-style argv) (next-value argv key)))
                    ((string= key "--addon-name")
                     (multiple-value-setq (addon-name argv) (next-value argv key)))
                    (t (error "Unknown argument: ~a" key)))))
       (let ((normalized-target (normalize-pages-target pages-target)))
+        (unless (member (string-downcase theme-source) '("css" "scss") :test #'string=)
+          (error "Unsupported --theme-source: ~a (expected css|scss)" theme-source))
+        (unless (member (string-downcase scss-style) '("expanded" "compressed") :test #'string=)
+          (error "Unsupported --scss-style: ~a (expected expanded|compressed)" scss-style))
         (unless output-dir-explicit
           (setf output-dir (default-output-dir-for-pages-target normalized-target)))
         (list :scope scope
@@ -38,12 +51,16 @@
               :docs-root docs-root
               :output-dir output-dir
               :pages-target normalized-target
+              :theme-source (string-downcase theme-source)
+              :scss-entry scss-entry
+              :scss-style (string-downcase scss-style)
               :addon-name addon-name)))))
 
 (defun print-result (result)
   (format t "BDocGen status: ~a~%" (getf result :status))
   (format t "BDocGen scope: ~a~%" (getf result :scope))
   (format t "BDocGen pages target: ~a~%" (getf result :pages-target "github"))
+  (format t "BDocGen theme source: ~a~%" (getf result :theme-source "css"))
   (format t "BDocGen pages: ~a~%" (getf result :page-count))
   (format t "index: ~a~%" (getf result :index-path))
   (format t "manifest: ~a~%" (getf result :manifest-path)))

@@ -1,0 +1,42 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--color-background-primary);
+  color: var(--color-foreground-primary);
+  font-family: "Noto Sans", "DejaVu Sans", sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+a {
+  color: var(--color-link);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--color-link-hover);
+  text-decoration: underline;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 50;
+  background: #edf55a;
+  color: #111;
+  padding: 0.45rem 0.7rem;
+  border-radius: 0 0 0.4rem 0.4rem;
+}
+
+.skip-link:focus-visible {
+  left: 0.6rem;
+}
