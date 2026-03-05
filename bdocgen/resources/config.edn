@@ -1,6 +1,0 @@
-{:docs-root "docs"
- :output-dir "docs/_build"
- :logging {:level :info
-           :format :edn}
- :interop {:python {:enabled false
-                    :adapter :subprocess}}}
