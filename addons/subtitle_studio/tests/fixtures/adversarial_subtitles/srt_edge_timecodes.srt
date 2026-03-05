@@ -1,0 +1,19 @@
+1
+00:00:00,000 --> 00:00:00,001
+tiny valid range
+
+2
+00:00:59,999 --> 00:01:00,000
+minute boundary valid range
+
+3
+00:00:05,000 --> 00:00:05,000
+invalid equal range should be rejected
+
+4
+00:61:00,000 --> 00:62:00,000
+invalid minute overflow should be rejected
+
+5
+00:00:70,000 --> 00:00:71,000
+invalid second overflow should be rejected

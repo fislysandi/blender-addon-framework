@@ -1,0 +1,19 @@
+1
+00:00:01,000 --> 00:00:02,000
+valid one
+
+not-an-index
+00:00:03,000 --> 00:00:04,000
+bad index block should be skipped
+
+2
+00:00:04,000 --> 00:00:05,000
+valid two
+
+3
+this is not a timecode
+invalid separator block should be skipped
+
+4
+00:00:06,000 --> 00:00:07,000
+valid three

@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Subtitle Studio - Development Workflow</title>
+  <style>
+  :root {
+    --content-max: 920px;
+    --radius: 4px;
+    --font-sans: 'Source Sans Pro', 'Noto Sans', 'DejaVu Sans', sans-serif;
+    --font-heading: 'Noto Sans', 'Source Sans Pro', 'DejaVu Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    background: #0e1116;
+  }
+
+  .theme-root {
+    --bg: #f6f7fa;
+    --bg-elev: #ffffff;
+    --bg-elev-2: #f2f4f8;
+    --border: #d9deea;
+    --text: #1e2634;
+    --text-muted: #5e697b;
+    --link: #1f74cf;
+    --link-hover: #175da6;
+    --accent: #565f0e;
+    --brand: #243045;
+    --heading-soft: #33435b;
+    --code-bg: #eef2f8;
+    --hover-bg: #eef3fb;
+    --title-bg: #dde39b;
+    --title-fg: #223006;
+    --sidebar-bg: #ffffff;
+    --sidebar-border: #d8deea;
+    --sidebar-sep: #d8deea;
+    --bg-gradient: var(--bg);
+
+    color: var(--text);
+    font-family: var(--font-sans);
+    line-height: 1.55;
+    min-height: 100vh;
+    padding: 1rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .theme-root {
+      --bg: #0f1116;
+      --bg-elev: #151a22;
+      --bg-elev-2: #141921;
+      --border: #2a313d;
+      --text: #d8dee8;
+      --text-muted: #9aa5b5;
+      --link: #5ba8ff;
+      --link-hover: #8ac3ff;
+      --accent: #aab23b;
+      --brand: #e4e9f1;
+      --heading-soft: #c5d0df;
+      --code-bg: #161c25;
+      --hover-bg: #1a212b;
+      --title-bg: #565b10;
+      --title-fg: #edf2d3;
+      --sidebar-bg: #171c23;
+      --sidebar-border: #303744;
+      --sidebar-sep: #2a313d;
+      --bg-gradient: var(--bg);
+    }
+  }
+
+  .theme-toggle {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .theme-toggle:checked + .theme-root {
+    --bg: #0f1116;
+    --bg-elev: #151a22;
+    --bg-elev-2: #141921;
+    --border: #2a313d;
+    --text: #d8dee8;
+    --text-muted: #9aa5b5;
+    --link: #5ba8ff;
+    --link-hover: #8ac3ff;
+    --accent: #aab23b;
+    --brand: #e4e9f1;
+    --heading-soft: #c5d0df;
+    --code-bg: #161c25;
+    --hover-bg: #1a212b;
+    --title-bg: #565b10;
+    --title-fg: #edf2d3;
+    --sidebar-bg: #171c23;
+    --sidebar-border: #303744;
+    --sidebar-sep: #2a313d;
+    --bg-gradient: var(--bg);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .theme-toggle:checked + .theme-root {
+      --bg: #f6f7fa;
+      --bg-elev: #ffffff;
+      --bg-elev-2: #f2f4f8;
+      --border: #d9deea;
+      --text: #1e2634;
+      --text-muted: #5e697b;
+      --link: #1f74cf;
+      --link-hover: #175da6;
+      --accent: #565f0e;
+      --brand: #243045;
+      --heading-soft: #33435b;
+      --code-bg: #eef2f8;
+      --hover-bg: #eef3fb;
+      --title-bg: #dde39b;
+      --title-fg: #223006;
+      --sidebar-bg: #ffffff;
+      --sidebar-border: #d8deea;
+      --sidebar-sep: #d8deea;
+      --bg-gradient: var(--bg);
+    }
+  }
+
+  .theme-root {
+    background: var(--bg-gradient);
+    padding: 0;
+  }
+
+  a { color: var(--link); text-decoration: none; }
+  a:hover { color: var(--link-hover); text-decoration: underline; }
+
+  .theme-switch {
+    display: inline-block;
+    margin: 0.1rem 0 0.7rem;
+    padding: 0.16rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    background: transparent;
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.76rem;
+    letter-spacing: 0.01em;
+  }
+
+  .theme-switch:hover {
+    color: var(--text);
+  }
+
+  .theme-toggle:focus + .theme-root .theme-switch {
+    outline: 2px solid var(--link);
+    outline-offset: 2px;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 620px minmax(0, var(--content-max)) 230px;
+    gap: 0;
+    align-items: start;
+    max-width: none;
+    margin: 0;
+    min-height: 100vh;
+  }
+
+  .panel {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+  }
+
+  .left-rail {
+    position: sticky;
+    top: 0;
+    max-height: 100vh;
+    min-height: 100vh;
+    overflow: auto;
+    padding: 0;
+    border-radius: 0;
+    background: var(--sidebar-bg);
+    border: 0;
+    border-right: 1px solid var(--sidebar-border);
+  }
+
+  .left-rail-inner {
+    width: 286px;
+    margin-left: auto;
+    padding: 1rem 1rem 0.8rem;
+  }
+
+  .left-rail::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .left-rail::-webkit-scrollbar-thumb {
+    background: #394251;
+    border-radius: 999px;
+  }
+
+  .search-wrap {
+    border-top: 1px solid var(--sidebar-sep);
+    border-bottom: 1px solid var(--sidebar-sep);
+    padding: 0.48rem 0;
+    margin: 0.36rem 0 0.86rem;
+    position: relative;
+  }
+
+  .search-wrap::before {
+    content: '⌕';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-52%);
+    color: #7f8a9a;
+    font-size: 0.92rem;
+  }
+
+  .search-field {
+    width: 100%;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    padding-left: 1.3rem;
+  }
+
+  .search-field::placeholder {
+    color: #7f8a9a;
+  }
+
+  .brand {
+    font-family: var(--font-heading);
+    font-size: 2.05rem;
+    margin: 0;
+    color: var(--brand);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
+
+  .brand-lockup {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.52rem;
+    padding: 0.12rem 0;
+  }
+
+  .brand-mark {
+    display: inline-block;
+    width: 1.05rem;
+    height: 1.05rem;
+    border-radius: 999px;
+    border: 2px solid #f28b39;
+    box-shadow: inset 0 0 0 3px var(--sidebar-bg);
+    background: #f28b39;
+    flex: 0 0 auto;
+  }
+
+  .brand-sub {
+    color: var(--text-muted);
+    margin: 0.42rem 0 0.62rem;
+    font-size: 1.92rem;
+    font-weight: 300;
+    line-height: 1.15;
+  }
+
+  .content {
+    min-height: 100vh;
+    padding: 1.05rem 2.35rem 2rem 2.2rem;
+  }
+
+  .content h1,
+  .content h2,
+  .content h3 {
+    font-family: var(--font-heading);
+    line-height: 1.25;
+    margin-top: 1.4rem;
+    margin-bottom: 0.7rem;
+    scroll-margin-top: 1rem;
+  }
+
+  .content h1 { font-size: 2.9rem; margin-top: 0.2rem; margin-bottom: 0.85rem; font-weight: 700; }
+  .content h2 { font-size: 2.5rem; }
+  .content h3 { font-size: 1.2rem; color: var(--heading-soft); }
+
+  .content h1:first-of-type {
+    display: inline;
+    background: transparent;
+    color: var(--brand);
+    border-radius: 0;
+    padding: 0;
+  }
+
+  .content h1:target,
+  .content h2:target,
+  .content h3:target {
+    display: inline-block;
+    background: var(--title-bg);
+    color: var(--title-fg);
+    border-radius: var(--radius);
+    padding: 0.04rem 0.4rem 0.1rem;
+  }
+
+  .heading-citation {
+    margin-left: 0.38rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    opacity: 0;
+    font-size: 0.72em;
+    vertical-align: middle;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1em;
+  }
+
+  .heading-citation::before {
+    content: '⛓';
+    font-size: 0.76em;
+    line-height: 1;
+  }
+
+  .content h1:hover .heading-citation,
+  .content h2:hover .heading-citation,
+  .content h3:hover .heading-citation,
+  .heading-citation:focus {
+    opacity: 1;
+    color: var(--link);
+  }
+
+  .content p,
+  .content li { color: var(--text); }
+
+  .content p,
+  .content ul,
+  .content ol {
+    margin-top: 0.55rem;
+    margin-bottom: 0.75rem;
+    font-size: 1.02rem;
+  }
+
+  .content pre,
+  .content code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+
+  .content pre { padding: 0.75rem; overflow: auto; }
+  .content code { padding: 0.08rem 0.35rem; }
+
+  .right-rail {
+    position: sticky;
+    top: 0;
+    padding: 1.05rem 0 0.2rem 1.25rem;
+    border-left: 1px solid var(--border);
+  }
+
+  .rail-title {
+    margin: 0 0 0.7rem;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .nav-list,
+  .toc-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: block;
+    gap: 0.45rem;
+  }
+
+  .nav-list li,
+  .toc-list li {
+    border: 0;
+    border-radius: 0;
+    padding: 0.14rem 0;
+  }
+
+  .nav-group-title {
+    margin: 1rem 0 0.25rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 700;
+  }
+
+  .nav-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    text-decoration: none;
+    font-size: 1.12rem;
+    line-height: 1.28;
+  }
+
+  .nav-link::after {
+    content: '⌄';
+    color: #4d82c7;
+    font-size: 0.88em;
+  }
+
+  .nav-link.current {
+    color: #8fc2ff;
+    font-weight: 600;
+  }
+
+  .sidebar-foot {
+    margin-top: 1.2rem;
+    padding-top: 0.62rem;
+    border-top: 1px solid var(--sidebar-sep);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.45rem;
+  }
+
+  .foot-chip {
+    border: 1px solid var(--sidebar-border);
+    border-radius: 3px;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--link);
+    padding: 0.12rem 0;
+  }
+
+  .nav-list li:hover,
+  .toc-list li:hover {
+    background: transparent;
+  }
+
+  .nav-list a,
+  .toc-list a {
+    color: var(--link);
+  }
+
+  .nav-list a:hover,
+  .toc-list a:hover {
+    color: var(--link-hover);
+  }
+
+  .meta {
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+  }
+
+  .back-link {
+    display: inline-block;
+    margin-bottom: 0.6rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 0.82rem;
+  }
+
+  @media (max-width: 1180px) {
+    .layout {
+      grid-template-columns: 300px minmax(0, 1fr);
+      gap: 0;
+    }
+    .right-rail { display: none; }
+
+    .left-rail-inner {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 860px) {
+    .layout {
+      grid-template-columns: 1fr;
+      padding: 0.6rem;
+    }
+    .left-rail,
+    .content {
+      position: static;
+      max-height: none;
+    }
+    .content { min-height: auto; }
+  }
+  </style>
+</head>
+<body>
+<input class="theme-toggle" type="checkbox" id="theme-toggle" aria-label="Toggle light and dark mode">
+<div class="theme-root">
+<div class="layout">
+  <aside class="panel left-rail">
+    <div class="left-rail-inner">
+    <div class="brand-lockup"><span class="brand-mark" aria-hidden="true"></span><h1 class="brand">subtitle_studio</h1></div>
+    <p class="brand-sub">Reference Manual</p>
+    <label class="theme-switch" for="theme-toggle">Switch theme</label>
+<a class="back-link" href="../index.html">Back to docs index</a>
+    <div class="search-wrap"><input class="search-field" type="search" placeholder="Search" aria-label="Search docs"></div>
+<p class="nav-group-title">Getting Started</p><ul class="nav-list"><li><a class="nav-link" href="./changelog/">Changelog</a></li><li><a class="nav-link" href="./dependencies/">Subtitle Studio - Dependency Management (UV First)</a></li><li><a class="nav-link current" href="./dev/">Subtitle Studio - Development Workflow</a></li><li><a class="nav-link" href="./functional-style-review/">Functional Style Review Roadmap</a></li></ul><p class="nav-group-title">Sections</p><ul class="nav-list"><li><a class="nav-link" href="./subtitle-studio-hardening/">Subtitle Studio Hardening Handoff</a></li><li><a class="nav-link" href="./whisper-config/">Subtitle Studio - Faster Whisper Configuration</a></li></ul>
+    <div class="sidebar-foot"><div class="foot-chip">5.0</div><div class="foot-chip">English</div></div>
+    </div>
+  </aside>
+  <main class="panel content">
+<h1 id="subtitle-studio-development-workflow">Subtitle Studio - Development Workflow<a class="heading-citation" href="#subtitle-studio-development-workflow" title="Link to this heading" aria-label="Link to this heading"></a></h1>
+<h2 id="overview">Overview<a class="heading-citation" href="#overview" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<p>This guide captures the local iteration, testing, and packaging workflow for Subtitle Studio while keeping Blender's threading and auto-loading patterns intact.</p>
+<h2 id="requirements">Requirements<a class="heading-citation" href="#requirements" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<ul>
+<li>Blender 4.5 LTS or 5.0+ (depending on the release target)</li>
+<li>Python 3.11 (Blender's bundled interpreter)</li>
+<li>UV package manager with <code>uv.lock</code> synced to <code>pyproject.toml</code></li>
+</ul>
+<h2 id="local-workflow">Local Workflow<a class="heading-citation" href="#local-workflow" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<ol>
+<li>Clone this repository, then install the ZIP for quick verification or drop the <code>subtitle_studio/</code> package into Blender's <code>scripts/addons</code> path for live iteration.</li>
+<li>Enable <code>Subtitle Studio</code> under <code>Edit → Preferences → Add-ons</code> and confirm the VSE sidebar panel appears.</li>
+<li>Run <code>uv run test subtitle_editor</code> to exercise modal operators, threading logic, and Faster Whisper pipelines (thread-safe UI updates are highlighted in <code>context/project-intelligence/technical-domain.md</code>).</li>
+</ol>
+<h2 id="run-and-test">Run and Test<a class="heading-citation" href="#run-and-test" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<pre><code class="language-bash">uv run test subtitle_editor
+</code></pre>
+<p>UV runs the Whisper inference tests, ensuring the modal operators post updates through timers instead of mutating props directly.</p>
+<h2 id="package-release">Package Release<a class="heading-citation" href="#package-release" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<pre><code class="language-bash">uv run release subtitle_editor
+</code></pre>
+<p>The release command builds the add-on ZIP without bundling dependencies. Runtime installs are handled through UV (see <code>docs/dependencies.md</code>).</p>
+<h2 id="dependency-management">Dependency Management<a class="heading-citation" href="#dependency-management" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<ul>
+<li>Keep <code>pyproject.toml</code> dependencies pinned to the ranges in <code>docs/dependencies.md</code> and update <code>uv.lock</code> via <code>uv lock</code> or <code>uv sync</code>.</li>
+<li>Use the add-on Preferences panel to install dependencies into Blender's Python (UV first, pip fallback).</li>
+<li>After dependency changes, rerun <code>uv run test subtitle_editor</code> and rebuild with <code>uv run release subtitle_editor</code>.</li>
+</ul>
+<h2 id="faster-whisper-configuration-reference">Faster Whisper Configuration Reference<a class="heading-citation" href="#faster-whisper-configuration-reference" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<p>Consult <code>docs/whisper-config.md</code> before tweaking default beam sizes, VAD thresholds, or model choices (<code>tiny</code>, <code>base</code>, <code>medium</code>, <code>large-v3</code>). It captures memory/speed trade-offs, CPU-only knobs, and output expectations so Blender builds stay responsive.</p>
+<h2 id="blender-iteration-tips">Blender Iteration Tips<a class="heading-citation" href="#blender-iteration-tips" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<ul>
+<li>Reload the add-on via Blender's scripting console between edits if panels refuse to redraw; modal operators rely on <code>area.tag_redraw()</code> inside scheduled timers.</li>
+<li>Restart Blender when UI elements lag or hang, as event handlers are tied to <code>bpy.app.timers</code> for long-running downloads/transcriptions.</li>
+<li>Watch the console/logs for thread-safe updates and avoid touching props from background threads (the pattern is documented in <code>context/project-intelligence/technical-domain.md</code>).</li>
+</ul>
+<h2 id="blender-smoke-script">Blender Smoke Script<a class="heading-citation" href="#blender-smoke-script" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<p>Use the smoke script to quickly validate core strip workflows and MetaStrip copy-style behavior.</p>
+<p>Script:</p>
+<ul>
+<li><code>tests/blender_smoke_strip_workflows.py</code></li>
+</ul>
+<p>What it validates:</p>
+<ul>
+<li>strip add/update/remove workflow</li>
+<li>apply style to selected strips</li>
+<li>copy style inside a MetaStrip</li>
+</ul>
+<p>How to run (UI session recommended):</p>
+<ol>
+<li>Enable the <code>subtitle_studio</code> add-on.</li>
+<li>Open a Sequencer area in the current workspace.</li>
+<li>Run in Blender's Python console or Text Editor:</li>
+</ol>
+<pre><code class="language-python">exec(compile(open(&quot;/absolute/path/to/addons/subtitle_studio/tests/blender_smoke_strip_workflows.py&quot;, &quot;rb&quot;).read(), &quot;blender_smoke_strip_workflows.py&quot;, &quot;exec&quot;))
+</code></pre>
+<p>Expected output: explicit <code>[PASS]</code>/<code>[FAIL]</code> lines and an <code>[overall]</code> line.</p>
+<h2 id="evaluation-logging-standard">Evaluation Logging Standard<a class="heading-citation" href="#evaluation-logging-standard" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<p>Use a single structured format for all addon evaluation logs written to the Blender system console.</p>
+<p>Format:</p>
+<pre><code class="language-text">[Subtitle Studio][EVAL] action=&lt;action&gt; phase=&lt;phase&gt; outcome=&lt;outcome&gt; reason=&lt;reason&gt; context=&lt;json&gt;
+</code></pre>
+<p>Required fields:</p>
+<ul>
+<li><code>action</code>: logical operation id (example: <code>transcribe.invoke</code>, <code>transcribe.worker</code>, <code>deps.check</code>, <code>model.load</code>)</li>
+<li><code>phase</code>: <code>start|checkpoint|decision|success|warning|fail|cancel</code></li>
+<li><code>outcome</code>: <code>ok|warn|error|cancelled|noop</code></li>
+<li><code>reason</code>: short machine-readable reason code (example: <code>missing_strip</code>, <code>low_recall_retry</code>, <code>model_not_found</code>)</li>
+<li><code>context</code>: sanitized JSON payload with only useful debug data</li>
+</ul>
+<p>Required event phases:</p>
+<ul>
+<li><code>start</code>: operation begins</li>
+<li><code>checkpoint</code>: important intermediate state</li>
+<li><code>decision</code>: branch selection based on evaluated conditions</li>
+<li><code>success</code>: operation completed successfully</li>
+<li><code>warning</code>: non-fatal issue or fallback</li>
+<li><code>fail</code>: operation failed</li>
+<li><code>cancel</code>: user or system cancellation</li>
+</ul>
+<p>Context sanitization rules:</p>
+<ul>
+<li>Avoid secrets/tokens and private credentials.</li>
+<li>Avoid dumping full large payloads.</li>
+<li>Prefer short, stable keys (<code>scene</code>, <code>model</code>, <code>device</code>, <code>segment_count</code>, <code>coverage</code>).</li>
+<li>Include enough data to explain why a branch was taken.</li>
+</ul>
+<p>Examples:</p>
+<pre><code class="language-text">[Subtitle Studio][EVAL] action=transcribe.invoke phase=start outcome=ok reason=begin context={&quot;scene&quot;:&quot;Scene&quot;,&quot;strip&quot;:&quot;Voice_01&quot;,&quot;model&quot;:&quot;base&quot;,&quot;device&quot;:&quot;auto&quot;}
+[Subtitle Studio][EVAL] action=transcribe.worker phase=decision outcome=warn reason=low_recall_retry context={&quot;audio_duration&quot;:92.4,&quot;segments&quot;:3,&quot;word_count&quot;:14,&quot;coverage&quot;:0.018}
+[Subtitle Studio][EVAL] action=model.load phase=fail outcome=error reason=model_not_found context={&quot;model&quot;:&quot;large-v3&quot;,&quot;cache&quot;:&quot;configured&quot;}
+[Subtitle Studio][EVAL] action=deps.check phase=success outcome=ok reason=dependency_scan_complete context={&quot;missing&quot;:[&quot;onnxruntime&quot;],&quot;gpu_detected&quot;:false}
+</code></pre>
+  </main>
+  <aside class="panel right-rail">
+    <p class="rail-title">On This Page</p>
+    <ul class="toc-list"><li><a href="#overview">Overview</a></li><li><a href="#requirements">Requirements</a></li><li><a href="#local-workflow">Local Workflow</a></li><li><a href="#run-and-test">Run and Test</a></li><li><a href="#package-release">Package Release</a></li><li><a href="#dependency-management">Dependency Management</a></li><li><a href="#faster-whisper-configuration-reference">Faster Whisper Configuration Reference</a></li><li><a href="#blender-iteration-tips">Blender Iteration Tips</a></li><li><a href="#blender-smoke-script">Blender Smoke Script</a></li><li><a href="#evaluation-logging-standard">Evaluation Logging Standard</a></li></ul>
+  </aside>
+</div>
+</div>
+</body>
+</html>

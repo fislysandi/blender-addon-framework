@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Subtitle Studio Hardening Handoff</title>
+  <style>
+  :root {
+    --content-max: 920px;
+    --radius: 4px;
+    --font-sans: 'Source Sans Pro', 'Noto Sans', 'DejaVu Sans', sans-serif;
+    --font-heading: 'Noto Sans', 'Source Sans Pro', 'DejaVu Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    background: #0e1116;
+  }
+
+  .theme-root {
+    --bg: #f6f7fa;
+    --bg-elev: #ffffff;
+    --bg-elev-2: #f2f4f8;
+    --border: #d9deea;
+    --text: #1e2634;
+    --text-muted: #5e697b;
+    --link: #1f74cf;
+    --link-hover: #175da6;
+    --accent: #565f0e;
+    --brand: #243045;
+    --heading-soft: #33435b;
+    --code-bg: #eef2f8;
+    --hover-bg: #eef3fb;
+    --title-bg: #dde39b;
+    --title-fg: #223006;
+    --sidebar-bg: #ffffff;
+    --sidebar-border: #d8deea;
+    --sidebar-sep: #d8deea;
+    --bg-gradient: var(--bg);
+
+    color: var(--text);
+    font-family: var(--font-sans);
+    line-height: 1.55;
+    min-height: 100vh;
+    padding: 1rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .theme-root {
+      --bg: #0f1116;
+      --bg-elev: #151a22;
+      --bg-elev-2: #141921;
+      --border: #2a313d;
+      --text: #d8dee8;
+      --text-muted: #9aa5b5;
+      --link: #5ba8ff;
+      --link-hover: #8ac3ff;
+      --accent: #aab23b;
+      --brand: #e4e9f1;
+      --heading-soft: #c5d0df;
+      --code-bg: #161c25;
+      --hover-bg: #1a212b;
+      --title-bg: #565b10;
+      --title-fg: #edf2d3;
+      --sidebar-bg: #171c23;
+      --sidebar-border: #303744;
+      --sidebar-sep: #2a313d;
+      --bg-gradient: var(--bg);
+    }
+  }
+
+  .theme-toggle {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .theme-toggle:checked + .theme-root {
+    --bg: #0f1116;
+    --bg-elev: #151a22;
+    --bg-elev-2: #141921;
+    --border: #2a313d;
+    --text: #d8dee8;
+    --text-muted: #9aa5b5;
+    --link: #5ba8ff;
+    --link-hover: #8ac3ff;
+    --accent: #aab23b;
+    --brand: #e4e9f1;
+    --heading-soft: #c5d0df;
+    --code-bg: #161c25;
+    --hover-bg: #1a212b;
+    --title-bg: #565b10;
+    --title-fg: #edf2d3;
+    --sidebar-bg: #171c23;
+    --sidebar-border: #303744;
+    --sidebar-sep: #2a313d;
+    --bg-gradient: var(--bg);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .theme-toggle:checked + .theme-root {
+      --bg: #f6f7fa;
+      --bg-elev: #ffffff;
+      --bg-elev-2: #f2f4f8;
+      --border: #d9deea;
+      --text: #1e2634;
+      --text-muted: #5e697b;
+      --link: #1f74cf;
+      --link-hover: #175da6;
+      --accent: #565f0e;
+      --brand: #243045;
+      --heading-soft: #33435b;
+      --code-bg: #eef2f8;
+      --hover-bg: #eef3fb;
+      --title-bg: #dde39b;
+      --title-fg: #223006;
+      --sidebar-bg: #ffffff;
+      --sidebar-border: #d8deea;
+      --sidebar-sep: #d8deea;
+      --bg-gradient: var(--bg);
+    }
+  }
+
+  .theme-root {
+    background: var(--bg-gradient);
+    padding: 0;
+  }
+
+  a { color: var(--link); text-decoration: none; }
+  a:hover { color: var(--link-hover); text-decoration: underline; }
+
+  .theme-switch {
+    display: inline-block;
+    margin: 0.1rem 0 0.7rem;
+    padding: 0.16rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    background: transparent;
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.76rem;
+    letter-spacing: 0.01em;
+  }
+
+  .theme-switch:hover {
+    color: var(--text);
+  }
+
+  .theme-toggle:focus + .theme-root .theme-switch {
+    outline: 2px solid var(--link);
+    outline-offset: 2px;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 620px minmax(0, var(--content-max)) 230px;
+    gap: 0;
+    align-items: start;
+    max-width: none;
+    margin: 0;
+    min-height: 100vh;
+  }
+
+  .panel {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+  }
+
+  .left-rail {
+    position: sticky;
+    top: 0;
+    max-height: 100vh;
+    min-height: 100vh;
+    overflow: auto;
+    padding: 0;
+    border-radius: 0;
+    background: var(--sidebar-bg);
+    border: 0;
+    border-right: 1px solid var(--sidebar-border);
+  }
+
+  .left-rail-inner {
+    width: 286px;
+    margin-left: auto;
+    padding: 1rem 1rem 0.8rem;
+  }
+
+  .left-rail::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .left-rail::-webkit-scrollbar-thumb {
+    background: #394251;
+    border-radius: 999px;
+  }
+
+  .search-wrap {
+    border-top: 1px solid var(--sidebar-sep);
+    border-bottom: 1px solid var(--sidebar-sep);
+    padding: 0.48rem 0;
+    margin: 0.36rem 0 0.86rem;
+    position: relative;
+  }
+
+  .search-wrap::before {
+    content: '⌕';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-52%);
+    color: #7f8a9a;
+    font-size: 0.92rem;
+  }
+
+  .search-field {
+    width: 100%;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    padding-left: 1.3rem;
+  }
+
+  .search-field::placeholder {
+    color: #7f8a9a;
+  }
+
+  .brand {
+    font-family: var(--font-heading);
+    font-size: 2.05rem;
+    margin: 0;
+    color: var(--brand);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
+
+  .brand-lockup {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.52rem;
+    padding: 0.12rem 0;
+  }
+
+  .brand-mark {
+    display: inline-block;
+    width: 1.05rem;
+    height: 1.05rem;
+    border-radius: 999px;
+    border: 2px solid #f28b39;
+    box-shadow: inset 0 0 0 3px var(--sidebar-bg);
+    background: #f28b39;
+    flex: 0 0 auto;
+  }
+
+  .brand-sub {
+    color: var(--text-muted);
+    margin: 0.42rem 0 0.62rem;
+    font-size: 1.92rem;
+    font-weight: 300;
+    line-height: 1.15;
+  }
+
+  .content {
+    min-height: 100vh;
+    padding: 1.05rem 2.35rem 2rem 2.2rem;
+  }
+
+  .content h1,
+  .content h2,
+  .content h3 {
+    font-family: var(--font-heading);
+    line-height: 1.25;
+    margin-top: 1.4rem;
+    margin-bottom: 0.7rem;
+    scroll-margin-top: 1rem;
+  }
+
+  .content h1 { font-size: 2.9rem; margin-top: 0.2rem; margin-bottom: 0.85rem; font-weight: 700; }
+  .content h2 { font-size: 2.5rem; }
+  .content h3 { font-size: 1.2rem; color: var(--heading-soft); }
+
+  .content h1:first-of-type {
+    display: inline;
+    background: transparent;
+    color: var(--brand);
+    border-radius: 0;
+    padding: 0;
+  }
+
+  .content h1:target,
+  .content h2:target,
+  .content h3:target {
+    display: inline-block;
+    background: var(--title-bg);
+    color: var(--title-fg);
+    border-radius: var(--radius);
+    padding: 0.04rem 0.4rem 0.1rem;
+  }
+
+  .heading-citation {
+    margin-left: 0.38rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    opacity: 0;
+    font-size: 0.72em;
+    vertical-align: middle;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1em;
+  }
+
+  .heading-citation::before {
+    content: '⛓';
+    font-size: 0.76em;
+    line-height: 1;
+  }
+
+  .content h1:hover .heading-citation,
+  .content h2:hover .heading-citation,
+  .content h3:hover .heading-citation,
+  .heading-citation:focus {
+    opacity: 1;
+    color: var(--link);
+  }
+
+  .content p,
+  .content li { color: var(--text); }
+
+  .content p,
+  .content ul,
+  .content ol {
+    margin-top: 0.55rem;
+    margin-bottom: 0.75rem;
+    font-size: 1.02rem;
+  }
+
+  .content pre,
+  .content code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+
+  .content pre { padding: 0.75rem; overflow: auto; }
+  .content code { padding: 0.08rem 0.35rem; }
+
+  .right-rail {
+    position: sticky;
+    top: 0;
+    padding: 1.05rem 0 0.2rem 1.25rem;
+    border-left: 1px solid var(--border);
+  }
+
+  .rail-title {
+    margin: 0 0 0.7rem;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .nav-list,
+  .toc-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: block;
+    gap: 0.45rem;
+  }
+
+  .nav-list li,
+  .toc-list li {
+    border: 0;
+    border-radius: 0;
+    padding: 0.14rem 0;
+  }
+
+  .nav-group-title {
+    margin: 1rem 0 0.25rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 700;
+  }
+
+  .nav-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    text-decoration: none;
+    font-size: 1.12rem;
+    line-height: 1.28;
+  }
+
+  .nav-link::after {
+    content: '⌄';
+    color: #4d82c7;
+    font-size: 0.88em;
+  }
+
+  .nav-link.current {
+    color: #8fc2ff;
+    font-weight: 600;
+  }
+
+  .sidebar-foot {
+    margin-top: 1.2rem;
+    padding-top: 0.62rem;
+    border-top: 1px solid var(--sidebar-sep);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.45rem;
+  }
+
+  .foot-chip {
+    border: 1px solid var(--sidebar-border);
+    border-radius: 3px;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--link);
+    padding: 0.12rem 0;
+  }
+
+  .nav-list li:hover,
+  .toc-list li:hover {
+    background: transparent;
+  }
+
+  .nav-list a,
+  .toc-list a {
+    color: var(--link);
+  }
+
+  .nav-list a:hover,
+  .toc-list a:hover {
+    color: var(--link-hover);
+  }
+
+  .meta {
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+  }
+
+  .back-link {
+    display: inline-block;
+    margin-bottom: 0.6rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 0.82rem;
+  }
+
+  @media (max-width: 1180px) {
+    .layout {
+      grid-template-columns: 300px minmax(0, 1fr);
+      gap: 0;
+    }
+    .right-rail { display: none; }
+
+    .left-rail-inner {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 860px) {
+    .layout {
+      grid-template-columns: 1fr;
+      padding: 0.6rem;
+    }
+    .left-rail,
+    .content {
+      position: static;
+      max-height: none;
+    }
+    .content { min-height: auto; }
+  }
+  </style>
+</head>
+<body>
+<input class="theme-toggle" type="checkbox" id="theme-toggle" aria-label="Toggle light and dark mode">
+<div class="theme-root">
+<div class="layout">
+  <aside class="panel left-rail">
+    <div class="left-rail-inner">
+    <div class="brand-lockup"><span class="brand-mark" aria-hidden="true"></span><h1 class="brand">subtitle_studio</h1></div>
+    <p class="brand-sub">Reference Manual</p>
+    <label class="theme-switch" for="theme-toggle">Switch theme</label>
+<a class="back-link" href="../index.html">Back to docs index</a>
+    <div class="search-wrap"><input class="search-field" type="search" placeholder="Search" aria-label="Search docs"></div>
+<p class="nav-group-title">Getting Started</p><ul class="nav-list"><li><a class="nav-link" href="./changelog/">Changelog</a></li><li><a class="nav-link" href="./dependencies/">Subtitle Studio - Dependency Management (UV First)</a></li><li><a class="nav-link" href="./dev/">Subtitle Studio - Development Workflow</a></li><li><a class="nav-link" href="./functional-style-review/">Functional Style Review Roadmap</a></li></ul><p class="nav-group-title">Sections</p><ul class="nav-list"><li><a class="nav-link current" href="./subtitle-studio-hardening/">Subtitle Studio Hardening Handoff</a></li><li><a class="nav-link" href="./whisper-config/">Subtitle Studio - Faster Whisper Configuration</a></li></ul>
+    <div class="sidebar-foot"><div class="foot-chip">5.0</div><div class="foot-chip">English</div></div>
+    </div>
+  </aside>
+  <main class="panel content">
+<h1 id="subtitle-studio-hardening-handoff">Subtitle Studio Hardening Handoff<a class="heading-citation" href="#subtitle-studio-hardening-handoff" title="Link to this heading" aria-label="Link to this heading"></a></h1>
+<p>This document maps hardening mitigations to the original findings in
+<code>.tmp/sessions/20260225-subtitle-studio-hardening/code-review-findings.md</code>.</p>
+<h2 id="what-was-added">What Was Added<a class="heading-citation" href="#what-was-added" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<ul>
+<li>Input validation boundaries: <code>hardening/validation.py</code></li>
+<li>Path safety and IO guards: <code>hardening/path_safety.py</code></li>
+<li>Runtime failure boundaries: <code>hardening/error_boundary.py</code></li>
+<li>Regression/adversarial tests:
+<ul>
+<li><code>tests/test_subtitle_hardening_baseline.py</code></li>
+<li><code>tests/test_subtitle_input_validation.py</code></li>
+<li><code>tests/test_subtitle_path_safety.py</code></li>
+<li><code>tests/test_subtitle_error_boundaries.py</code></li>
+<li><code>tests/test_subtitle_adversarial_cases.py</code></li>
+</ul>
+</li>
+</ul>
+<h2 id="finding-to-mitigation-mapping">Finding-to-Mitigation Mapping<a class="heading-citation" href="#finding-to-mitigation-mapping" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<h3 id="1-malformed-subtitle-payloads-can-abort-import">1) Malformed subtitle payloads can abort import<a class="heading-citation" href="#1-malformed-subtitle-payloads-can-abort-import" title="Link to this heading" aria-label="Link to this heading"></a></h3>
+<ul>
+<li>Finding: <code>core/subtitle_io.py</code> could abort on malformed timecode blocks.</li>
+<li>Mitigation:
+<ul>
+<li><code>validate_subtitle_payload(...)</code> enforces block shape, timecode validity,
+line-count limits, and size bounds before parse.</li>
+<li>SRT/VTT fallback loaders in <code>core/subtitle_io.py</code> now process only accepted
+blocks and skip malformed ones.</li>
+</ul>
+</li>
+<li>Evidence:
+<ul>
+<li><code>tests/test_subtitle_hardening_baseline.py</code></li>
+<li><code>tests/test_subtitle_input_validation.py</code></li>
+<li><code>tests/test_subtitle_adversarial_cases.py</code></li>
+</ul>
+</li>
+</ul>
+<h3 id="2-path-traversal-unsafe-file-operations-risk">2) Path traversal / unsafe file operations risk<a class="heading-citation" href="#2-path-traversal-unsafe-file-operations-risk" title="Link to this heading" aria-label="Link to this heading"></a></h3>
+<ul>
+<li>Finding category: file/path hardening gaps and unsafe IO assumptions.</li>
+<li>Mitigation:
+<ul>
+<li>Canonical path checks reject paths outside approved roots.</li>
+<li>Structured read/write guards return explicit failure objects.</li>
+<li>Traversal-style attempts are fail-closed.</li>
+</ul>
+</li>
+<li>Evidence:
+<ul>
+<li><code>tests/test_subtitle_path_safety.py</code></li>
+<li><code>tests/test_subtitle_adversarial_cases.py</code></li>
+</ul>
+</li>
+</ul>
+<h3 id="3-runtime-exceptions-can-leak-implementation-details">3) Runtime exceptions can leak implementation details<a class="heading-citation" href="#3-runtime-exceptions-can-leak-implementation-details" title="Link to this heading" aria-label="Link to this heading"></a></h3>
+<ul>
+<li>Finding category: broad exceptions and insufficient containment.</li>
+<li>Mitigation:
+<ul>
+<li>Reusable boundary wrappers convert exceptions into non-crashing failures.</li>
+<li>User-facing messages are sanitized to avoid stack traces and internal paths.</li>
+<li>Diagnostic logs keep operation id + context for troubleshooting.</li>
+<li>Import/export operators route failures through boundary handling.</li>
+</ul>
+</li>
+<li>Evidence:
+<ul>
+<li><code>tests/test_subtitle_error_boundaries.py</code></li>
+</ul>
+</li>
+</ul>
+<h2 id="ci-gate">CI Gate<a class="heading-citation" href="#ci-gate" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<ul>
+<li>Workflow: <code>.github/workflows/subtitle-studio-hardening.yml</code></li>
+<li>Trigger: pull requests touching <code>addons/subtitle_studio/**</code></li>
+<li>Enforced suite:
+<ul>
+<li><code>tests.test_subtitle_hardening_baseline</code></li>
+<li><code>tests.test_subtitle_input_validation</code></li>
+<li><code>tests.test_subtitle_path_safety</code></li>
+<li><code>tests.test_subtitle_error_boundaries</code></li>
+<li><code>tests.test_subtitle_adversarial_cases</code></li>
+</ul>
+</li>
+</ul>
+<p>To block merges on hardening regressions, configure branch protection to require
+the <code>Hardening Regression Suite</code> check.</p>
+<h2 id="local-validation-command">Local Validation Command<a class="heading-citation" href="#local-validation-command" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<pre><code class="language-bash">python -m unittest \
+  tests.test_subtitle_hardening_baseline \
+  tests.test_subtitle_input_validation \
+  tests.test_subtitle_path_safety \
+  tests.test_subtitle_error_boundaries \
+  tests.test_subtitle_adversarial_cases
+</code></pre>
+  </main>
+  <aside class="panel right-rail">
+    <p class="rail-title">On This Page</p>
+    <ul class="toc-list"><li><a href="#what-was-added">What Was Added</a></li><li><a href="#finding-to-mitigation-mapping">Finding-to-Mitigation Mapping</a></li><li><a href="#ci-gate">CI Gate</a></li><li><a href="#local-validation-command">Local Validation Command</a></li></ul>
+  </aside>
+</div>
+</div>
+</body>
+</html>

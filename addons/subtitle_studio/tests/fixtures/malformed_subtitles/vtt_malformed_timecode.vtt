@@ -1,0 +1,10 @@
+WEBVTT
+
+00:00:01.000 --> 00:00:02.000
+valid one
+
+00:00:AA.100 --> 00:00:03.000
+broken timecode should be isolated
+
+00:00:04.000 --> 00:00:05.000
+valid two

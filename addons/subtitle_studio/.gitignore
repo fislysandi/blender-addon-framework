@@ -1,0 +1,4 @@
+.opencode/
+.tmp/
+__pycache__/
+*.py[cod]

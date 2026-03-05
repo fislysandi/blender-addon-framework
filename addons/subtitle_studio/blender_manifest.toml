@@ -1,0 +1,15 @@
+schema_version = "1.0.0"
+
+id = "subtitle_studio"
+version = "1.0.0"
+name = "Subtitle Studio"
+tagline = "AI-powered subtitle transcription and editing for Blender VSE"
+maintainer = "Fislysandi"
+type = "add-on"
+category = "Sequencer"
+blender_version_min = "4.2.0"
+license = ["SPDX:MIT"]
+copyright = ["2024 Fislysandi"]
+
+# Dependencies are managed by UV (pyproject.toml)
+# This manifest is for Blender's extension system

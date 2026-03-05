@@ -1,0 +1,11 @@
+# Python caches
+__pycache__/
+*.py[cod]
+
+# Local environments and tooling caches
+.venv/
+.ruff_cache/
+
+# Generated local artifacts
+.tmp/
+docs/_build/

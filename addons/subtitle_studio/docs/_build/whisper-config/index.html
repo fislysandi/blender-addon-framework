@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Subtitle Studio - Faster Whisper Configuration</title>
+  <style>
+  :root {
+    --content-max: 920px;
+    --radius: 4px;
+    --font-sans: 'Source Sans Pro', 'Noto Sans', 'DejaVu Sans', sans-serif;
+    --font-heading: 'Noto Sans', 'Source Sans Pro', 'DejaVu Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    background: #0e1116;
+  }
+
+  .theme-root {
+    --bg: #f6f7fa;
+    --bg-elev: #ffffff;
+    --bg-elev-2: #f2f4f8;
+    --border: #d9deea;
+    --text: #1e2634;
+    --text-muted: #5e697b;
+    --link: #1f74cf;
+    --link-hover: #175da6;
+    --accent: #565f0e;
+    --brand: #243045;
+    --heading-soft: #33435b;
+    --code-bg: #eef2f8;
+    --hover-bg: #eef3fb;
+    --title-bg: #dde39b;
+    --title-fg: #223006;
+    --sidebar-bg: #ffffff;
+    --sidebar-border: #d8deea;
+    --sidebar-sep: #d8deea;
+    --bg-gradient: var(--bg);
+
+    color: var(--text);
+    font-family: var(--font-sans);
+    line-height: 1.55;
+    min-height: 100vh;
+    padding: 1rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .theme-root {
+      --bg: #0f1116;
+      --bg-elev: #151a22;
+      --bg-elev-2: #141921;
+      --border: #2a313d;
+      --text: #d8dee8;
+      --text-muted: #9aa5b5;
+      --link: #5ba8ff;
+      --link-hover: #8ac3ff;
+      --accent: #aab23b;
+      --brand: #e4e9f1;
+      --heading-soft: #c5d0df;
+      --code-bg: #161c25;
+      --hover-bg: #1a212b;
+      --title-bg: #565b10;
+      --title-fg: #edf2d3;
+      --sidebar-bg: #171c23;
+      --sidebar-border: #303744;
+      --sidebar-sep: #2a313d;
+      --bg-gradient: var(--bg);
+    }
+  }
+
+  .theme-toggle {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .theme-toggle:checked + .theme-root {
+    --bg: #0f1116;
+    --bg-elev: #151a22;
+    --bg-elev-2: #141921;
+    --border: #2a313d;
+    --text: #d8dee8;
+    --text-muted: #9aa5b5;
+    --link: #5ba8ff;
+    --link-hover: #8ac3ff;
+    --accent: #aab23b;
+    --brand: #e4e9f1;
+    --heading-soft: #c5d0df;
+    --code-bg: #161c25;
+    --hover-bg: #1a212b;
+    --title-bg: #565b10;
+    --title-fg: #edf2d3;
+    --sidebar-bg: #171c23;
+    --sidebar-border: #303744;
+    --sidebar-sep: #2a313d;
+    --bg-gradient: var(--bg);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .theme-toggle:checked + .theme-root {
+      --bg: #f6f7fa;
+      --bg-elev: #ffffff;
+      --bg-elev-2: #f2f4f8;
+      --border: #d9deea;
+      --text: #1e2634;
+      --text-muted: #5e697b;
+      --link: #1f74cf;
+      --link-hover: #175da6;
+      --accent: #565f0e;
+      --brand: #243045;
+      --heading-soft: #33435b;
+      --code-bg: #eef2f8;
+      --hover-bg: #eef3fb;
+      --title-bg: #dde39b;
+      --title-fg: #223006;
+      --sidebar-bg: #ffffff;
+      --sidebar-border: #d8deea;
+      --sidebar-sep: #d8deea;
+      --bg-gradient: var(--bg);
+    }
+  }
+
+  .theme-root {
+    background: var(--bg-gradient);
+    padding: 0;
+  }
+
+  a { color: var(--link); text-decoration: none; }
+  a:hover { color: var(--link-hover); text-decoration: underline; }
+
+  .theme-switch {
+    display: inline-block;
+    margin: 0.1rem 0 0.7rem;
+    padding: 0.16rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    background: transparent;
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.76rem;
+    letter-spacing: 0.01em;
+  }
+
+  .theme-switch:hover {
+    color: var(--text);
+  }
+
+  .theme-toggle:focus + .theme-root .theme-switch {
+    outline: 2px solid var(--link);
+    outline-offset: 2px;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 620px minmax(0, var(--content-max)) 230px;
+    gap: 0;
+    align-items: start;
+    max-width: none;
+    margin: 0;
+    min-height: 100vh;
+  }
+
+  .panel {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+  }
+
+  .left-rail {
+    position: sticky;
+    top: 0;
+    max-height: 100vh;
+    min-height: 100vh;
+    overflow: auto;
+    padding: 0;
+    border-radius: 0;
+    background: var(--sidebar-bg);
+    border: 0;
+    border-right: 1px solid var(--sidebar-border);
+  }
+
+  .left-rail-inner {
+    width: 286px;
+    margin-left: auto;
+    padding: 1rem 1rem 0.8rem;
+  }
+
+  .left-rail::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .left-rail::-webkit-scrollbar-thumb {
+    background: #394251;
+    border-radius: 999px;
+  }
+
+  .search-wrap {
+    border-top: 1px solid var(--sidebar-sep);
+    border-bottom: 1px solid var(--sidebar-sep);
+    padding: 0.48rem 0;
+    margin: 0.36rem 0 0.86rem;
+    position: relative;
+  }
+
+  .search-wrap::before {
+    content: '⌕';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-52%);
+    color: #7f8a9a;
+    font-size: 0.92rem;
+  }
+
+  .search-field {
+    width: 100%;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    padding-left: 1.3rem;
+  }
+
+  .search-field::placeholder {
+    color: #7f8a9a;
+  }
+
+  .brand {
+    font-family: var(--font-heading);
+    font-size: 2.05rem;
+    margin: 0;
+    color: var(--brand);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
+
+  .brand-lockup {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.52rem;
+    padding: 0.12rem 0;
+  }
+
+  .brand-mark {
+    display: inline-block;
+    width: 1.05rem;
+    height: 1.05rem;
+    border-radius: 999px;
+    border: 2px solid #f28b39;
+    box-shadow: inset 0 0 0 3px var(--sidebar-bg);
+    background: #f28b39;
+    flex: 0 0 auto;
+  }
+
+  .brand-sub {
+    color: var(--text-muted);
+    margin: 0.42rem 0 0.62rem;
+    font-size: 1.92rem;
+    font-weight: 300;
+    line-height: 1.15;
+  }
+
+  .content {
+    min-height: 100vh;
+    padding: 1.05rem 2.35rem 2rem 2.2rem;
+  }
+
+  .content h1,
+  .content h2,
+  .content h3 {
+    font-family: var(--font-heading);
+    line-height: 1.25;
+    margin-top: 1.4rem;
+    margin-bottom: 0.7rem;
+    scroll-margin-top: 1rem;
+  }
+
+  .content h1 { font-size: 2.9rem; margin-top: 0.2rem; margin-bottom: 0.85rem; font-weight: 700; }
+  .content h2 { font-size: 2.5rem; }
+  .content h3 { font-size: 1.2rem; color: var(--heading-soft); }
+
+  .content h1:first-of-type {
+    display: inline;
+    background: transparent;
+    color: var(--brand);
+    border-radius: 0;
+    padding: 0;
+  }
+
+  .content h1:target,
+  .content h2:target,
+  .content h3:target {
+    display: inline-block;
+    background: var(--title-bg);
+    color: var(--title-fg);
+    border-radius: var(--radius);
+    padding: 0.04rem 0.4rem 0.1rem;
+  }
+
+  .heading-citation {
+    margin-left: 0.38rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    opacity: 0;
+    font-size: 0.72em;
+    vertical-align: middle;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1em;
+  }
+
+  .heading-citation::before {
+    content: '⛓';
+    font-size: 0.76em;
+    line-height: 1;
+  }
+
+  .content h1:hover .heading-citation,
+  .content h2:hover .heading-citation,
+  .content h3:hover .heading-citation,
+  .heading-citation:focus {
+    opacity: 1;
+    color: var(--link);
+  }
+
+  .content p,
+  .content li { color: var(--text); }
+
+  .content p,
+  .content ul,
+  .content ol {
+    margin-top: 0.55rem;
+    margin-bottom: 0.75rem;
+    font-size: 1.02rem;
+  }
+
+  .content pre,
+  .content code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+
+  .content pre { padding: 0.75rem; overflow: auto; }
+  .content code { padding: 0.08rem 0.35rem; }
+
+  .right-rail {
+    position: sticky;
+    top: 0;
+    padding: 1.05rem 0 0.2rem 1.25rem;
+    border-left: 1px solid var(--border);
+  }
+
+  .rail-title {
+    margin: 0 0 0.7rem;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .nav-list,
+  .toc-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: block;
+    gap: 0.45rem;
+  }
+
+  .nav-list li,
+  .toc-list li {
+    border: 0;
+    border-radius: 0;
+    padding: 0.14rem 0;
+  }
+
+  .nav-group-title {
+    margin: 1rem 0 0.25rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 700;
+  }
+
+  .nav-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    text-decoration: none;
+    font-size: 1.12rem;
+    line-height: 1.28;
+  }
+
+  .nav-link::after {
+    content: '⌄';
+    color: #4d82c7;
+    font-size: 0.88em;
+  }
+
+  .nav-link.current {
+    color: #8fc2ff;
+    font-weight: 600;
+  }
+
+  .sidebar-foot {
+    margin-top: 1.2rem;
+    padding-top: 0.62rem;
+    border-top: 1px solid var(--sidebar-sep);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.45rem;
+  }
+
+  .foot-chip {
+    border: 1px solid var(--sidebar-border);
+    border-radius: 3px;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--link);
+    padding: 0.12rem 0;
+  }
+
+  .nav-list li:hover,
+  .toc-list li:hover {
+    background: transparent;
+  }
+
+  .nav-list a,
+  .toc-list a {
+    color: var(--link);
+  }
+
+  .nav-list a:hover,
+  .toc-list a:hover {
+    color: var(--link-hover);
+  }
+
+  .meta {
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+  }
+
+  .back-link {
+    display: inline-block;
+    margin-bottom: 0.6rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 0.82rem;
+  }
+
+  @media (max-width: 1180px) {
+    .layout {
+      grid-template-columns: 300px minmax(0, 1fr);
+      gap: 0;
+    }
+    .right-rail { display: none; }
+
+    .left-rail-inner {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 860px) {
+    .layout {
+      grid-template-columns: 1fr;
+      padding: 0.6rem;
+    }
+    .left-rail,
+    .content {
+      position: static;
+      max-height: none;
+    }
+    .content { min-height: auto; }
+  }
+  </style>
+</head>
+<body>
+<input class="theme-toggle" type="checkbox" id="theme-toggle" aria-label="Toggle light and dark mode">
+<div class="theme-root">
+<div class="layout">
+  <aside class="panel left-rail">
+    <div class="left-rail-inner">
+    <div class="brand-lockup"><span class="brand-mark" aria-hidden="true"></span><h1 class="brand">subtitle_studio</h1></div>
+    <p class="brand-sub">Reference Manual</p>
+    <label class="theme-switch" for="theme-toggle">Switch theme</label>
+<a class="back-link" href="../index.html">Back to docs index</a>
+    <div class="search-wrap"><input class="search-field" type="search" placeholder="Search" aria-label="Search docs"></div>
+<p class="nav-group-title">Getting Started</p><ul class="nav-list"><li><a class="nav-link" href="./changelog/">Changelog</a></li><li><a class="nav-link" href="./dependencies/">Subtitle Studio - Dependency Management (UV First)</a></li><li><a class="nav-link" href="./dev/">Subtitle Studio - Development Workflow</a></li><li><a class="nav-link" href="./functional-style-review/">Functional Style Review Roadmap</a></li></ul><p class="nav-group-title">Sections</p><ul class="nav-list"><li><a class="nav-link" href="./subtitle-studio-hardening/">Subtitle Studio Hardening Handoff</a></li><li><a class="nav-link current" href="./whisper-config/">Subtitle Studio - Faster Whisper Configuration</a></li></ul>
+    <div class="sidebar-foot"><div class="foot-chip">5.0</div><div class="foot-chip">English</div></div>
+    </div>
+  </aside>
+  <main class="panel content">
+<h1 id="subtitle-studio-faster-whisper-configuration">Subtitle Studio - Faster Whisper Configuration<a class="heading-citation" href="#subtitle-studio-faster-whisper-configuration" title="Link to this heading" aria-label="Link to this heading"></a></h1>
+<h2 id="overview">Overview<a class="heading-citation" href="#overview" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<p>Faster Whisper offers configurable model sizes and decoding knobs. This reference helps you pick the right trade-off for accuracy, speed, and memory inside Blender's constrained environment.</p>
+<h2 id="model-comparison">Model Comparison<a class="heading-citation" href="#model-comparison" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<p>| Model | Params | VRAM | Speed | Accuracy | Recommended Use |
+|-------|--------|------|-------|----------|-----------------|
+| <code>tiny</code> | 39M | ~1 GB | Very fast | Low | CPU-only, previews |
+| <code>base</code> | 74M | ~1 GB | Fast | Medium | Quick drafts, CPU fallback |
+| <code>small</code> | 244M | ~2 GB | Moderate | Good | Balanced speed/quality |
+| <code>medium</code> | 769M | ~5 GB | Slow | High | Detailed transcripts (GPU) |
+| <code>large-v3</code> | 1550M | ~8 GB | Very slow | Best | Highest-quality, GPU only |</p>
+<h2 id="recommended-configurations">Recommended Configurations<a class="heading-citation" href="#recommended-configurations" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<ul>
+<li><strong>Best balance (English)</strong>: <code>model = &quot;distil-medium.en&quot;</code> or <code>&quot;medium.en&quot;</code> with default beam sizes.</li>
+<li><strong>Fastest (English)</strong>: <code>model = &quot;base.en&quot;</code> with <code>beam_size=1</code>.</li>
+<li><strong>Highest quality (multi-language)</strong>: <code>model = &quot;large-v3&quot;</code> with <code>beam_size=5</code> and <code>vad_filter=True</code>.</li>
+<li><strong>Low memory / CPU-only</strong>: <code>model = &quot;tiny&quot;</code> with <code>compute_type=&quot;int8&quot;</code> and minimal beams.</li>
+</ul>
+<h2 id="transcription-parameters">Transcription Parameters<a class="heading-citation" href="#transcription-parameters" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<p>| Parameter | Type | Default | Notes |
+|-----------|------|---------|-------|
+| <code>beam_size</code> | <code>int</code> | 5 | Higher beam counts boost accuracy at the cost of speed.
+| <code>best_of</code> | <code>int</code> | 5 | Candidates sampled when temperature variants are active.
+| <code>temperature</code> | <code>float</code> | 0.0 | Raise for creative outputs, keep at 0 for deterministic transcripts.
+| <code>compression_ratio_threshold</code> | <code>float</code> | 2.4 | Skip overly compressed audio segments.
+| <code>log_prob_threshold</code> | <code>float</code> | -1.0 | Skip low-confidence segments.
+| <code>no_speech_threshold</code> | <code>float</code> | 0.6 | Avoid false positives when silence is detected.
+| <code>vad_filter</code> | <code>bool</code> | <code>False</code> | Enable VAD to drop noise segments.
+| <code>language</code> | <code>str</code> | <code>None</code> | Set ISO code to force language, otherwise auto-detect.</p>
+<h2 id="vad-parameters">VAD Parameters<a class="heading-citation" href="#vad-parameters" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<pre><code class="language-python">vad_parameters = {
+    &quot;threshold&quot;: 0.5,
+    &quot;min_speech_duration_ms&quot;: 250,
+    &quot;max_speech_duration_s&quot;: float(&quot;inf&quot;),
+    &quot;min_silence_percentage_ms&quot;: 15,
+    &quot;speech_pad_ms&quot;: 0,
+}
+</code></pre>
+<h2 id="output-structure">Output Structure<a class="heading-citation" href="#output-structure" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<p>Each segment returned by <code>model.transcribe()</code> includes:</p>
+<ul>
+<li><code>segment.start</code> (float seconds)</li>
+<li><code>segment.end</code> (float seconds)</li>
+<li><code>segment.text</code> (transcribed string)</li>
+<li><code>segment.tokens</code> (<code>list[int]</code> token IDs)</li>
+<li><code>segment.probability</code> (float average probability)</li>
+</ul>
+<p>Process segments with a simple loop to convert seconds to frames or milliseconds before creating subtitle cues.</p>
+<h2 id="language-codes">Language Codes<a class="heading-citation" href="#language-codes" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<p>Most ISO codes are supported (<code>en</code>, <code>zh</code>, <code>fr</code>, <code>de</code>, <code>es</code>, <code>it</code>, <code>ja</code>, <code>ko</code>, <code>pt</code>, <code>ru</code>, <code>ar</code>, <code>hi</code>). Omit the <code>language</code> parameter to let the model auto-detect.</p>
+<h2 id="related">Related<a class="heading-citation" href="#related" title="Link to this heading" aria-label="Link to this heading"></a></h2>
+<ul>
+<li><code>README.md</code> (usage and quick start)</li>
+<li><code>docs/dev.md</code> (development workflow)</li>
+<li><code>docs/dependencies.md</code> (bundled libs reference)</li>
+</ul>
+  </main>
+  <aside class="panel right-rail">
+    <p class="rail-title">On This Page</p>
+    <ul class="toc-list"><li><a href="#overview">Overview</a></li><li><a href="#model-comparison">Model Comparison</a></li><li><a href="#recommended-configurations">Recommended Configurations</a></li><li><a href="#transcription-parameters">Transcription Parameters</a></li><li><a href="#vad-parameters">VAD Parameters</a></li><li><a href="#output-structure">Output Structure</a></li><li><a href="#language-codes">Language Codes</a></li><li><a href="#related">Related</a></li></ul>
+  </aside>
+</div>
+</div>
+</body>
+</html>
