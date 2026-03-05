@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Development Workflow</title><link rel="stylesheet" href="../_assets/theme.css"></head><body>
-<a class="skip-link" href="#main-content">Skip to content</a><div class="layout"><aside class="left-rail" aria-label="Documentation navigation"><h1 class="brand">blender-addon-framework</h1><p class="brand-sub">Reference Manual</p><a class="back-link" href="../index.html">Back to docs index</a><p class="nojs-hint">No JavaScript required. Use this navigation and your browser find shortcut (Ctrl+F).</p><details class="nav-mobile-toggle"><summary>Browse Pages</summary><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a class="current" href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></details><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a class="current" href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></aside><main class="content" id="main-content"><h1 id="development-workflow">Development Workflow</h1>
+<a class="skip-link" href="#main-content">Skip to content</a><div class="layout"><aside class="left-rail" aria-label="Documentation navigation"><h1 class="brand">blender-addon-framework</h1><p class="brand-sub">Reference Manual</p><a class="back-link" href="../index.html">Back to docs index</a><p class="nojs-hint">No JavaScript required. Use this navigation and your browser find shortcut (Ctrl+F).</p><details class="nav-mobile-toggle"><summary>Browse Pages</summary><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/completion-setup.html">Shell Completion Setup</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/context-resolution.html">Context Resolution</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a class="current" href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></details><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/completion-setup.html">Shell Completion Setup</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/context-resolution.html">Context Resolution</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a class="current" href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></aside><main class="content" id="main-content"><h1 id="development-workflow">Development Workflow</h1>
 <p>This guide is for maintainers working on the framework itself.</p>
 <h2 id="scope">Scope</h2>
 <ul>
@@ -13,15 +13,25 @@
 </code></pre>
 <p>This installs runtime dependencies plus developer tools declared in `pyproject.toml`.</p>
 <h2 id="run-framework-tests">Run framework tests</h2>
-<p>Run unit tests for framework code:</p>
-<pre><code>uv run test-framework
+<p>Lisp-first validation is the primary test path for command/runtime migration work:</p>
+<pre><code>sbcl --script tools/repl/scripts/sync-deps.lisp --targets repl
+sbcl --non-interactive \
+  --eval '(require :asdf)' \
+  --eval '(load (merge-pathnames #P&quot;.local/share/ocicl/ocicl-runtime.lisp&quot; (user-homedir-pathname)))' \
+  --eval '(asdf:initialize-source-registry (list :source-registry (list :directory #P&quot;tools/repl/&quot;) :inherit-configuration))' \
+  --eval '(asdf:load-asd #P&quot;tools/repl/generic-repl.asd&quot;)' \
+  --eval '(asdf:test-system &quot;generic-repl/tests&quot;)'
 </code></pre>
-<p>Equivalent command:</p>
-<pre><code>uv run python -m pytest tests
+<p>Python tests are now a smoke layer for integration-sensitive behavior:</p>
+<pre><code>uv sync --extra dev
+uv run python -m pytest \
+  tests/test_framework_functional_helpers.py \
+  tests/test_uv_integration.py \
+  tests/test_main_runtime_configuration.py
 </code></pre>
 <p>CI parity note:</p>
 <ul>
-<li>GitHub Actions workflow `framework-tests.yml` installs dev deps with `uv sync --extra dev` and runs `uv run test-framework`.</li>
+<li>GitHub Actions workflow `framework-tests.yml` runs Lisp tests as the primary gate and then runs the Python smoke suite.</li>
 </ul>
 <h2 id="validate-cli-changes">Validate CLI changes</h2>
 <p>When modifying command behavior in `src/commands/`:</p>
@@ -69,7 +79,8 @@ uv run template apply ui/new_panel sample_addon --on-conflict rename
 </ul>
 <h2 id="recommended-pull-request-checklist">Recommended pull request checklist</h2>
 <ul>
-<li>Tests pass locally (`uv run test-framework`)</li>
+<li>Lisp tests pass locally (`asdf:test-system &quot;generic-repl/tests&quot;` path above)</li>
+<li>Python smoke tests pass locally (three-file pytest smoke suite above)</li>
 <li>Changed CLI flags/arguments reflected in docs</li>
 <li>New config fields documented in `docs/config-reference.md`</li>
 <li>Template changes validated with `template apply --dry-run`</li>

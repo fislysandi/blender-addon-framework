@@ -23,5 +23,5 @@
       (is (eq :ok (getf result :status)))
       (is (probe-file (merge-pathnames #P"index.html" output-dir)))
       (is (probe-file (merge-pathnames #P"manifest.json" output-dir)))
-      (is (probe-file (merge-pathnames #P"assets/style.css" output-dir)))
+      (is (probe-file (merge-pathnames #P"_assets/theme.css" output-dir)))
       (is (probe-file (merge-pathnames #P"pages/index.html" output-dir))))))

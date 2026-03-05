@@ -8,7 +8,9 @@
     (let ((scope "project")
           (project-root ".")
           (docs-root "docs")
-          (output-dir "docs/_build")
+          (output-dir nil)
+          (output-dir-explicit nil)
+          (pages-target "github")
           (addon-name ""))
       (loop while argv
             do (let ((key (first argv)))
@@ -21,19 +23,27 @@
                    ((string= key "--docs-root")
                     (multiple-value-setq (docs-root argv) (next-value argv key)))
                    ((string= key "--output-dir")
-                    (multiple-value-setq (output-dir argv) (next-value argv key)))
+                    (multiple-value-setq (output-dir argv) (next-value argv key))
+                    (setf output-dir-explicit t))
+                   ((string= key "--pages-target")
+                    (multiple-value-setq (pages-target argv) (next-value argv key)))
                    ((string= key "--addon-name")
                     (multiple-value-setq (addon-name argv) (next-value argv key)))
                    (t (error "Unknown argument: ~a" key)))))
-      (list :scope scope
-            :project-root project-root
-            :docs-root docs-root
-            :output-dir output-dir
-            :addon-name addon-name))))
+      (let ((normalized-target (normalize-pages-target pages-target)))
+        (unless output-dir-explicit
+          (setf output-dir (default-output-dir-for-pages-target normalized-target)))
+        (list :scope scope
+              :project-root project-root
+              :docs-root docs-root
+              :output-dir output-dir
+              :pages-target normalized-target
+              :addon-name addon-name)))))
 
 (defun print-result (result)
   (format t "BDocGen status: ~a~%" (getf result :status))
   (format t "BDocGen scope: ~a~%" (getf result :scope))
+  (format t "BDocGen pages target: ~a~%" (getf result :pages-target "github"))
   (format t "BDocGen pages: ~a~%" (getf result :page-count))
   (format t "index: ~a~%" (getf result :index-path))
   (format t "manifest: ~a~%" (getf result :manifest-path)))

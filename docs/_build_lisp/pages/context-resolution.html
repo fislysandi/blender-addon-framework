@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Context Resolution</title><link rel="stylesheet" href="../_assets/theme.css"></head><body>
+<a class="skip-link" href="#main-content">Skip to content</a><div class="layout"><aside class="left-rail" aria-label="Documentation navigation"><h1 class="brand">blender-addon-framework</h1><p class="brand-sub">Reference Manual</p><a class="back-link" href="../index.html">Back to docs index</a><p class="nojs-hint">No JavaScript required. Use this navigation and your browser find shortcut (Ctrl+F).</p><details class="nav-mobile-toggle"><summary>Browse Pages</summary><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/completion-setup.html">Shell Completion Setup</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a class="current" href="../pages/context-resolution.html">Context Resolution</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></details><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/completion-setup.html">Shell Completion Setup</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a class="current" href="../pages/context-resolution.html">Context Resolution</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></aside><main class="content" id="main-content"><h1 id="context-resolution">Context Resolution</h1>
+<p>This page explains how the framework resolves project context at runtime:</p>
+<ul>
+<li>framework root detection</li>
+<li>addon name autodetection from current working directory</li>
+<li>when to use explicit `--framework-root` and addon arguments</li>
+</ul>
+<h2 id="framework-root-resolution">Framework root resolution</h2>
+<p>Many commands support:</p>
+<pre><code>--framework-root &lt;path&gt;
+</code></pre>
+<p>Resolution order:</p>
+<p>1. explicit `--framework-root` (must point to a valid framework root)
+2. current working directory and its parent chain
+3. fallback to command-module-relative project root</p>
+<p>A valid framework root must contain:</p>
+<ul>
+<li>`pyproject.toml`</li>
+<li>`src/framework.py`</li>
+<li>`addons/` directory</li>
+</ul>
+<h2 id="addon-name-autodetection">Addon name autodetection</h2>
+<p>For commands that accept optional addon name, the framework resolves addon in this order:</p>
+<p>1. explicit addon argument
+2. detect from current working directory
+3. configured fallback default addon</p>
+<p>Detection succeeds when either:</p>
+<ul>
+<li>current path is inside `addons/&lt;addon_name&gt;/...`</li>
+<li>current/parent directory contains both `blender_manifest.toml` and `src/`</li>
+</ul>
+<h2 id="commands-that-commonly-use-autodetection">Commands that commonly use autodetection</h2>
+<ul>
+<li>`uv run test [addon]`</li>
+<li>`uv run compile [addon]`</li>
+<li>`uv run docs [addon]`</li>
+<li>`uv run template apply &lt;template&gt; [addon]`</li>
+<li>`uv run addon-deps &lt;subcommand&gt; [addon] ...`</li>
+</ul>
+<p>Tip:</p>
+<ul>
+<li>if autodetection is ambiguous or fails, pass addon explicitly.</li>
+</ul>
+<h2 id="common-failure-modes">Common failure modes</h2>
+<p>Invalid framework root:</p>
+<ul>
+<li>error: `Invalid framework root: ...`</li>
+<li>fix: pass correct `--framework-root` or run command inside framework checkout</li>
+</ul>
+<p>No addon resolved:</p>
+<ul>
+<li>error: no addon provided and autodetection failed</li>
+<li>fix: pass addon explicitly (`uv run test my_addon`)</li>
+</ul>
+<h2 id="migration-note">Migration note</h2>
+<p>Context resolution behavior may evolve during Common Lisp-first tooling migration, but explicit CLI arguments (`--framework-root`, addon name) are expected to remain stable.</p>
+</main><aside class="right-rail"><p class="rail-title">On This Page</p><ul class="toc-list"><li><a href="#framework-root-resolution">Framework root resolution</a></li><li><a href="#addon-name-autodetection">Addon name autodetection</a></li><li><a href="#commands-that-commonly-use-autodetection">Commands that commonly use autodetection</a></li><li><a href="#common-failure-modes">Common failure modes</a></li><li><a href="#migration-note">Migration note</a></li></ul></aside></div></body></html>

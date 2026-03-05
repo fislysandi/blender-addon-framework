@@ -53,6 +53,7 @@ sbcl --script tools/bdocgen/scripts/run.lisp [options]
 - `--project-root` (default: `.`)
 - `--docs-root` (default: `docs`)
 - `--output-dir` (default: `docs/_build`)
+- `--pages-target` (default: `github`; options: `github`, `gitlab`)
 - `--addon-name` (default: empty; falls back to scope-based site name)
 
 Example: build addon docs
@@ -111,6 +112,37 @@ Each build writes:
 - `errors`
 - `pages`
 - `assets`
+- `pages_target`
+
+## GitLab Pages Support
+
+BDocGen can emit GitLab-ready output directly.
+
+- Use `--pages-target gitlab`.
+- If `--output-dir` is not explicitly provided, BDocGen defaults to `public/` for GitLab target.
+- Output remains JavaScript-free and uses relative links, so project pages URL roots are safe.
+
+Example:
+
+```bash
+sbcl --script tools/bdocgen/scripts/run.lisp \
+  --scope project \
+  --project-root . \
+  --docs-root docs \
+  --pages-target gitlab
+```
+
+Minimal `.gitlab-ci.yml` pattern:
+
+```yaml
+pages:
+  stage: deploy
+  script:
+    - sbcl --script tools/bdocgen/scripts/run.lisp --scope project --project-root . --docs-root docs --pages-target gitlab
+  artifacts:
+    paths:
+      - public
+```
 
 ## GitHub Pages Publishing Requirement
 

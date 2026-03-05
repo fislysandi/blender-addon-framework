@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Troubleshooting</title><link rel="stylesheet" href="../_assets/theme.css"></head><body>
-<a class="skip-link" href="#main-content">Skip to content</a><div class="layout"><aside class="left-rail" aria-label="Documentation navigation"><h1 class="brand">blender-addon-framework</h1><p class="brand-sub">Reference Manual</p><a class="back-link" href="../index.html">Back to docs index</a><p class="nojs-hint">No JavaScript required. Use this navigation and your browser find shortcut (Ctrl+F).</p><details class="nav-mobile-toggle"><summary>Browse Pages</summary><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a class="current" href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></details><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a class="current" href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></aside><main class="content" id="main-content"><h1 id="troubleshooting">Troubleshooting</h1>
+<a class="skip-link" href="#main-content">Skip to content</a><div class="layout"><aside class="left-rail" aria-label="Documentation navigation"><h1 class="brand">blender-addon-framework</h1><p class="brand-sub">Reference Manual</p><a class="back-link" href="../index.html">Back to docs index</a><p class="nojs-hint">No JavaScript required. Use this navigation and your browser find shortcut (Ctrl+F).</p><details class="nav-mobile-toggle"><summary>Browse Pages</summary><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/completion-setup.html">Shell Completion Setup</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/context-resolution.html">Context Resolution</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a class="current" href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></details><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/completion-setup.html">Shell Completion Setup</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/context-resolution.html">Context Resolution</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a class="current" href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></aside><main class="content" id="main-content"><h1 id="troubleshooting">Troubleshooting</h1>
 <p>This page covers common setup and command issues.</p>
 <h2 id="blender-path-is-not-configured">Blender path is not configured</h2>
 <p>Symptoms:</p>
@@ -72,4 +72,42 @@ uv run compile my_addon
 <ul>
 <li>Set `default.release_dir` in `config.toml`, or pass `--release-dir` when supported by your command invocation.</li>
 </ul>
-</main><aside class="right-rail"><p class="rail-title">On This Page</p><ul class="toc-list"><li><a href="#blender-path-is-not-configured">Blender path is not configured</a></li><li><a href="#warning-add-on-not-loaded-module-not-found">Warning: Add-on not loaded, module not found</a></li><li><a href="#error-no-addon-name-provided">Error: No addon name provided</a></li><li><a href="#dependency-sync-behavior-is-unexpected">Dependency sync behavior is unexpected</a></li><li><a href="#release-zip-location-is-not-where-expected">Release zip location is not where expected</a></li></ul></aside></div></body></html>
+<h2 id="uv-run-docs-addon-fails-with-sbcl-ocicl-errors">`uv run docs &lt;addon&gt;` fails with SBCL/OCICL errors</h2>
+<p>Symptoms:</p>
+<ul>
+<li>Error contains `sbcl: command not found`</li>
+<li>Error indicates Lisp tooling/runtime invocation failed</li>
+</ul>
+<p>Cause:</p>
+<ul>
+<li>docs command delegates to `tools/bdocgen` Common Lisp tooling</li>
+<li>required Lisp tools are missing from `PATH`</li>
+</ul>
+<p>Fix:</p>
+<ul>
+<li>install SBCL and OCICL</li>
+<li>verify they are available:</li>
+</ul>
+<pre><code>sbcl --version
+ocicl --help
+</code></pre>
+<p>Then rerun:</p>
+<pre><code>uv run docs my_addon
+</code></pre>
+<h2 id="shell-completion-does-not-work-after-setup">Shell completion does not work after setup</h2>
+<p>Symptoms:</p>
+<ul>
+<li>pressing tab after `baf` shows no suggestions</li>
+<li>completion works in one shell session but not a new one</li>
+</ul>
+<p>Cause:</p>
+<ul>
+<li>completion script not sourced or not installed in shell startup path</li>
+</ul>
+<p>Fix:</p>
+<ul>
+<li>follow shell-specific steps in `docs/completion-setup.md`</li>
+<li>ensure your shell startup file loads completion (`.bashrc`, `.zshrc`, or fish completions directory)</li>
+<li>restart shell after installation</li>
+</ul>
+</main><aside class="right-rail"><p class="rail-title">On This Page</p><ul class="toc-list"><li><a href="#blender-path-is-not-configured">Blender path is not configured</a></li><li><a href="#warning-add-on-not-loaded-module-not-found">Warning: Add-on not loaded, module not found</a></li><li><a href="#error-no-addon-name-provided">Error: No addon name provided</a></li><li><a href="#dependency-sync-behavior-is-unexpected">Dependency sync behavior is unexpected</a></li><li><a href="#release-zip-location-is-not-where-expected">Release zip location is not where expected</a></li><li><a href="#uv-run-docs-addon-fails-with-sbcl-ocicl-errors">`uv run docs &amp;lt;addon&amp;gt;` fails with SBCL/OCICL errors</a></li><li><a href="#shell-completion-does-not-work-after-setup">Shell completion does not work after setup</a></li></ul></aside></div></body></html>

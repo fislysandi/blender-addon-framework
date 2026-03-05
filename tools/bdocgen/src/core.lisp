@@ -28,22 +28,37 @@
 (defun json-array-of-strings (values)
   (format nil "[~{~a~^,~}]" (mapcar #'json-string values)))
 
+(defun normalize-pages-target (value)
+  (let ((normalized (string-downcase (or value "github"))))
+    (unless (member normalized '("github" "gitlab") :test #'string=)
+      (error "Unsupported pages target: ~a (expected github|gitlab)" value))
+    normalized))
+
+(defun default-output-dir-for-pages-target (pages-target)
+  (if (string= (normalize-pages-target pages-target) "gitlab")
+      "public"
+      "docs/_build"))
+
+(defun write-nojekyll-p (pages-target)
+  (string= (normalize-pages-target pages-target) "github"))
+
 (defparameter *default-style-css*
   ":root {
-  --bg: #0f1218;
-  --panel: #151a22;
-  --panel-soft: #10151d;
-  --border: #2a313d;
-  --text: #d8dee8;
-  --text-muted: #9aa5b5;
-  --link: #5ba8ff;
-  --link-hover: #8ac3ff;
-  --focus: #d8f05a;
-  --accent: #aab23b;
+  --bg: #0e1116;
+  --panel: #161b23;
+  --panel-soft: #121720;
+  --panel-elev: #1d2430;
+  --border: #2d3643;
+  --text: #e1e8f2;
+  --text-muted: #a6b3c5;
+  --link: #65aef8;
+  --link-hover: #8ec5ff;
+  --focus: #e0f266;
+  --accent: #f18f3b;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
-body { background: var(--bg); color: var(--text); font-family: 'Source Sans Pro', 'Noto Sans', sans-serif; }
+body { background: var(--bg); color: var(--text); font-family: 'Noto Sans', 'DejaVu Sans', sans-serif; }
 a { color: var(--link); text-decoration: none; }
 a:hover { color: var(--link-hover); text-decoration: underline; }
 .skip-link {
@@ -60,17 +75,22 @@ a:hover { color: var(--link-hover); text-decoration: underline; }
   left: 0.6rem;
   z-index: 10;
 }
-.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr) 220px; min-height: 100vh; }
-.left-rail { border-right: 1px solid var(--border); background: var(--panel); padding: 1rem; }
-.content { padding: 1.25rem 2rem; }
-.right-rail { border-left: 1px solid var(--border); padding: 1rem; }
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr) 240px; min-height: 100vh; }
+.left-rail { border-right: 1px solid var(--border); background: linear-gradient(180deg, var(--panel) 0%, var(--panel-soft) 100%); padding: 1rem; }
+.content { padding: 1.5rem 2.25rem; max-width: 1040px; }
+.right-rail { border-left: 1px solid var(--border); padding: 1rem; background: #0c1016; }
 .nav-list, .toc-list { list-style: none; margin: 0; padding: 0; }
 .nav-list li, .toc-list li { margin: 0.3rem 0; }
-.brand { margin: 0; font-size: 1.3rem; }
+.brand { margin: 0; font-size: 1.38rem; letter-spacing: 0.01em; }
 .brand-sub { margin: 0.2rem 0 1rem; color: var(--text-muted); }
 .meta, .rail-title { color: var(--text-muted); }
 .rail-title { text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.06em; }
 .back-link { display: inline-block; margin-bottom: 0.75rem; color: var(--text-muted); }
+.nav-list a { display: block; padding: 0.25rem 0.4rem; border-radius: 0.32rem; }
+.nav-list a:hover { background: var(--panel-elev); text-decoration: none; }
+.nav-list a.current { background: #1f2a39; color: #cbe3ff; font-weight: 600; }
+.toc-list a { color: var(--text-muted); }
+.toc-list a:hover { color: var(--link-hover); }
 .nav-mobile-toggle {
   display: none;
   margin: 0 0 0.9rem;
@@ -96,9 +116,17 @@ a:hover { color: var(--link-hover); text-decoration: underline; }
   margin-top: 1.4rem;
 }
 .content h1,.content h2,.content h3 { line-height: 1.25; }
+.content h1 { font-size: 2rem; margin: 0 0 0.9rem; border-bottom: 1px solid var(--border); padding-bottom: 0.65rem; }
+.content h2 { font-size: 1.35rem; margin-top: 1.45rem; }
+.content h3 { font-size: 1.1rem; margin-top: 1.1rem; color: #d6deea; }
+.content p { line-height: 1.65; color: #d5ddeb; }
 .content pre,.content code { background: #161c25; border: 1px solid var(--border); border-radius: 6px; }
 .content pre { padding: 0.75rem; overflow: auto; }
 .content code { padding: 0.08rem 0.35rem; }
+.content blockquote { margin: 1rem 0; padding: 0.65rem 0.85rem; border-left: 4px solid var(--accent); background: #131a24; color: #cdd6e5; }
+.content table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+.content th,.content td { border: 1px solid var(--border); padding: 0.5rem 0.65rem; text-align: left; }
+.content th { background: #17212d; }
 .content img.diagram { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 6px; background: #fff; padding: 0.35rem; }
 .heading-citation { margin-left: 0.4rem; opacity: 0; }
 .content h1:hover .heading-citation,.content h2:hover .heading-citation,.content h3:hover .heading-citation { opacity: 1; }
@@ -109,7 +137,7 @@ summary:focus-visible {
   border-radius: 0.2rem;
 }
 @media (max-width: 1024px) {
-  .layout { grid-template-columns: 280px minmax(0, 1fr); }
+  .layout { grid-template-columns: 290px minmax(0, 1fr); }
   .right-rail { display: none; }
 }
 @media (max-width: 780px) {
@@ -529,20 +557,26 @@ summary:focus-visible {
     (format stream "<section id=\"sources\"><h2>Discovered Sources</h2><ul class=\"nav-list\">~a</ul></section>" items)
     (format stream "</main><aside class=\"right-rail\"><p class=\"rail-title\">On This Page</p><ul class=\"toc-list\">~a</ul></aside></div></body></html>" toc-items))))
 
-(defun build-manifest-json (scope page-entries style-relative-path)
+(defun build-manifest-json (scope page-entries style-relative-path pages-target)
   (let* ((html-relative-paths (mapcar (lambda (entry) (getf entry :html-relative)) page-entries))
          (pages-json (json-array-of-strings html-relative-paths))
          (page-count (length html-relative-paths)))
     (format nil
-            "{~%  \"status\": \"ok\",~%  \"scope\": ~a,~%  \"page_count\": ~d,~%  \"errors\": [],~%  \"pages\": ~a,~%  \"assets\": ~a~%}~%"
+            "{~%  \"status\": \"ok\",~%  \"scope\": ~a,~%  \"pages_target\": ~a,~%  \"page_count\": ~d,~%  \"errors\": [],~%  \"pages\": ~a,~%  \"assets\": ~a~%}~%"
             (json-string scope)
+            (json-string pages-target)
             page-count
             pages-json
             (json-array-of-strings (list style-relative-path)))))
 
+(defun maybe-write-nojekyll (output-dir pages-target)
+  (when (write-nojekyll-p pages-target)
+    (write-text-file (merge-pathnames #P".nojekyll" output-dir) "")))
+
 (defun build-site (config)
   (let* ((scope (plist-value config :scope "project"))
          (addon-name (plist-value config :addon-name ""))
+         (pages-target (normalize-pages-target (plist-value config :pages-target "github")))
          (site-name (plist-value config :site-name (site-name-for-config scope addon-name)))
          (site-subtitle (plist-value config :site-subtitle "Reference Manual"))
          (render-mermaid-images (plist-value config :render-mermaid-images t))
@@ -557,16 +591,18 @@ summary:focus-visible {
              docs-root
              (mapcar #'markdown-relative-to-page-entry markdown-relative-paths)))
          (_compiled-pages (compile-markdown-pages docs-root output-dir page-entries site-name site-subtitle render-mermaid-images))
-         (style-relative-path (write-style-sheet output-dir))
-         (index-path (merge-pathnames #P"index.html" output-dir))
-         (manifest-path (merge-pathnames #P"manifest.json" output-dir))
-         (index-html (build-index-html scope site-name site-subtitle page-entries))
-         (manifest-json (build-manifest-json scope page-entries style-relative-path)))
-    (ensure-directory output-dir)
-    (write-text-file index-path index-html)
-    (write-text-file manifest-path manifest-json)
-    (list :status :ok
-          :scope scope
-          :page-count (length markdown-relative-paths)
-          :index-path (uiop:native-namestring index-path)
-          :manifest-path (uiop:native-namestring manifest-path))))
+          (style-relative-path (write-style-sheet output-dir))
+          (index-path (merge-pathnames #P"index.html" output-dir))
+          (manifest-path (merge-pathnames #P"manifest.json" output-dir))
+          (index-html (build-index-html scope site-name site-subtitle page-entries))
+          (manifest-json (build-manifest-json scope page-entries style-relative-path pages-target)))
+     (ensure-directory output-dir)
+     (write-text-file index-path index-html)
+     (write-text-file manifest-path manifest-json)
+     (maybe-write-nojekyll output-dir pages-target)
+     (list :status :ok
+           :scope scope
+           :pages-target pages-target
+           :page-count (length markdown-relative-paths)
+           :index-path (uiop:native-namestring index-path)
+           :manifest-path (uiop:native-namestring manifest-path))))

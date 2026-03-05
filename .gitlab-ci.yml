@@ -1,0 +1,23 @@
+image: python:3.11
+
+stages:
+  - deploy
+
+pages:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  before_script:
+    - apt-get update
+    - apt-get install -y sbcl wget jq
+    - pip install uv
+    - DEB_URL=$(curl -fsSL https://api.github.com/repos/ocicl/ocicl/releases/latest | jq -r '.assets[] | select(.name | endswith("_amd64.deb")) | .browser_download_url' | head -n1)
+    - test -n "$DEB_URL"
+    - wget -O ocicl_latest_amd64.deb "$DEB_URL"
+    - apt-get install -y ./ocicl_latest_amd64.deb
+    - sbcl --script tools/repl/scripts/sync-deps.lisp --targets bdocgen --skip-uv
+  script:
+    - sbcl --script tools/bdocgen/scripts/run.lisp --scope project --project-root . --docs-root docs --pages-target gitlab
+  artifacts:
+    paths:
+      - public
