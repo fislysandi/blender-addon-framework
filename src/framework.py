@@ -3183,6 +3183,34 @@ def _run_bdocgen_tool(
     raise RuntimeError(f"BDocGen command failed for addon '{addon_name}': {details}")
 
 
+def _validate_manifest_contract(manifest: dict, manifest_path: str) -> None:
+    required_keys = {"status", "scope", "page_count", "errors", "pages"}
+    missing = [key for key in required_keys if key not in manifest]
+    if missing:
+        raise RuntimeError(
+            f"BDocGen contract invalid: manifest missing keys {missing} ({manifest_path})"
+        )
+
+    if manifest["status"] != "ok":
+        raise RuntimeError(
+            f"BDocGen contract invalid: status={manifest['status']} errors={manifest.get('errors')}"
+        )
+
+    if manifest.get("errors"):
+        raise RuntimeError(f"BDocGen reported errors: {manifest['errors']}")
+
+    page_count = manifest.get("page_count")
+    pages = manifest.get("pages")
+    if not isinstance(page_count, int) or page_count < 0:
+        raise RuntimeError(f"BDocGen contract invalid: page_count={page_count}")
+    if not isinstance(pages, list):
+        raise RuntimeError("BDocGen contract invalid: pages must be a list")
+    if page_count != len(pages):
+        raise RuntimeError(
+            f"BDocGen contract invalid: page_count={page_count} but pages={len(pages)}"
+        )
+
+
 def build_docs_for_addon(addon_name: str, *, project_root: str = PROJECT_ROOT) -> dict:
     docs_root, output_dir = _docs_paths_for_addon(addon_name)
     _run_bdocgen_tool(
@@ -3197,6 +3225,7 @@ def build_docs_for_addon(addon_name: str, *, project_root: str = PROJECT_ROOT) -
         raise RuntimeError(f"BDocGen manifest not found: {manifest_path}")
 
     manifest = json.loads(read_utf8(manifest_path))
+    _validate_manifest_contract(manifest, manifest_path)
     return {
         "status": manifest.get("status", "unknown"),
         "scope": manifest.get("scope", "project"),

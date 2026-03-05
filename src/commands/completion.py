@@ -9,6 +9,7 @@ from src.framework import list_code_templates
 
 _ROOT_COMMANDS = [
     "baf",
+    "repl",
     "create",
     "test",
     "compile",
