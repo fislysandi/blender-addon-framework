@@ -8,7 +8,7 @@ Minimal generic Common Lisp REPL scaffold.
 - `packages.lisp` - package declarations and exports.
 - `config.lisp` - REPL local config data.
 - `src/` - core REPL modules.
-- `t/` - FiveAM tests.
+- `t/` - Rove tests.
 - `tools/adapters/*_adapter/` - framework adapter command bindings.
 
 ## Python bridge dependency

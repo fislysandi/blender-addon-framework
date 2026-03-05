@@ -1,9 +1,6 @@
 (in-package :bdocgen-tests)
 
-(def-suite :bdocgen-tests)
-(in-suite :bdocgen-tests)
-
-(test build-site-writes-contract-files
+(deftest build-site-writes-contract-files
   (let* ((tmp-root (uiop:ensure-directory-pathname (uiop:temporary-directory)))
          (project-root (merge-pathnames #P"bdocgen-test-project/" tmp-root))
          (docs-root (merge-pathnames #P"docs/" project-root))
@@ -20,8 +17,8 @@
                                     :docs-root (uiop:native-namestring docs-root)
                                     :output-dir (uiop:native-namestring output-dir)
                                     :addon-name "demo"))))
-      (is (eq :ok (getf result :status)))
-      (is (probe-file (merge-pathnames #P"index.html" output-dir)))
-      (is (probe-file (merge-pathnames #P"manifest.json" output-dir)))
-      (is (probe-file (merge-pathnames #P"_assets/theme.css" output-dir)))
-      (is (probe-file (merge-pathnames #P"pages/index.html" output-dir))))))
+      (ok (eq :ok (getf result :status)))
+      (ok (probe-file (merge-pathnames #P"index.html" output-dir)))
+      (ok (probe-file (merge-pathnames #P"manifest.json" output-dir)))
+      (ok (probe-file (merge-pathnames #P"_assets/theme.css" output-dir)))
+      (ok (probe-file (merge-pathnames #P"pages/index.html" output-dir))))))

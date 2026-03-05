@@ -18,10 +18,10 @@
   ((:file "src/server")))
 
 (asdf:defsystem "bdocgen/tests"
-  :depends-on ("bdocgen" "fiveam")
+  :depends-on ("bdocgen" "rove")
   :serial t
   :components ((:file "t/packages")
                (:file "t/core-tests"))
   :perform (test-op (o c)
-                    (declare (ignore o c))
-                    (uiop:symbol-call :fiveam :run! :bdocgen-tests)))
+                    (declare (ignore o))
+                    (uiop:symbol-call :rove '#:run c)))

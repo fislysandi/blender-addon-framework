@@ -1,5 +1,5 @@
 (defpackage :generic-repl-tests
-  (:use :cl :fiveam)
+  (:use :cl :rove)
   (:import-from :generic-repl
                 :make-registry
                 :install-commands

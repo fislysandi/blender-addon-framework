@@ -53,7 +53,7 @@ jobs:
         working-directory: tools/bdocgen
         run: |
           OCICL_LOCAL_ONLY=1 ocicl setup
-          OCICL_LOCAL_ONLY=1 ocicl install py4cl2-cffi fiveam hunchentoot
+          OCICL_LOCAL_ONLY=1 ocicl install py4cl2-cffi rove hunchentoot
 
       - name: Compile docs with BDocGen
         run: >-

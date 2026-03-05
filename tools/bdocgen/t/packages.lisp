@@ -1,4 +1,4 @@
 (defpackage :bdocgen-tests
-  (:use :cl :fiveam)
+  (:use :cl :rove)
   (:import-from :bdocgen
                 :build-site))

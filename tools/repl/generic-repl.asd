@@ -22,11 +22,11 @@
   :in-order-to ((test-op (test-op "generic-repl/tests"))))
 
 (asdf:defsystem "generic-repl/tests"
-  :depends-on ("generic-repl" "fiveam")
+  :depends-on ("generic-repl" "rove")
   :serial t
   :components ((:file "t/packages")
                (:file "t/repl-core-tests")
                (:file "t/framework-command-tests"))
   :perform (test-op (o c)
-                    (declare (ignore o c))
-                    (uiop:symbol-call :fiveam :run! :generic-repl-tests)))
+                    (declare (ignore o))
+                    (uiop:symbol-call :rove '#:run c)))

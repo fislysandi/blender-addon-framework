@@ -76,8 +76,8 @@
 
 (defun ocicl-packages-for-target (target)
   (cond
-    ((string= target "repl") '("py4cl2-cffi" "fiveam"))
-    ((string= target "bdocgen") '("py4cl2-cffi" "fiveam" "hunchentoot"))
+    ((string= target "repl") '("py4cl2-cffi" "rove"))
+    ((string= target "bdocgen") '("py4cl2-cffi" "rove" "hunchentoot"))
     (t (error "Unknown target: ~a" target))))
 
 (defun target-directories (repo-root targets)
