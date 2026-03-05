@@ -4,26 +4,27 @@
 
 .layout {
   display: grid;
-  grid-template-columns: 24rem minmax(0, 1fr) 16rem;
+  grid-template-columns: 21.5rem minmax(0, 1fr) 15rem;
   min-height: 100vh;
 }
 
 .left-rail {
   background: var(--sidebar-background);
   border-right: 1px solid var(--sidebar-background-border);
-  padding: 1.1rem 1rem;
+  padding: 1rem 0.9rem;
 }
 
 .brand {
   margin: 0;
-  font-size: 2rem;
+  font-size: 1.5rem;
   line-height: 1.1;
+  font-weight: 700;
 }
 
 .brand-sub {
-  margin: 0.35rem 0 0.9rem;
+  margin: 0.28rem 0 0.8rem;
   color: var(--color-foreground-muted);
-  font-size: 1.55rem;
+  font-size: 1.25rem;
   line-height: 1.2;
 }
 
@@ -49,8 +50,8 @@
   color: var(--sidebar-caption-text);
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  font-size: 0.76rem;
-  font-weight: 700;
+  font-size: 0.74rem;
+  font-weight: 650;
 }
 
 .nojs-hint {
@@ -74,8 +75,9 @@
   display: block;
   border-radius: var(--radius);
   color: var(--sidebar-link-text);
-  padding: 0.26rem 0.45rem;
+  padding: 0.24rem 0.42rem;
   line-height: 1.35;
+  font-size: 0.97rem;
 }
 
 .nav-list a:hover {
@@ -91,15 +93,18 @@
 
 .right-rail {
   border-left: 1px solid var(--color-background-border);
-  padding: 1.25rem 1rem;
+  padding: 1.1rem 0.95rem;
 }
 
 .toc-list li {
-  margin: 0.34rem 0;
+  margin: 0.28rem 0;
 }
 
 .toc-list a {
   color: var(--color-foreground-muted);
+  font-size: 0.92rem;
+  font-weight: 500;
+  line-height: 1.35;
 }
 
 .toc-list a:hover {
@@ -125,21 +130,21 @@
 
 @media (max-width: 82em) {
   .layout {
-    grid-template-columns: 20rem minmax(0, 1fr) 14rem;
+    grid-template-columns: 18.5rem minmax(0, 1fr) 13rem;
   }
 
   .brand {
-    font-size: 1.8rem;
+    font-size: 1.35rem;
   }
 
   .brand-sub {
-    font-size: 1.35rem;
+    font-size: 1.12rem;
   }
 }
 
 @media (max-width: 67em) {
   .layout {
-    grid-template-columns: 19rem minmax(0, 1fr);
+    grid-template-columns: 17.5rem minmax(0, 1fr);
   }
 
   .right-rail {

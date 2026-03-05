@@ -34,10 +34,18 @@
 }
 
 .card {
-  border: 1px solid var(--color-background-border);
+  border: 1px solid #2a3341;
   border-radius: 0.45rem;
-  background: #151b25;
+  background: #141922;
   padding: 0.9rem;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 8px 16px rgba(0, 0, 0, 0.18);
+  transition: border-color 120ms ease-out, box-shadow 120ms ease-out, transform 120ms ease-out;
+}
+
+.card:hover {
+  border-color: #3a4860;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04), 0 10px 20px rgba(0, 0, 0, 0.22);
+  transform: translateY(-1px);
 }
 
 .card h3 {
