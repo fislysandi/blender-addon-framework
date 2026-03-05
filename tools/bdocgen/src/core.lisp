@@ -1,0 +1,572 @@
+(in-package :bdocgen)
+
+(defun plist-value (plist key default)
+  (let ((value (getf plist key :missing)))
+    (if (eq value :missing) default value)))
+
+(defun resolve-directory-path (value base)
+  (let* ((path (uiop:parse-native-namestring value))
+         (resolved (if (uiop:absolute-pathname-p path)
+                       path
+                       (merge-pathnames path base))))
+    (uiop:ensure-directory-pathname resolved)))
+
+(defun json-escape (text)
+  (with-output-to-string (stream)
+    (loop for char across text
+          do (case char
+               (#\" (write-string "\\\"" stream))
+               (#\\ (write-string "\\\\" stream))
+               (#\Newline (write-string "\\n" stream))
+               (#\Return (write-string "\\r" stream))
+               (#\Tab (write-string "\\t" stream))
+               (otherwise (write-char char stream))))))
+
+(defun json-string (text)
+  (format nil "\"~a\"" (json-escape text)))
+
+(defun json-array-of-strings (values)
+  (format nil "[~{~a~^,~}]" (mapcar #'json-string values)))
+
+(defparameter *default-style-css*
+  ":root {
+  --bg: #0f1218;
+  --panel: #151a22;
+  --panel-soft: #10151d;
+  --border: #2a313d;
+  --text: #d8dee8;
+  --text-muted: #9aa5b5;
+  --link: #5ba8ff;
+  --link-hover: #8ac3ff;
+  --focus: #d8f05a;
+  --accent: #aab23b;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Source Sans Pro', 'Noto Sans', sans-serif; }
+a { color: var(--link); text-decoration: none; }
+a:hover { color: var(--link-hover); text-decoration: underline; }
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--focus);
+  color: #111;
+  padding: 0.4rem 0.7rem;
+  border-radius: 0 0 0.4rem 0.4rem;
+  font-weight: 700;
+}
+.skip-link:focus-visible {
+  left: 0.6rem;
+  z-index: 10;
+}
+.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr) 220px; min-height: 100vh; }
+.left-rail { border-right: 1px solid var(--border); background: var(--panel); padding: 1rem; }
+.content { padding: 1.25rem 2rem; }
+.right-rail { border-left: 1px solid var(--border); padding: 1rem; }
+.nav-list, .toc-list { list-style: none; margin: 0; padding: 0; }
+.nav-list li, .toc-list li { margin: 0.3rem 0; }
+.brand { margin: 0; font-size: 1.3rem; }
+.brand-sub { margin: 0.2rem 0 1rem; color: var(--text-muted); }
+.meta, .rail-title { color: var(--text-muted); }
+.rail-title { text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.06em; }
+.back-link { display: inline-block; margin-bottom: 0.75rem; color: var(--text-muted); }
+.nav-mobile-toggle {
+  display: none;
+  margin: 0 0 0.9rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--panel-soft);
+}
+.nav-mobile-toggle > summary {
+  cursor: pointer;
+  color: var(--text);
+}
+.nojs-hint {
+  margin: 0.8rem 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--panel-soft);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+.content section + section {
+  margin-top: 1.4rem;
+}
+.content h1,.content h2,.content h3 { line-height: 1.25; }
+.content pre,.content code { background: #161c25; border: 1px solid var(--border); border-radius: 6px; }
+.content pre { padding: 0.75rem; overflow: auto; }
+.content code { padding: 0.08rem 0.35rem; }
+.content img.diagram { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 6px; background: #fff; padding: 0.35rem; }
+.heading-citation { margin-left: 0.4rem; opacity: 0; }
+.content h1:hover .heading-citation,.content h2:hover .heading-citation,.content h3:hover .heading-citation { opacity: 1; }
+a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 0.2rem;
+}
+@media (max-width: 1024px) {
+  .layout { grid-template-columns: 280px minmax(0, 1fr); }
+  .right-rail { display: none; }
+}
+@media (max-width: 780px) {
+  .layout { grid-template-columns: 1fr; }
+  .left-rail { border-right: 0; border-bottom: 1px solid var(--border); }
+  .nav-mobile-toggle { display: block; }
+  .left-rail .nav-list { display: none; }
+  .nav-mobile-toggle[open] .nav-list { display: block; margin-top: 0.6rem; }
+}")
+
+(defun html-escape (text)
+  (with-output-to-string (stream)
+    (loop for char across text
+          do (case char
+               (#\& (write-string "&amp;" stream))
+               (#\< (write-string "&lt;" stream))
+               (#\> (write-string "&gt;" stream))
+               (#\" (write-string "&quot;" stream))
+               (otherwise (write-char char stream))))))
+
+(defun trim-line (line)
+  (string-trim '(#\Space #\Tab #\Return #\Newline) line))
+
+(defun starts-with (text prefix)
+  (let ((n (length prefix)))
+    (and (>= (length text) n)
+         (string= text prefix :end1 n :end2 n))))
+
+(defun slugify (text)
+  (let ((normalized
+          (string-downcase
+           (with-output-to-string (stream)
+             (loop for char across text
+                   do (if (or (alphanumericp char) (char= char #\Space) (char= char #\-))
+                          (write-char char stream)
+                          (write-char #\Space stream)))))))
+    (let ((parts (remove "" (uiop:split-string normalized :separator " ") :test #'string=)))
+      (if parts
+          (format nil "~{~a~^-~}" parts)
+          "section"))))
+
+(defun page-title-for-scope (scope)
+  (if (string= scope "project")
+      "BDocGen Project Documentation"
+      "BDocGen Self Documentation"))
+
+(defun site-name-for-config (scope addon-name)
+  (if (> (length addon-name) 0)
+      addon-name
+      (if (string= scope "project")
+          "blender-addon-framework"
+          "bdocgen")))
+
+(defun markdown-relative-to-page-entry (markdown-relative)
+  (let* ((html-relative (markdown-path-to-html-relative markdown-relative))
+         (title (or (pathname-name (uiop:parse-native-namestring markdown-relative)) "Untitled")))
+    (list :title title
+          :source-path markdown-relative
+          :html-relative html-relative
+          :url (format nil "/~a" html-relative))))
+
+(defun markdown-title-from-content (markdown-content fallback-title)
+  (let ((lines (split-lines markdown-content)))
+    (or (loop for raw-line in lines
+              for line = (trim-line raw-line)
+              when (starts-with line "# ")
+                do (return (subseq line 2)))
+        fallback-title)))
+
+(defun enrich-page-entries-with-titles (docs-root page-entries)
+  (mapcar
+   (lambda (entry)
+     (let* ((source-path
+              (merge-pathnames
+               (uiop:parse-native-namestring (getf entry :source-path))
+               docs-root))
+            (content (read-text-file source-path))
+            (resolved-title
+              (markdown-title-from-content content (getf entry :title "Untitled"))))
+       (list :title resolved-title
+             :source-path (getf entry :source-path)
+             :html-relative (getf entry :html-relative)
+             :url (getf entry :url))))
+   page-entries))
+
+(defun nav-base-href (index-href)
+  (if (null index-href)
+      "./"
+      (let* ((suffix "index.html")
+             (n (length index-href))
+             (m (length suffix)))
+        (if (and (>= n m)
+                 (string= index-href suffix :start1 (- n m) :end1 n :start2 0 :end2 m))
+            (let ((base (subseq index-href 0 (- n m))))
+              (if (string= base "") "./" base))
+            index-href))))
+
+(defun depth-prefix (nesting)
+  (with-output-to-string (stream)
+    (dotimes (_ nesting)
+      (declare (ignore _))
+      (write-string "../" stream))))
+
+(defun nav-href (url index-href)
+  (format nil "~a~a" (nav-base-href index-href) (string-left-trim "/" url)))
+
+(defun render-sidebar (site-name site-subtitle page-entries current-url index-href)
+  (let ((nav-items
+          (with-output-to-string (stream)
+            (dolist (entry page-entries)
+              (let* ((url (getf entry :url))
+                     (href (nav-href url index-href))
+                     (title (html-escape (getf entry :title "Untitled")))
+                     (class-attr (if (string= url current-url) " class=\"current\"" "")))
+                (format stream "<li><a~a href=\"~a\">~a</a></li>" class-attr (html-escape href) title))))))
+    (with-output-to-string (stream)
+      (format stream "<aside class=\"left-rail\" aria-label=\"Documentation navigation\">")
+      (format stream "<h1 class=\"brand\">~a</h1>" (html-escape site-name))
+      (format stream "<p class=\"brand-sub\">~a</p>" (html-escape site-subtitle))
+      (when index-href
+        (format stream "<a class=\"back-link\" href=\"~a\">Back to docs index</a>" (html-escape index-href)))
+      (format stream "<p class=\"nojs-hint\">No JavaScript required. Use this navigation and your browser find shortcut (Ctrl+F).</p>")
+      (format stream "<details class=\"nav-mobile-toggle\"><summary>Browse Pages</summary><ul class=\"nav-list\">~a</ul></details>" nav-items)
+      (format stream "<ul class=\"nav-list\">~a</ul>" nav-items)
+      (format stream "</aside>"))))
+
+(defun join-lines (lines)
+  (with-output-to-string (stream)
+    (loop for line in lines
+          for index from 0
+          do (when (> index 0) (terpri stream))
+             (write-string line stream))))
+
+(defun split-lines (text)
+  (loop with start = 0
+        for end = (position #\Newline text :start start)
+        collect (if end
+                    (subseq text start end)
+                    (subseq text start))
+        while end
+        do (setf start (1+ end))))
+
+(defun mermaid-fence-start-p (line)
+  (or (string= line "```mermaid")
+      (starts-with line "```mermaid ")))
+
+(defun hash-fnv1a-32 (text)
+  (let ((hash 2166136261))
+    (loop for ch across text
+          do (setf hash (logand #xffffffff (* (logxor hash (char-code ch)) 16777619))))
+    hash))
+
+(defun hash-hex (value)
+  (format nil "~8,'0x" value))
+
+(defun mermaid-asset-paths (output-dir diagram-text)
+  (let* ((diagram-id (hash-hex (hash-fnv1a-32 diagram-text)))
+         (assets-dir (merge-pathnames #P"_assets/mermaid/" output-dir))
+         (mmd-path (merge-pathnames (uiop:parse-native-namestring (format nil "~a.mmd" diagram-id)) assets-dir))
+         (svg-path (merge-pathnames (uiop:parse-native-namestring (format nil "~a.svg" diagram-id)) assets-dir)))
+    (ensure-directory assets-dir)
+    (list :mmd-path mmd-path :svg-path svg-path :diagram-id diagram-id)))
+
+(defun run-command-ok-p (command)
+  (let* ((process (uiop:launch-program command
+                                       :output *standard-output*
+                                       :error-output *error-output*))
+         (exit-code (or (uiop:wait-process process) 1)))
+    (zerop exit-code)))
+
+(defun render-mermaid-svg (output-dir diagram-text)
+  (let* ((paths (mermaid-asset-paths output-dir diagram-text))
+         (mmd-path (getf paths :mmd-path))
+         (svg-path (getf paths :svg-path))
+         (mmd-native (uiop:native-namestring mmd-path))
+         (svg-native (uiop:native-namestring svg-path))
+         (commands
+           (list
+            (list "mmdc" "-i" mmd-native "-o" svg-native)
+            (list "npx" "--yes" "@mermaid-js/mermaid-cli" "-i" mmd-native "-o" svg-native))))
+    (write-text-file mmd-path diagram-text)
+    (unwind-protect
+         (unless (or (probe-file svg-path)
+                     (some #'run-command-ok-p commands))
+           (error "Failed to render Mermaid diagram. Install mmdc or Node+npx @mermaid-js/mermaid-cli."))
+      (ignore-errors (delete-file mmd-path)))
+    svg-path))
+
+(defun transform-mermaid-blocks (lines output-dir html-relative render-mermaid-images)
+  (let ((in-mermaid nil)
+        (mermaid-lines '())
+        (result '())
+        (prefix (depth-prefix (count #\/ html-relative))))
+    (labels ((flush-mermaid ()
+               (let* ((diagram-text (join-lines (nreverse mermaid-lines)))
+                      (svg-path (if render-mermaid-images
+                                    (render-mermaid-svg output-dir diagram-text)
+                                    nil))
+                      (svg-name (and svg-path (file-namestring svg-path)))
+                      (img-href (and svg-name (format nil "~a_assets/mermaid/~a" prefix svg-name))))
+                 (setf mermaid-lines '())
+                 (if img-href
+                     (push (format nil "<p><img class=\"diagram diagram-mermaid\" src=\"~a\" alt=\"Mermaid diagram\"></p>" img-href)
+                           result)
+                     (progn
+                       (push "```mermaid" result)
+                       (dolist (line (split-lines diagram-text))
+                         (push line result))
+                       (push "```" result))))))
+      (dolist (raw-line lines)
+        (let ((line (trim-line raw-line)))
+          (cond
+            ((and (not in-mermaid) (mermaid-fence-start-p line))
+             (setf in-mermaid t
+                   mermaid-lines '()))
+            (in-mermaid
+             (if (starts-with line "```")
+                 (progn
+                   (setf in-mermaid nil)
+                   (flush-mermaid))
+                 (push raw-line mermaid-lines)))
+            (t
+             (push raw-line result)))))
+      (when in-mermaid
+        (setf in-mermaid nil)
+        (flush-mermaid))
+      (nreverse result))))
+
+(defun markdown-lines-to-html (lines)
+  (with-output-to-string (stream)
+    (let ((in-list nil)
+          (in-code nil)
+          (paragraph-lines '()))
+      (labels ((flush-paragraph ()
+                 (when paragraph-lines
+                   (format stream "<p>~a</p>~%"
+                           (html-escape (join-lines (nreverse paragraph-lines))))
+                   (setf paragraph-lines '())))
+               (close-list ()
+                 (when in-list
+                   (format stream "</ul>~%")
+                   (setf in-list nil))))
+        (dolist (raw-line lines)
+          (let ((line (trim-line raw-line)))
+            (cond
+              ((starts-with line "```")
+               (flush-paragraph)
+               (close-list)
+               (if in-code
+                   (progn
+                     (format stream "</code></pre>~%")
+                     (setf in-code nil))
+                   (progn
+                     (write-string "<pre><code>" stream)
+                     (setf in-code t))))
+               (in-code
+                (write-string (html-escape raw-line) stream)
+                (terpri stream))
+               ((or (starts-with line "<p><img ")
+                    (starts-with line "<img "))
+                (flush-paragraph)
+                (close-list)
+                (write-string raw-line stream)
+                (terpri stream))
+               ((string= line "")
+                (flush-paragraph)
+                (close-list))
+              ((starts-with line "### ")
+                (flush-paragraph)
+                (close-list)
+                (let ((label (subseq line 4)))
+                  (format stream "<h3 id=\"~a\">~a</h3>~%" (slugify label) (html-escape label))))
+              ((starts-with line "## ")
+                (flush-paragraph)
+                (close-list)
+                (let ((label (subseq line 3)))
+                  (format stream "<h2 id=\"~a\">~a</h2>~%" (slugify label) (html-escape label))))
+              ((starts-with line "# ")
+                (flush-paragraph)
+                (close-list)
+                (let ((label (subseq line 2)))
+                  (format stream "<h1 id=\"~a\">~a</h1>~%" (slugify label) (html-escape label))))
+              ((starts-with line "- ")
+               (flush-paragraph)
+               (unless in-list
+                 (format stream "<ul>~%")
+                 (setf in-list t))
+               (format stream "<li>~a</li>~%" (html-escape (subseq line 2))))
+              (t
+                (push line paragraph-lines)))))
+        (flush-paragraph)
+        (close-list)
+        (when in-code
+          (format stream "</code></pre>~%"))))))
+
+(defun strip-html-tags (text)
+  (with-output-to-string (stream)
+    (let ((in-tag nil))
+      (loop for char across text
+            do (cond
+                 ((char= char #\<) (setf in-tag t))
+                 ((char= char #\>) (setf in-tag nil))
+                 ((not in-tag) (write-char char stream)))))))
+
+(defun extract-section-headings (body-html)
+  (let ((headings '())
+        (start 0)
+        (html (or body-html "")))
+    (loop
+      for open = (search "<h2 id=\"" html :start2 start)
+      while open
+      do (let* ((id-start (+ open (length "<h2 id=\"")))
+                (id-end (position #\" html :start id-start))
+                (label-start (and id-end (position #\> html :start id-end)))
+                (close (and label-start (search "</h2>" html :start2 (1+ label-start)))))
+            (if (or (null id-end) (null label-start) (null close))
+                (setf start (+ open 1))
+                (let* ((id (subseq html id-start id-end))
+                       (raw-label (subseq html (1+ label-start) close))
+                       (label (string-trim '(#\Space #\Tab #\Newline #\Return #\¶)
+                                           (strip-html-tags raw-label))))
+                  (when (> (length label) 0)
+                    (push (list :id id :label label) headings))
+                  (setf start (+ close (length "</h2>")))))))
+    (nreverse headings)))
+
+(defun render-section-items (sections)
+  (if sections
+      (with-output-to-string (stream)
+        (dolist (section sections)
+          (format stream "<li><a href=\"#~a\">~a</a></li>"
+                  (html-escape (getf section :id ""))
+                  (html-escape (getf section :label "")))))
+      "<li><em>No section headings</em></li>"))
+
+(defun markdown-to-html-page
+    (title markdown-content page-entries current-url html-relative site-name site-subtitle output-dir render-mermaid-images)
+  (with-output-to-string (stream)
+    (let* ((nesting (count #\/ html-relative))
+           (prefix (depth-prefix nesting))
+            (index-href (format nil "~aindex.html" prefix))
+            (css-href (format nil "~a_assets/theme.css" prefix))
+            (sidebar (render-sidebar site-name site-subtitle page-entries current-url index-href))
+            (body-html (markdown-lines-to-html
+                        (transform-mermaid-blocks
+                         (split-lines markdown-content)
+                         output-dir
+                         html-relative
+                         render-mermaid-images)))
+            (section-items (render-section-items (extract-section-headings body-html))))
+    (format stream "<!doctype html>~%")
+    (format stream "<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>~a</title><link rel=\"stylesheet\" href=\"~a\"></head><body>~%"
+            (html-escape title)
+            (html-escape css-href))
+    (format stream "<a class=\"skip-link\" href=\"#main-content\">Skip to content</a><div class=\"layout\">~a" sidebar)
+    (format stream "<main class=\"content\" id=\"main-content\">~a</main>" body-html)
+    (format stream "<aside class=\"right-rail\"><p class=\"rail-title\">On This Page</p><ul class=\"toc-list\">~a</ul></aside>" section-items)
+    (format stream "</div></body></html>~%"))))
+
+(defun markdown-path-to-html-relative (markdown-relative)
+  (let* ((pathname (uiop:parse-native-namestring markdown-relative))
+         (name (pathname-name pathname))
+         (dir (or (pathname-directory pathname) '(:relative)))
+         (subdir (if (and dir (eq (first dir) :relative)) (rest dir) dir))
+         (html-path (make-pathname :directory (append '(:relative "pages") subdir)
+                                   :name name
+                                   :type "html")))
+    (uiop:native-namestring html-path)))
+
+(defun compile-markdown-page (docs-root output-dir page-entry page-entries site-name site-subtitle render-mermaid-images)
+  (let* ((markdown-relative (getf page-entry :source-path))
+         (html-relative (getf page-entry :html-relative))
+         (current-url (getf page-entry :url))
+         (source-path (merge-pathnames (uiop:parse-native-namestring markdown-relative) docs-root))
+         (target-path (merge-pathnames (uiop:parse-native-namestring html-relative) output-dir))
+         (markdown-content (read-text-file source-path))
+         (page-title (getf page-entry :title "Untitled"))
+         (html-content (markdown-to-html-page page-title markdown-content page-entries current-url html-relative site-name site-subtitle output-dir render-mermaid-images)))
+    (write-text-file target-path html-content)
+    html-relative))
+
+(defun compile-markdown-pages (docs-root output-dir page-entries site-name site-subtitle render-mermaid-images)
+  (mapcar (lambda (entry)
+            (compile-markdown-page docs-root output-dir entry page-entries site-name site-subtitle render-mermaid-images))
+          page-entries))
+
+(defun write-style-sheet (output-dir)
+  (let ((style-path (merge-pathnames #P"_assets/theme.css" output-dir)))
+    (write-text-file style-path *default-style-css*)
+    "_assets/theme.css"))
+
+(defun build-index-html (scope site-name site-subtitle page-entries)
+  (with-output-to-string (stream)
+    (let ((title (page-title-for-scope scope))
+          (items
+            (if page-entries
+                (with-output-to-string (items-stream)
+                  (dolist (entry page-entries)
+                    (format items-stream "<li><a href=\".~a\">~a</a> <code>~a</code></li>"
+                            (html-escape (getf entry :url "/"))
+                            (html-escape (getf entry :title "Untitled"))
+                            (html-escape (getf entry :source-path ""))))
+                  )
+                "<li><em>No markdown docs discovered.</em></li>"))
+          (toc-items "<li><a href=\"#overview\">Overview</a></li><li><a href=\"#what\">What</a></li><li><a href=\"#why\">Why</a></li><li><a href=\"#how\">How</a></li><li><a href=\"#sources\">Discovered Sources</a></li>"))
+    (format stream "<!doctype html>~%")
+    (format stream "<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>~a</title><link rel=\"stylesheet\" href=\"./_assets/theme.css\"></head><body>"
+            (html-escape title))
+    (format stream "<a class=\"skip-link\" href=\"#main-content\">Skip to content</a><div class=\"layout\">~a"
+            (render-sidebar site-name site-subtitle page-entries "/" nil))
+    (format stream "<main class=\"content\" id=\"main-content\">")
+    (format stream "<h1 id=\"overview\">~a</h1>" (html-escape title))
+    (format stream "<p class=\"meta\">Scope: <strong>~a</strong> • Generated pages: <strong>~d</strong></p>" (html-escape scope) (length page-entries))
+    (format stream "<section id=\"what\"><h2>What</h2><p>This is a static docs site generated from markdown sources.</p></section>")
+    (format stream "<section id=\"why\"><h2>Why</h2><p>It is optimized for offline readability, keyboard navigation, and predictable output.</p></section>")
+    (format stream "<section id=\"how\"><h2>How</h2><p>Use the left navigation to open pages, then jump within sections from the right rail.</p></section>")
+    (format stream "<section id=\"sources\"><h2>Discovered Sources</h2><ul class=\"nav-list\">~a</ul></section>" items)
+    (format stream "</main><aside class=\"right-rail\"><p class=\"rail-title\">On This Page</p><ul class=\"toc-list\">~a</ul></aside></div></body></html>" toc-items))))
+
+(defun build-manifest-json (scope page-entries style-relative-path)
+  (let* ((html-relative-paths (mapcar (lambda (entry) (getf entry :html-relative)) page-entries))
+         (pages-json (json-array-of-strings html-relative-paths))
+         (page-count (length html-relative-paths)))
+    (format nil
+            "{~%  \"status\": \"ok\",~%  \"scope\": ~a,~%  \"page_count\": ~d,~%  \"errors\": [],~%  \"pages\": ~a,~%  \"assets\": ~a~%}~%"
+            (json-string scope)
+            page-count
+            pages-json
+            (json-array-of-strings (list style-relative-path)))))
+
+(defun build-site (config)
+  (let* ((scope (plist-value config :scope "project"))
+         (addon-name (plist-value config :addon-name ""))
+         (site-name (plist-value config :site-name (site-name-for-config scope addon-name)))
+         (site-subtitle (plist-value config :site-subtitle "Reference Manual"))
+         (render-mermaid-images (plist-value config :render-mermaid-images t))
+         (cwd (uiop:getcwd))
+         (project-root (resolve-directory-path (plist-value config :project-root ".") cwd))
+         (docs-root (resolve-directory-path (plist-value config :docs-root "docs/") project-root))
+         (output-dir (resolve-directory-path (plist-value config :output-dir "docs/_build/") project-root))
+         (markdown-files (collect-markdown-files docs-root))
+         (markdown-relative-paths (mapcar (lambda (path) (path-relative-to path docs-root)) markdown-files))
+          (page-entries
+            (enrich-page-entries-with-titles
+             docs-root
+             (mapcar #'markdown-relative-to-page-entry markdown-relative-paths)))
+         (_compiled-pages (compile-markdown-pages docs-root output-dir page-entries site-name site-subtitle render-mermaid-images))
+         (style-relative-path (write-style-sheet output-dir))
+         (index-path (merge-pathnames #P"index.html" output-dir))
+         (manifest-path (merge-pathnames #P"manifest.json" output-dir))
+         (index-html (build-index-html scope site-name site-subtitle page-entries))
+         (manifest-json (build-manifest-json scope page-entries style-relative-path)))
+    (ensure-directory output-dir)
+    (write-text-file index-path index-html)
+    (write-text-file manifest-path manifest-json)
+    (list :status :ok
+          :scope scope
+          :page-count (length markdown-relative-paths)
+          :index-path (uiop:native-namestring index-path)
+          :manifest-path (uiop:native-namestring manifest-path))))
