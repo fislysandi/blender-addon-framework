@@ -27,8 +27,13 @@ jobs:
 
       - name: Install OCiCL
         run: |
-          wget https://github.com/ocicl/ocicl/releases/latest/download/ocicl_2.14.1-1_amd64.deb
-          sudo apt install -y ./ocicl_2.14.1-1_amd64.deb
+          DEB_URL=$(curl -fsSL https://api.github.com/repos/ocicl/ocicl/releases/latest | jq -r '.assets[] | select(.name | endswith("_amd64.deb")) | .browser_download_url' | head -n1)
+          if [ -z "$DEB_URL" ] || [ "$DEB_URL" = "null" ]; then
+            echo "Failed to resolve OCiCL amd64 .deb asset from latest release" >&2
+            exit 1
+          fi
+          wget -O ocicl_latest_amd64.deb "$DEB_URL"
+          sudo apt install -y ./ocicl_latest_amd64.deb
 
       - name: Cache OCiCL artifacts
         uses: actions/cache@v4
