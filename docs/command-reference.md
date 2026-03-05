@@ -7,7 +7,16 @@ This page lists framework CLI commands defined in `pyproject.toml`.
 - Preferred form: `uv run <command> ...`
 - Inside activated `.venv`: run command directly (`<command> ...`)
 - Launcher form: `baf <command> ...`
-- Addon argument may be auto-detected from `addons/<addon_name>/` for selected commands.
+- Addon argument can be auto-detected for selected commands when running inside an addon folder.
+
+Addon auto-detection checks:
+
+- current path under `addons/<addon_name>/...`
+- current/parent directory contains both `blender_manifest.toml` and `src/`
+
+More detail:
+
+- `docs/context-resolution.md`
 
 ## `create`
 
@@ -60,6 +69,24 @@ Options:
 - `--no-deps`
 - `--with-deps`
 
+## `docs`
+
+Generate static docs for an addon through `tools/bdocgen`.
+
+```bash
+uv run docs <addon>
+```
+
+Options:
+
+- `--framework-root <path>`
+
+Notes:
+
+- output is written to `addons/<addon>/docs/_build/`
+- this command requires Lisp tooling (`sbcl`, `ocicl`) available on `PATH`
+- integration wire: `src.commands.docs` -> `src.framework.build_docs_for_addon` -> `tools/bdocgen/scripts/run.lisp`
+
 ## `release` (deprecated)
 
 Backward-compatible alias for `compile`.
@@ -93,7 +120,7 @@ uv run template <subcommand> ...
 Subcommands:
 
 - `list`
-- `apply <template> <addon> [--on-conflict {skip,overwrite,rename}] [--dry-run] [--no-git-commit]`
+- `apply <template> [addon] [--on-conflict {skip,overwrite,rename}] [--dry-run] [--no-git-commit]`
 - `extract <template> <source_addon> <source_path> --target-prefix <path> [--description <text>] [--dry-run] [--overwrite]`
 
 Global option:
@@ -136,6 +163,10 @@ Global option:
 
 - `--framework-root <path>`
 
+Setup guide:
+
+- `docs/completion-setup.md`
+
 ## `baf`
 
 Top-level launcher that forwards to framework commands and suggests close matches.
@@ -150,7 +181,42 @@ Option:
 
 Supported commands:
 
-- `create`, `test`, `compile`, `release`, `rename-addon`, `addon-deps`, `template`, `completion`, `audit-stale-addons`
+- `repl`, `create`, `docs`, `test`, `compile`, `release`, `rename-addon`, `addon-deps`, `template`, `completion`, `audit-stale-addons`
+
+## `repl`
+
+Open the interactive command loop.
+
+Note: this Python REPL command is transitional. The roadmap direction is Common Lisp-first REPL tooling, and this command is expected to be removed after migration.
+
+```bash
+uv run baf repl
+```
+
+Shortcut:
+
+- `uv run baf` opens REPL when no command is provided
+
+Option:
+
+- `--framework-root <path>`
+
+In-REPL local commands:
+
+- `help` / `?`
+- `reload`
+- `exit` / `quit`
+
+In-REPL Lisp settings forms:
+
+- `(settings)`
+- `(get :key)`
+- `(source :key)`
+- `(set! :key true|false)`
+- `(unset! :key)`
+- `(save! :key true|false)`
+
+For full interactive examples, see `docs/repl-workflow.md`.
 
 ## `audit-stale-addons`
 

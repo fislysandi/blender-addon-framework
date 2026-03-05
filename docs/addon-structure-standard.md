@@ -8,6 +8,11 @@ This document defines the unified addon structure for this framework.
 - Legacy flat structure: deprecated
 - Removal: planned for a future major release
 
+Stability note:
+
+- while command/runtime tooling is still evolving, addon structure is intentionally stable
+- no addon structure file-layout changes are currently planned
+
 ## Unified Standard (unified-v1)
 
 Each addon should use this layout:
@@ -75,8 +80,8 @@ It still works during the migration window, but it will be removed in a future m
 
 ## Migration Guidance
 
-1. Move addon runtime modules under `src/`.
-2. Keep user docs under `docs/` and tests under `tests/`.
-3. Add `pyproject.toml` and `uv.lock` at addon root for addon-scoped dependencies.
-4. Update imports to the new `src` module paths.
-5. Run `uv run test <addon>` and `uv run compile <addon>` after migration.
+- Move addon runtime modules under `src/`.
+- Keep user docs under `docs/` and tests under `tests/`.
+- Add `pyproject.toml` and `uv.lock` at addon root for addon-scoped dependencies.
+- Update imports to the new `src` module paths.
+- Run `uv run test <addon>` and `uv run compile <addon>` after migration.

@@ -158,16 +158,16 @@
 
 ### Decision Note
 
-BDocGen implementation is moved to Python to keep it native to the framework runtime.
-This enables tighter framework integration and sets up a seamless path to invoke docs generation from REPL workflows in future iterations.
-Target milestone: complete Python-first BDocGen MVP before REPL docs-command integration.
+BDocGen implementation is being moved to Common Lisp under `tools/bdocgen` as a standalone developer tool.
+This keeps docs generation separated from `src/` runtime code and aligns with the Lisp-centric REPL tooling direction.
+Target milestone: complete Common Lisp BDocGen MVP contract (`index.html` + `manifest.json`) before richer docs pipeline features.
 
 - [ ] **Implementation language decision**
-  - [ ] Implement BDocGen in **Python**
+  - [ ] Implement BDocGen in **Common Lisp**
   - [ ] Keep dependencies lightweight and minimal (each dependency must have clear value)
   - [ ] Prefer Python standard library first, then add small focused libraries only when needed
   - [ ] Define and document accepted dependency criteria (size, maintenance, security, performance)
-  - [ ] Migrate/replace existing Clojure-oriented BDocGen paths with Python implementation plan
+  - [ ] Migrate/replace existing Clojure-oriented BDocGen paths with Common Lisp implementation plan
 
 - [ ] **UX-first acceptance criteria**
   - [x] Mirror the Blender 5.0 Reference Manual visual style and information architecture (left navigation rail, central content column, right "On This Page" TOC)

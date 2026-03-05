@@ -7,6 +7,31 @@ This guide documents day-to-day CLI usage for the framework.
 - Preferred: `uv run <command> ...`
 - Alternative launcher: `baf <command> ...`
 - Legacy module form remains available, for example: `python3 -m src.commands.test <addon>`
+- Interactive mode: `uv run baf` opens the framework REPL
+
+## Interactive REPL workflow
+
+Start REPL:
+
+```bash
+uv run baf
+```
+
+Example interactive commands:
+
+```text
+test my_addon
+compile my_addon --with-docs
+template list
+```
+
+REPL local commands:
+
+- `help` or `?`
+- `reload`
+- `exit` or `quit`
+
+For Lisp forms and runtime settings overrides, see `docs/repl-workflow.md`.
 
 ## Create and scaffold
 
@@ -86,9 +111,47 @@ Install wheels before test:
 uv run test my_addon --with-wheels
 ```
 
-If you run commands inside `addons/<addon_name>/`, addon autodetection is supported for `test`, `compile`, `template apply`, and `addon-deps` subcommands.
+If you run commands inside an addon folder, addon autodetection is supported for `test`, `compile`, `docs`, `template apply`, and `addon-deps` subcommands.
 
-## Build and release
+Autodetection works when either:
+
+- current path is under `addons/<addon_name>/...`
+- current/parent directory has both `blender_manifest.toml` and `src/`
+
+Detailed context behavior:
+
+- `docs/context-resolution.md`
+
+## Docs workflow
+
+Generate static docs for an addon:
+
+```bash
+uv run docs my_addon
+```
+
+Or run from inside the addon directory (autodetect addon name):
+
+```bash
+uv run docs
+```
+
+Output path:
+
+- `addons/<addon>/docs/_build/`
+
+Requirements:
+
+- `sbcl` and `ocicl` available on `PATH`
+
+Framework -> BDocGen integration wire:
+
+- `uv run docs <addon>` -> `src.commands.docs`
+- `src.commands.docs` calls framework docs builder (`build_docs_for_addon`)
+- framework docs builder invokes `sbcl --script tools/bdocgen/scripts/run.lisp ...`
+- BDocGen writes `addons/<addon>/docs/_build/manifest.json` and HTML output
+
+## Build and compile
 
 Package addon:
 
@@ -168,6 +231,16 @@ Generate shell completion script:
 uv run completion script bash
 uv run completion script zsh
 uv run completion script fish
+```
+
+Install instructions by shell:
+
+- `docs/completion-setup.md`
+
+Get typo-aware command suggestions from words:
+
+```bash
+uv run completion suggest renmae-addon
 ```
 
 ## Maintenance helper

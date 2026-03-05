@@ -17,6 +17,14 @@ Minimal generic Common Lisp REPL scaffold.
 - Ensure `py4cl2-cffi` is installed in your Lisp environment (Quicklisp/Ultralisp/Ocicl).
 - For environment bootstrap, load `py4cl2-cffi/config` before running adapter-backed commands.
 
+Dependency sync command (Python + Common Lisp):
+
+```bash
+sbcl --script tools/repl/scripts/sync-deps.lisp
+```
+
+This script runs `uv sync` for Python packages and `ocicl install` for Lisp packages.
+
 ## Command loading model
 
 Command handlers are injected as function bindings:
