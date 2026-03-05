@@ -10,9 +10,10 @@
    (:file "src/command-registry")
    (:file "src/example-commands")
    (:file "src/python-bridge")
+   (:file "src/framework-commands")
    (:module "blender_adapter"
-    :pathname "../adapters/blender_adapter"
-    :components ((:file "bindings")))
+     :pathname "../adapters/blender_adapter"
+     :components ((:file "bindings")))
    (:module "krita_adapter"
     :pathname "../adapters/krita_adapter"
     :components ((:file "bindings")))
@@ -24,7 +25,8 @@
   :depends-on ("generic-repl" "fiveam")
   :serial t
   :components ((:file "t/packages")
-               (:file "t/repl-core-tests"))
+               (:file "t/repl-core-tests")
+               (:file "t/framework-command-tests"))
   :perform (test-op (o c)
                     (declare (ignore o c))
                     (uiop:symbol-call :fiveam :run! :generic-repl-tests)))

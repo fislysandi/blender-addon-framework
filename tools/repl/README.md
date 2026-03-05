@@ -41,6 +41,11 @@ Current adapter commands:
 - Blender: `(mesh-cube :size 2 :location (0 0 0) :align "WORLD")`
 - Krita: `(new-document :width 1920 :height 1080 :name "Untitled")`
 
+Framework command bindings are also autoloaded via `:framework`:
+
+- `(framework-commands)` lists mirrored `src/commands` command names.
+- Example: `(create "my_addon")`, `(compile "my_addon" :with-version t)`, `(docs "my_addon")`.
+
 Execution mode flag:
 
 - `:mode :plan` (default) returns normalized host call spec.

@@ -14,6 +14,7 @@
    :register-command
    :resolve-command
    :dispatch-command
+   :make-framework-command-bindings
    :set-execute-enabled
    :execute-enabled-p
    :python-call-expression

@@ -5,4 +5,4 @@
  :python-bridge :py4cl2-cffi
  :allow-execute nil
  :frameworks (:blender :krita)
- :autoload-commands (:examples))
+ :autoload-commands (:examples :framework))

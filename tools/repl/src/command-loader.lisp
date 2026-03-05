@@ -64,6 +64,7 @@ FRAMEWORKS is a list such as (:blender :krita)."
   "Return command bindings for MODULE-KEY."
   (case module-key
     (:examples (make-example-command-bindings))
+    (:framework (make-framework-command-bindings))
     (otherwise '())))
 
 (defun command-bindings-for-framework (framework-key)
