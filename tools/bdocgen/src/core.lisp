@@ -44,6 +44,13 @@
 
 (defparameter *default-style-css*
   ":root {
+  --bwa-color-bg: #0d1117;
+  --bwa-color-fg: #e6edf3;
+  --bwa-color-accent: #f18f3b;
+  --bwa-color-link: #65aef8;
+  --bwa-color-border: #2d3643;
+  --bwa-spacer: 1rem;
+  --bwa-border-radius: 0.35rem;
   --bg: #0e1116;
   --panel: #161b23;
   --panel-soft: #121720;
@@ -58,7 +65,7 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
-body { background: var(--bg); color: var(--text); font-family: 'Noto Sans', 'DejaVu Sans', sans-serif; }
+body { background: var(--bg); color: var(--text); font-family: 'Noto Sans', 'DejaVu Sans', sans-serif; font-size: 15px; line-height: 1.6; }
 a { color: var(--link); text-decoration: none; }
 a:hover { color: var(--link-hover); text-decoration: underline; }
 .skip-link {
@@ -75,7 +82,33 @@ a:hover { color: var(--link-hover); text-decoration: underline; }
   left: 0.6rem;
   z-index: 10;
 }
-.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr) 240px; min-height: 100vh; }
+.site-shell { min-height: 100vh; }
+.nav-global {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid var(--bwa-color-border);
+  background: #0f141c;
+}
+.nav-global-title { font-size: 0.98rem; font-weight: 700; letter-spacing: 0.01em; color: var(--bwa-color-fg); }
+.nav-global-links { display: flex; gap: 0.5rem; align-items: center; }
+.nav-global-links a {
+  padding: 0.26rem 0.55rem;
+  border-radius: var(--bwa-border-radius);
+  border: 1px solid transparent;
+  color: #cfdae9;
+}
+.nav-global-links a:hover {
+  background: #1a2230;
+  border-color: var(--bwa-color-border);
+  text-decoration: none;
+}
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr) 240px; min-height: calc(100vh - 50px); }
 .left-rail { border-right: 1px solid var(--border); background: linear-gradient(180deg, var(--panel) 0%, var(--panel-soft) 100%); padding: 1rem; }
 .content { padding: 1.5rem 2.25rem; max-width: 1040px; }
 .right-rail { border-left: 1px solid var(--border); padding: 1rem; background: #0c1016; }
@@ -127,6 +160,19 @@ a:hover { color: var(--link-hover); text-decoration: underline; }
 .content table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
 .content th,.content td { border: 1px solid var(--border); padding: 0.5rem 0.65rem; text-align: left; }
 .content th { background: #17212d; }
+.content .admonition,
+.content .note,
+.content .warning,
+.content .tip {
+  margin: 1rem 0;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--border);
+  background: #131a24;
+}
+.content .warning { border-left: 4px solid #d7923b; }
+.content .tip { border-left: 4px solid #6aa84f; }
+.content .note { border-left: 4px solid #5fa8f2; }
 .content img.diagram { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 6px; background: #fff; padding: 0.35rem; }
 .heading-citation { margin-left: 0.4rem; opacity: 0; }
 .content h1:hover .heading-citation,.content h2:hover .heading-citation,.content h3:hover .heading-citation { opacity: 1; }
@@ -141,6 +187,8 @@ summary:focus-visible {
   .right-rail { display: none; }
 }
 @media (max-width: 780px) {
+  .nav-global { padding: 0.5rem 0.75rem; }
+  .nav-global-title { font-size: 0.9rem; }
   .layout { grid-template-columns: 1fr; }
   .left-rail { border-right: 0; border-bottom: 1px solid var(--border); }
   .nav-mobile-toggle { display: block; }
@@ -243,6 +291,16 @@ summary:focus-visible {
 
 (defun nav-href (url index-href)
   (format nil "~a~a" (nav-base-href index-href) (string-left-trim "/" url)))
+
+(defun render-global-header (site-name index-href)
+  (let ((home-href (or index-href "./index.html")))
+    (with-output-to-string (stream)
+      (format stream "<header class=\"nav-global\">")
+      (format stream "<div class=\"nav-global-title\">~a Documentation</div>" (html-escape site-name))
+      (format stream "<nav class=\"nav-global-links\" aria-label=\"Global\">")
+      (format stream "<a href=\"~a\">Home</a>" (html-escape home-href))
+      (format stream "<a href=\"~a\">Docs</a>" (html-escape home-href))
+      (format stream "</nav></header>"))))
 
 (defun render-sidebar (site-name site-subtitle page-entries current-url index-href)
   (let ((nav-items
@@ -478,9 +536,10 @@ summary:focus-visible {
   (with-output-to-string (stream)
     (let* ((nesting (count #\/ html-relative))
            (prefix (depth-prefix nesting))
-            (index-href (format nil "~aindex.html" prefix))
-            (css-href (format nil "~a_assets/theme.css" prefix))
-            (sidebar (render-sidebar site-name site-subtitle page-entries current-url index-href))
+             (index-href (format nil "~aindex.html" prefix))
+             (css-href (format nil "~a_assets/theme.css" prefix))
+             (global-header (render-global-header site-name index-href))
+             (sidebar (render-sidebar site-name site-subtitle page-entries current-url index-href))
             (body-html (markdown-lines-to-html
                         (transform-mermaid-blocks
                          (split-lines markdown-content)
@@ -492,10 +551,10 @@ summary:focus-visible {
     (format stream "<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>~a</title><link rel=\"stylesheet\" href=\"~a\"></head><body>~%"
             (html-escape title)
             (html-escape css-href))
-    (format stream "<a class=\"skip-link\" href=\"#main-content\">Skip to content</a><div class=\"layout\">~a" sidebar)
+    (format stream "<a class=\"skip-link\" href=\"#main-content\">Skip to content</a><div class=\"site-shell\">~a<div class=\"layout\">~a" global-header sidebar)
     (format stream "<main class=\"content\" id=\"main-content\">~a</main>" body-html)
     (format stream "<aside class=\"right-rail\"><p class=\"rail-title\">On This Page</p><ul class=\"toc-list\">~a</ul></aside>" section-items)
-    (format stream "</div></body></html>~%"))))
+    (format stream "</div></div></body></html>~%"))))
 
 (defun markdown-path-to-html-relative (markdown-relative)
   (let* ((pathname (uiop:parse-native-namestring markdown-relative))
@@ -532,6 +591,7 @@ summary:focus-visible {
 (defun build-index-html (scope site-name site-subtitle page-entries)
   (with-output-to-string (stream)
     (let ((title (page-title-for-scope scope))
+          (global-header (render-global-header site-name "./index.html"))
           (items
             (if page-entries
                 (with-output-to-string (items-stream)
@@ -546,7 +606,8 @@ summary:focus-visible {
     (format stream "<!doctype html>~%")
     (format stream "<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>~a</title><link rel=\"stylesheet\" href=\"./_assets/theme.css\"></head><body>"
             (html-escape title))
-    (format stream "<a class=\"skip-link\" href=\"#main-content\">Skip to content</a><div class=\"layout\">~a"
+    (format stream "<a class=\"skip-link\" href=\"#main-content\">Skip to content</a><div class=\"site-shell\">~a<div class=\"layout\">~a"
+            global-header
             (render-sidebar site-name site-subtitle page-entries "/" nil))
     (format stream "<main class=\"content\" id=\"main-content\">")
     (format stream "<h1 id=\"overview\">~a</h1>" (html-escape title))
@@ -555,7 +616,7 @@ summary:focus-visible {
     (format stream "<section id=\"why\"><h2>Why</h2><p>It is optimized for offline readability, keyboard navigation, and predictable output.</p></section>")
     (format stream "<section id=\"how\"><h2>How</h2><p>Use the left navigation to open pages, then jump within sections from the right rail.</p></section>")
     (format stream "<section id=\"sources\"><h2>Discovered Sources</h2><ul class=\"nav-list\">~a</ul></section>" items)
-    (format stream "</main><aside class=\"right-rail\"><p class=\"rail-title\">On This Page</p><ul class=\"toc-list\">~a</ul></aside></div></body></html>" toc-items))))
+    (format stream "</main><aside class=\"right-rail\"><p class=\"rail-title\">On This Page</p><ul class=\"toc-list\">~a</ul></aside></div></div></body></html>" toc-items))))
 
 (defun build-manifest-json (scope page-entries style-relative-path pages-target)
   (let* ((html-relative-paths (mapcar (lambda (entry) (getf entry :html-relative)) page-entries))

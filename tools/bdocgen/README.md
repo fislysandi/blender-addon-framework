@@ -144,6 +144,13 @@ pages:
       - public
 ```
 
+## Theme Attribution Notes
+
+BDocGen theme polish includes Blender Developer Documentation-inspired layout tokens and spacing ideas, adapted for a JavaScript-free static output.
+
+- Do not copy Blender logos or trademarked branding assets.
+- If you reuse Blender documentation CSS/content snippets verbatim, ensure CC-BY-SA attribution and share-alike obligations are satisfied.
+
 ## GitHub Pages Publishing Requirement
 
 When BDocGen output is used for GitHub Pages, include an upstream project link in generated site chrome (for example header or footer):
