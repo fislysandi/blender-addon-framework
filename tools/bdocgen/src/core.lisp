@@ -84,29 +84,94 @@ a:hover { color: var(--link-hover); text-decoration: underline; }
 }
 .site-shell { min-height: 100vh; }
 .nav-global {
+  background-color: #161b23;
+  color: #c8d0dc;
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: 30;
+  border-bottom: 1px solid var(--bwa-border-color);
+}
+.nav-global .nav-global-container {
+  max-width: 1360px;
+  margin: 0 auto;
+}
+.nav-global nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.8rem;
-  padding: 0.55rem 1rem;
-  border-bottom: 1px solid var(--bwa-color-border);
-  background: #0f141c;
+  min-height: 54px;
+  line-height: 14px;
+  font-size: 14px;
+  padding: 0 var(--bwa-spacer);
 }
-.nav-global-title { font-size: 0.98rem; font-weight: 700; letter-spacing: 0.01em; color: var(--bwa-color-fg); }
-.nav-global-links { display: flex; gap: 0.5rem; align-items: center; }
-.nav-global-links a {
-  padding: 0.26rem 0.55rem;
+.nav-global .nav-global-logo {
+  color: #f2f5fa;
+  margin-right: var(--bwa-spacer);
+}
+.nav-global .nav-global-logo strong { font-weight: 700; font-size: 18px; }
+.nav-global ul { list-style: none; margin: 0; padding: 0; display: inline-flex; align-items: center; }
+.nav-global .nav-global-nav-links { flex-grow: 1; overflow: hidden; }
+.nav-global .nav-global-nav-links li a {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 10px;
   border-radius: var(--bwa-border-radius);
-  border: 1px solid transparent;
-  color: #cfdae9;
+  color: #c8d0dc;
 }
-.nav-global-links a:hover {
-  background: #1a2230;
-  border-color: var(--bwa-color-border);
+.nav-global .nav-global-links-right li a {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: var(--bwa-border-radius);
+  color: #dbe4ef;
+  border: 1px solid transparent;
+}
+.nav-global .nav-global-nav-links li a:hover,
+.nav-global .nav-global-links-right li a:hover {
+  background-color: #2a303b;
+  color: #fff;
   text-decoration: none;
+}
+.nav-global .nav-global-nav-links li a.is-active {
+  color: #fff;
+  font-weight: 700;
+}
+.md-tabs {
+  border-bottom: 1px solid var(--bwa-border-color);
+  background: #141922;
+}
+.md-tabs .md-grid { max-width: 1360px; margin: 0 auto; }
+.md-tabs__list { list-style: none; margin: 0; padding: 0 0.7rem; display: flex; gap: 0.15rem; overflow-x: auto; }
+.md-tabs__item { display: inline-flex; }
+.md-tabs__link {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.58rem 0.7rem;
+  border-bottom: 2px solid transparent;
+  color: #bdc8d8;
+  white-space: nowrap;
+}
+.md-tabs__link:hover { color: #e7eef9; text-decoration: none; }
+.md-tabs__link--active { color: #fff; border-bottom-color: var(--bwa-color-accent); }
+.md-container { min-height: calc(100vh - 96px); }
+.md-main__inner.md-grid { max-width: 1360px; margin: 0 auto; }
+.md-sidebar--secondary { align-self: stretch; }
+.left-rail { padding-top: 1.2rem; }
+.content { padding-top: 1.35rem; }
+.content h1 { font-size: 2.1rem; }
+.content p code { font-size: 0.88em; }
+.content pre code { border: 0; padding: 0; }
+.content .rail-title { font-size: 0.75rem; letter-spacing: 0.08em; }
+.content .admonition-title { font-weight: 700; margin-bottom: 0.35rem; }
+.content .note .admonition-title { color: #84beff; }
+.content .warning .admonition-title { color: #f3bf75; }
+.content .tip .admonition-title { color: #90ce77; }
+.content figure { margin: 1rem auto; text-align: center; }
+.content figcaption { color: var(--text-muted); font-size: 0.9rem; }
+.md-content { min-width: 0; }
+@media (max-width: 1320px) {
+  .nav-global nav { padding-left: 0.6rem; padding-right: 0.6rem; }
+  .md-tabs__list { padding-left: 0.45rem; padding-right: 0.45rem; }
 }
 .layout { display: grid; grid-template-columns: 300px minmax(0, 1fr) 240px; min-height: calc(100vh - 50px); }
 .left-rail { border-right: 1px solid var(--border); background: linear-gradient(180deg, var(--panel) 0%, var(--panel-soft) 100%); padding: 1rem; }
@@ -187,8 +252,9 @@ summary:focus-visible {
   .right-rail { display: none; }
 }
 @media (max-width: 780px) {
-  .nav-global { padding: 0.5rem 0.75rem; }
-  .nav-global-title { font-size: 0.9rem; }
+  .nav-global .nav-global-nav-links { display: none; }
+  .nav-global nav { min-height: 50px; }
+  .md-tabs__link { padding: 0.52rem 0.62rem; }
   .layout { grid-template-columns: 1fr; }
   .left-rail { border-right: 0; border-bottom: 1px solid var(--border); }
   .nav-mobile-toggle { display: block; }
@@ -295,12 +361,39 @@ summary:focus-visible {
 (defun render-global-header (site-name index-href)
   (let ((home-href (or index-href "./index.html")))
     (with-output-to-string (stream)
-      (format stream "<header class=\"nav-global\">")
-      (format stream "<div class=\"nav-global-title\">~a Documentation</div>" (html-escape site-name))
-      (format stream "<nav class=\"nav-global-links\" aria-label=\"Global\">")
-      (format stream "<a href=\"~a\">Home</a>" (html-escape home-href))
-      (format stream "<a href=\"~a\">Docs</a>" (html-escape home-href))
-      (format stream "</nav></header>"))))
+      (format stream "<header class=\"md-header nav-global\" data-md-component=\"header\">")
+      (format stream "<div class=\"nav-global-container\"><nav>")
+      (format stream "<a class=\"nav-global-logo\" href=\"~a\"><strong>~a</strong></a>"
+              (html-escape home-href)
+              (html-escape site-name))
+      (format stream "<ul class=\"nav-global-nav-links\">")
+      (format stream "<li><a class=\"is-active\" href=\"~a\">Docs</a></li>" (html-escape home-href))
+      (format stream "<li><a href=\"https://projects.blender.org\">Projects</a></li>")
+      (format stream "<li><a href=\"https://code.blender.org\">Blog</a></li>")
+      (format stream "</ul>")
+      (format stream "<ul class=\"nav-global-links-right\"><li><a class=\"nav-global-btn\" href=\"~a\">Home</a></li></ul>"
+              (html-escape home-href))
+      (format stream "</nav></div></header>"))))
+
+(defun render-top-tabs (page-entries index-href current-url)
+  (let ((max-tabs 8)
+        (count 0))
+    (with-output-to-string (stream)
+      (format stream "<nav class=\"md-tabs\" aria-label=\"Tabs\"><div class=\"md-grid\"><ul class=\"md-tabs__list\">")
+      (format stream "<li class=\"md-tabs__item\"><a class=\"md-tabs__link~a\" href=\"~a\">Home</a></li>"
+              (if (string= current-url "/") " md-tabs__link--active" "")
+              (html-escape (or index-href "./index.html")))
+      (dolist (entry page-entries)
+        (when (< count max-tabs)
+          (incf count)
+          (let* ((url (getf entry :url "/"))
+                 (href (nav-href url index-href))
+                 (title (html-escape (getf entry :title "Untitled"))))
+            (format stream "<li class=\"md-tabs__item\"><a class=\"md-tabs__link~a\" href=\"~a\">~a</a></li>"
+                    (if (string= url current-url) " md-tabs__link--active" "")
+                    (html-escape href)
+                    title))))
+      (format stream "</ul></div></nav>"))))
 
 (defun render-sidebar (site-name site-subtitle page-entries current-url index-href)
   (let ((nav-items
@@ -539,6 +632,7 @@ summary:focus-visible {
              (index-href (format nil "~aindex.html" prefix))
              (css-href (format nil "~a_assets/theme.css" prefix))
              (global-header (render-global-header site-name index-href))
+             (top-tabs (render-top-tabs page-entries index-href current-url))
              (sidebar (render-sidebar site-name site-subtitle page-entries current-url index-href))
             (body-html (markdown-lines-to-html
                         (transform-mermaid-blocks
@@ -551,10 +645,13 @@ summary:focus-visible {
     (format stream "<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>~a</title><link rel=\"stylesheet\" href=\"~a\"></head><body>~%"
             (html-escape title)
             (html-escape css-href))
-    (format stream "<a class=\"skip-link\" href=\"#main-content\">Skip to content</a><div class=\"site-shell\">~a<div class=\"layout\">~a" global-header sidebar)
-    (format stream "<main class=\"content\" id=\"main-content\">~a</main>" body-html)
-    (format stream "<aside class=\"right-rail\"><p class=\"rail-title\">On This Page</p><ul class=\"toc-list\">~a</ul></aside>" section-items)
-    (format stream "</div></div></body></html>~%"))))
+    (format stream "<a class=\"skip-link\" href=\"#main-content\">Skip to content</a><div class=\"site-shell\">~a~a<div class=\"md-container\" data-md-component=\"container\"><main class=\"md-main\" data-md-component=\"main\"><div class=\"md-main__inner md-grid layout\">~a"
+            global-header
+            top-tabs
+            sidebar)
+    (format stream "<main class=\"content md-content\" id=\"main-content\">~a</main>" body-html)
+    (format stream "<aside class=\"right-rail md-sidebar md-sidebar--secondary\"><p class=\"rail-title\">On This Page</p><ul class=\"toc-list\">~a</ul></aside>" section-items)
+    (format stream "</div></main></div></div></body></html>~%"))))
 
 (defun markdown-path-to-html-relative (markdown-relative)
   (let* ((pathname (uiop:parse-native-namestring markdown-relative))
@@ -591,7 +688,8 @@ summary:focus-visible {
 (defun build-index-html (scope site-name site-subtitle page-entries)
   (with-output-to-string (stream)
     (let ((title (page-title-for-scope scope))
-          (global-header (render-global-header site-name "./index.html"))
+           (global-header (render-global-header site-name "./index.html"))
+          (top-tabs (render-top-tabs page-entries "./index.html" "/"))
           (items
             (if page-entries
                 (with-output-to-string (items-stream)
@@ -606,8 +704,9 @@ summary:focus-visible {
     (format stream "<!doctype html>~%")
     (format stream "<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>~a</title><link rel=\"stylesheet\" href=\"./_assets/theme.css\"></head><body>"
             (html-escape title))
-    (format stream "<a class=\"skip-link\" href=\"#main-content\">Skip to content</a><div class=\"site-shell\">~a<div class=\"layout\">~a"
+    (format stream "<a class=\"skip-link\" href=\"#main-content\">Skip to content</a><div class=\"site-shell\">~a~a<div class=\"md-container\" data-md-component=\"container\"><main class=\"md-main\" data-md-component=\"main\"><div class=\"md-main__inner md-grid layout\">~a"
             global-header
+            top-tabs
             (render-sidebar site-name site-subtitle page-entries "/" nil))
     (format stream "<main class=\"content\" id=\"main-content\">")
     (format stream "<h1 id=\"overview\">~a</h1>" (html-escape title))
@@ -616,7 +715,7 @@ summary:focus-visible {
     (format stream "<section id=\"why\"><h2>Why</h2><p>It is optimized for offline readability, keyboard navigation, and predictable output.</p></section>")
     (format stream "<section id=\"how\"><h2>How</h2><p>Use the left navigation to open pages, then jump within sections from the right rail.</p></section>")
     (format stream "<section id=\"sources\"><h2>Discovered Sources</h2><ul class=\"nav-list\">~a</ul></section>" items)
-    (format stream "</main><aside class=\"right-rail\"><p class=\"rail-title\">On This Page</p><ul class=\"toc-list\">~a</ul></aside></div></div></body></html>" toc-items))))
+    (format stream "</main><aside class=\"right-rail md-sidebar md-sidebar--secondary\"><p class=\"rail-title\">On This Page</p><ul class=\"toc-list\">~a</ul></aside></div></main></div></div></body></html>" toc-items))))
 
 (defun build-manifest-json (scope page-entries style-relative-path pages-target)
   (let* ((html-relative-paths (mapcar (lambda (entry) (getf entry :html-relative)) page-entries))
