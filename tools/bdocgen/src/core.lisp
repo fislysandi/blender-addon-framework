@@ -408,11 +408,11 @@ summary:focus-visible {
       (format stream "<aside class=\"left-rail\" aria-label=\"Documentation navigation\">")
       (format stream "<h1 class=\"brand\">~a</h1>" (html-escape site-name))
       (format stream "<p class=\"brand-sub\">~a</p>" (html-escape site-subtitle))
-      (format stream "<div class=\"sidebar-search-container\"><label for=\"sidebar-search\" class=\"sr-only\">Search</label><input id=\"sidebar-search\" class=\"sidebar-search\" type=\"search\" placeholder=\"Search\" disabled></div>")
+      (format stream "<form class=\"sidebar-search-container\" method=\"get\" action=\"https://www.google.com/search\" target=\"_blank\" rel=\"noopener\"><label for=\"sidebar-search\" class=\"sr-only\">Search docs</label><input id=\"sidebar-search\" class=\"sidebar-search\" name=\"q\" type=\"search\" placeholder=\"Search docs\" autocomplete=\"off\"><input type=\"hidden\" name=\"as_sitesearch\" value=\"fislysandi.github.io/blender-addon-framework\"></form>")
       (when index-href
         (format stream "<a class=\"back-link\" href=\"~a\">Back to docs index</a>" (html-escape index-href)))
       (format stream "<p class=\"caption\"><span class=\"caption-text\">Sections</span></p>")
-      (format stream "<p class=\"nojs-hint\">No JavaScript required. Use Ctrl+F to find content in-page.</p>")
+      (format stream "<p class=\"nojs-hint\">No JavaScript required. Search opens web results; use Ctrl+F for in-page find.</p>")
       (format stream "<details class=\"nav-mobile-toggle\"><summary>Browse Pages</summary><ul class=\"nav-list\">~a</ul></details>" nav-items)
       (format stream "<ul class=\"nav-list\">~a</ul>" nav-items)
       (format stream "</aside>"))))

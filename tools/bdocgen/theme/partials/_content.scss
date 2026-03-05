@@ -1,21 +1,25 @@
 .content {
   max-width: 46em;
-  padding: 1.6rem 2.7rem;
+  padding: 1.45rem 2.45rem;
+  line-height: 1.52;
 }
 
 .content h1 {
-  font-size: 2.2rem;
-  margin: 0 0 1rem;
+  font-size: 2rem;
+  margin: 0 0 0.9rem;
+  line-height: 1.18;
 }
 
 .content h2 {
-  font-size: 2rem;
-  margin-top: 1.4rem;
+  font-size: 1.78rem;
+  margin-top: 1.28rem;
+  line-height: 1.22;
 }
 
 .content h3 {
-  font-size: 1.42rem;
-  margin-top: 1rem;
+  font-size: 1.26rem;
+  margin-top: 0.92rem;
+  line-height: 1.28;
 }
 
 .content p {
@@ -24,7 +28,7 @@
 
 .meta {
   color: var(--color-foreground-muted);
-  font-size: 0.98rem;
+  font-size: 0.94rem;
 }
 
 .toc-cards {

@@ -1,16 +1,17 @@
+@charset "UTF-8";
 :root {
   --color-background-primary: #0f1116;
   --color-background-secondary: #161b22;
   --color-background-border: #2a2f38;
   --color-foreground-primary: #e7edf5;
-  --color-foreground-muted: #acb7c9;
+  --color-foreground-muted: #b3c0d5;
   --color-link: #68b2ff;
   --color-link-hover: #9acfff;
   --color-accent: #f39a45;
   --sidebar-background: #131820;
   --sidebar-background-border: #2c3542;
   --sidebar-link-text: #d6e0ef;
-  --sidebar-caption-text: #9faec4;
+  --sidebar-caption-text: #aab7c9;
   --toc-title-font-size: 0.75rem;
   --radius: 0.4rem;
 }
@@ -64,7 +65,7 @@ a:hover {
 
 .layout {
   display: grid;
-  grid-template-columns: 21.5rem minmax(0, 1fr) 15rem;
+  grid-template-columns: 20.5rem minmax(0, 1fr) 14.5rem;
   min-height: 100vh;
 }
 
@@ -89,7 +90,18 @@ a:hover {
 }
 
 .sidebar-search-container {
-  margin: 0.75rem 0 1rem;
+  margin: 0.7rem 0 0.95rem;
+  position: relative;
+}
+
+.sidebar-search-container::before {
+  content: "🔍";
+  position: absolute;
+  left: 0.55rem;
+  top: 0.46rem;
+  font-size: 0.8rem;
+  opacity: 0.6;
+  pointer-events: none;
 }
 
 .sidebar-search {
@@ -98,7 +110,14 @@ a:hover {
   border: 1px solid var(--sidebar-background-border);
   background: #12161d;
   color: var(--color-foreground-muted);
-  padding: 0.5rem 0.65rem;
+  padding: 0.46rem 0.6rem 0.46rem 1.55rem;
+  font-size: 0.92rem;
+}
+
+.sidebar-search:focus {
+  outline: 2px solid rgba(104, 178, 255, 0.45);
+  outline-offset: 1px;
+  border-color: #4e6e97;
 }
 
 .caption {
@@ -153,7 +172,7 @@ a:hover {
 
 .right-rail {
   border-left: 1px solid var(--color-background-border);
-  padding: 1.1rem 0.95rem;
+  padding: 1rem 0.85rem;
 }
 
 .toc-list li {
@@ -163,7 +182,7 @@ a:hover {
 .toc-list a {
   color: var(--color-foreground-muted);
   font-size: 0.92rem;
-  font-weight: 500;
+  font-weight: 450;
   line-height: 1.35;
 }
 
@@ -190,7 +209,7 @@ a:hover {
 
 @media (max-width: 82em) {
   .layout {
-    grid-template-columns: 18.5rem minmax(0, 1fr) 13rem;
+    grid-template-columns: 17.8rem minmax(0, 1fr) 12.8rem;
   }
   .brand {
     font-size: 1.35rem;
@@ -235,22 +254,26 @@ a:hover {
 }
 .content {
   max-width: 46em;
-  padding: 1.6rem 2.7rem;
+  padding: 1.45rem 2.45rem;
+  line-height: 1.52;
 }
 
 .content h1 {
-  font-size: 2.2rem;
-  margin: 0 0 1rem;
+  font-size: 2rem;
+  margin: 0 0 0.9rem;
+  line-height: 1.18;
 }
 
 .content h2 {
-  font-size: 2rem;
-  margin-top: 1.4rem;
+  font-size: 1.78rem;
+  margin-top: 1.28rem;
+  line-height: 1.22;
 }
 
 .content h3 {
-  font-size: 1.42rem;
-  margin-top: 1rem;
+  font-size: 1.26rem;
+  margin-top: 0.92rem;
+  line-height: 1.28;
 }
 
 .content p {
@@ -259,7 +282,7 @@ a:hover {
 
 .meta {
   color: var(--color-foreground-muted);
-  font-size: 0.98rem;
+  font-size: 0.94rem;
 }
 
 .toc-cards {

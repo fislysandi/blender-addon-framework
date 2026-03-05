@@ -4,7 +4,7 @@
 
 .layout {
   display: grid;
-  grid-template-columns: 21.5rem minmax(0, 1fr) 15rem;
+  grid-template-columns: 20.5rem minmax(0, 1fr) 14.5rem;
   min-height: 100vh;
 }
 
@@ -29,7 +29,18 @@
 }
 
 .sidebar-search-container {
-  margin: 0.75rem 0 1rem;
+  margin: 0.7rem 0 0.95rem;
+  position: relative;
+}
+
+.sidebar-search-container::before {
+  content: "\1F50D";
+  position: absolute;
+  left: 0.55rem;
+  top: 0.46rem;
+  font-size: 0.8rem;
+  opacity: 0.6;
+  pointer-events: none;
 }
 
 .sidebar-search {
@@ -38,7 +49,14 @@
   border: 1px solid var(--sidebar-background-border);
   background: #12161d;
   color: var(--color-foreground-muted);
-  padding: 0.5rem 0.65rem;
+  padding: 0.46rem 0.6rem 0.46rem 1.55rem;
+  font-size: 0.92rem;
+}
+
+.sidebar-search:focus {
+  outline: 2px solid rgba(104, 178, 255, 0.45);
+  outline-offset: 1px;
+  border-color: #4e6e97;
 }
 
 .caption {
@@ -93,7 +111,7 @@
 
 .right-rail {
   border-left: 1px solid var(--color-background-border);
-  padding: 1.1rem 0.95rem;
+  padding: 1rem 0.85rem;
 }
 
 .toc-list li {
@@ -103,7 +121,7 @@
 .toc-list a {
   color: var(--color-foreground-muted);
   font-size: 0.92rem;
-  font-weight: 500;
+  font-weight: 450;
   line-height: 1.35;
 }
 
@@ -130,7 +148,7 @@
 
 @media (max-width: 82em) {
   .layout {
-    grid-template-columns: 18.5rem minmax(0, 1fr) 13rem;
+    grid-template-columns: 17.8rem minmax(0, 1fr) 12.8rem;
   }
 
   .brand {
