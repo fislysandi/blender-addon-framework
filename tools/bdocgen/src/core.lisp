@@ -408,9 +408,11 @@ summary:focus-visible {
       (format stream "<aside class=\"left-rail\" aria-label=\"Documentation navigation\">")
       (format stream "<h1 class=\"brand\">~a</h1>" (html-escape site-name))
       (format stream "<p class=\"brand-sub\">~a</p>" (html-escape site-subtitle))
+      (format stream "<div class=\"sidebar-search-container\"><label for=\"sidebar-search\" class=\"sr-only\">Search</label><input id=\"sidebar-search\" class=\"sidebar-search\" type=\"search\" placeholder=\"Search\" disabled></div>")
       (when index-href
         (format stream "<a class=\"back-link\" href=\"~a\">Back to docs index</a>" (html-escape index-href)))
-      (format stream "<p class=\"nojs-hint\">No JavaScript required. Use this navigation and your browser find shortcut (Ctrl+F).</p>")
+      (format stream "<p class=\"caption\"><span class=\"caption-text\">Sections</span></p>")
+      (format stream "<p class=\"nojs-hint\">No JavaScript required. Use Ctrl+F to find content in-page.</p>")
       (format stream "<details class=\"nav-mobile-toggle\"><summary>Browse Pages</summary><ul class=\"nav-list\">~a</ul></details>" nav-items)
       (format stream "<ul class=\"nav-list\">~a</ul>" nav-items)
       (format stream "</aside>"))))
@@ -631,8 +633,6 @@ summary:focus-visible {
            (prefix (depth-prefix nesting))
              (index-href (format nil "~aindex.html" prefix))
              (css-href (format nil "~a_assets/theme.css" prefix))
-             (global-header (render-global-header site-name index-href))
-             (top-tabs (render-top-tabs page-entries index-href current-url))
              (sidebar (render-sidebar site-name site-subtitle page-entries current-url index-href))
             (body-html (markdown-lines-to-html
                         (transform-mermaid-blocks
@@ -645,13 +645,11 @@ summary:focus-visible {
     (format stream "<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>~a</title><link rel=\"stylesheet\" href=\"~a\"></head><body>~%"
             (html-escape title)
             (html-escape css-href))
-    (format stream "<a class=\"skip-link\" href=\"#main-content\">Skip to content</a><div class=\"site-shell\">~a~a<div class=\"md-container\" data-md-component=\"container\"><main class=\"md-main\" data-md-component=\"main\"><div class=\"md-main__inner md-grid layout\">~a"
-            global-header
-            top-tabs
+    (format stream "<a class=\"skip-link\" href=\"#main-content\">Skip to content</a><div class=\"site-shell\"><div class=\"layout\">~a"
             sidebar)
-    (format stream "<main class=\"content md-content\" id=\"main-content\">~a</main>" body-html)
-    (format stream "<aside class=\"right-rail md-sidebar md-sidebar--secondary\"><p class=\"rail-title\">On This Page</p><ul class=\"toc-list\">~a</ul></aside>" section-items)
-    (format stream "</div></main></div></div></body></html>~%"))))
+    (format stream "<main class=\"content\" id=\"main-content\">~a</main>" body-html)
+    (format stream "<aside class=\"right-rail\"><p class=\"rail-title\">On This Page</p><ul class=\"toc-list\">~a</ul></aside>" section-items)
+    (format stream "</div></div></body></html>~%"))))
 
 (defun markdown-path-to-html-relative (markdown-relative)
   (let* ((pathname (uiop:parse-native-namestring markdown-relative))
@@ -714,35 +712,30 @@ summary:focus-visible {
 
 (defun build-index-html (scope site-name site-subtitle page-entries)
   (with-output-to-string (stream)
-    (let ((title (page-title-for-scope scope))
-           (global-header (render-global-header site-name "./index.html"))
-          (top-tabs (render-top-tabs page-entries "./index.html" "/"))
-          (items
-            (if page-entries
-                (with-output-to-string (items-stream)
-                  (dolist (entry page-entries)
-                    (format items-stream "<li><a href=\".~a\">~a</a> <code>~a</code></li>"
-                            (html-escape (getf entry :url "/"))
-                            (html-escape (getf entry :title "Untitled"))
-                            (html-escape (getf entry :source-path ""))))
-                  )
-                "<li><em>No markdown docs discovered.</em></li>"))
-          (toc-items "<li><a href=\"#overview\">Overview</a></li><li><a href=\"#what\">What</a></li><li><a href=\"#why\">Why</a></li><li><a href=\"#how\">How</a></li><li><a href=\"#sources\">Discovered Sources</a></li>"))
-    (format stream "<!doctype html>~%")
-    (format stream "<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>~a</title><link rel=\"stylesheet\" href=\"./_assets/theme.css\"></head><body>"
-            (html-escape title))
-    (format stream "<a class=\"skip-link\" href=\"#main-content\">Skip to content</a><div class=\"site-shell\">~a~a<div class=\"md-container\" data-md-component=\"container\"><main class=\"md-main\" data-md-component=\"main\"><div class=\"md-main__inner md-grid layout\">~a"
-            global-header
-            top-tabs
+    (let* ((title (page-title-for-scope scope))
+           (cards
+             (if page-entries
+                 (with-output-to-string (cards-stream)
+                   (dolist (entry page-entries)
+                     (format cards-stream "<article class=\"card\"><h3><a href=\".~a\">~a</a></h3><p class=\"meta\">~a</p></article>"
+                             (html-escape (getf entry :url "/"))
+                             (html-escape (getf entry :title "Untitled"))
+                             (html-escape (getf entry :source-path ""))))
+                   )
+                 "<p><em>No markdown docs discovered.</em></p>"))
+           (toc-items "<li><a href=\"#overview\">Overview</a></li><li><a href=\"#getting-started\">Getting Started</a></li><li><a href=\"#sections\">Sections</a></li><li><a href=\"#contribute\">Get Involved</a></li>"))
+     (format stream "<!doctype html>~%")
+     (format stream "<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>~a</title><link rel=\"stylesheet\" href=\"./_assets/theme.css\"></head><body>"
+             (html-escape title))
+    (format stream "<a class=\"skip-link\" href=\"#main-content\">Skip to content</a><div class=\"site-shell\"><div class=\"layout\">~a"
             (render-sidebar site-name site-subtitle page-entries "/" nil))
     (format stream "<main class=\"content\" id=\"main-content\">")
     (format stream "<h1 id=\"overview\">~a</h1>" (html-escape title))
     (format stream "<p class=\"meta\">Scope: <strong>~a</strong> • Generated pages: <strong>~d</strong></p>" (html-escape scope) (length page-entries))
-    (format stream "<section id=\"what\"><h2>What</h2><p>This is a static docs site generated from markdown sources.</p></section>")
-    (format stream "<section id=\"why\"><h2>Why</h2><p>It is optimized for offline readability, keyboard navigation, and predictable output.</p></section>")
-    (format stream "<section id=\"how\"><h2>How</h2><p>Use the left navigation to open pages, then jump within sections from the right rail.</p></section>")
-    (format stream "<section id=\"sources\"><h2>Discovered Sources</h2><ul class=\"nav-list\">~a</ul></section>" items)
-    (format stream "</main><aside class=\"right-rail md-sidebar md-sidebar--secondary\"><p class=\"rail-title\">On This Page</p><ul class=\"toc-list\">~a</ul></aside></div></main></div></div></body></html>" toc-items))))
+    (format stream "<section id=\"getting-started\"><h2>Getting Started</h2><p>Welcome to the framework docs. Browse sections from the sidebar or cards below.</p></section>")
+    (format stream "<section id=\"sections\"><h2>Sections</h2><div class=\"toc-cards\">~a</div></section>" cards)
+    (format stream "<section id=\"contribute\"><h2>Get Involved</h2><p>Contribute documentation updates through pull requests on this repository.</p></section>")
+    (format stream "</main><aside class=\"right-rail\"><p class=\"rail-title\">On This Page</p><ul class=\"toc-list\">~a</ul></aside></div></div></body></html>" toc-items))))
 
 (defun build-manifest-json (scope page-entries style-relative-path pages-target)
   (let* ((html-relative-paths (mapcar (lambda (entry) (getf entry :html-relative)) page-entries))

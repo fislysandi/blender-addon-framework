@@ -1,6 +1,6 @@
 .content {
   max-width: 46em;
-  padding: 1.5rem 3rem;
+  padding: 1.6rem 2.7rem;
 }
 
 .content h1 {
@@ -9,17 +9,45 @@
 }
 
 .content h2 {
-  font-size: 1.85rem;
+  font-size: 2rem;
   margin-top: 1.4rem;
 }
 
 .content h3 {
-  font-size: 1.28rem;
+  font-size: 1.42rem;
   margin-top: 1rem;
 }
 
 .content p {
   margin: 0.5rem 0 0.75rem;
+}
+
+.meta {
+  color: var(--color-foreground-muted);
+  font-size: 0.98rem;
+}
+
+.toc-cards {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
+.card {
+  border: 1px solid var(--color-background-border);
+  border-radius: 0.45rem;
+  background: #151b25;
+  padding: 0.9rem;
+}
+
+.card h3 {
+  margin: 0 0 0.45rem;
+  font-size: 1.16rem;
+}
+
+.card p.meta {
+  margin: 0;
+  font-size: 0.86rem;
 }
 
 .content pre,
@@ -86,6 +114,20 @@
   border-radius: var(--radius);
   background: #fff;
   padding: 0.35rem;
+}
+
+@media (max-width: 48em) {
+  .content {
+    padding: 1.2rem 1rem;
+  }
+
+  .content h1 {
+    font-size: 1.9rem;
+  }
+
+  .content h2 {
+    font-size: 1.6rem;
+  }
 }
 
 .heading-citation {
