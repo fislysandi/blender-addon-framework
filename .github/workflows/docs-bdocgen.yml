@@ -1,0 +1,62 @@
+name: Docs BDocGen Build
+
+on:
+  push:
+    paths:
+      - "docs/**"
+      - "tools/bdocgen/**"
+      - ".github/workflows/docs-bdocgen.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - "tools/bdocgen/**"
+      - ".github/workflows/docs-bdocgen.yml"
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install SBCL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sbcl
+
+      - name: Install OCiCL
+        run: |
+          wget https://github.com/ocicl/ocicl/releases/latest/download/ocicl_2.14.1-1_amd64.deb
+          sudo apt install -y ./ocicl_2.14.1-1_amd64.deb
+
+      - name: Cache OCiCL artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/ocicl
+            tools/bdocgen/ocicl
+          key: ${{ runner.os }}-ocicl-${{ hashFiles('tools/bdocgen/ocicl.csv') }}
+          restore-keys: |
+            ${{ runner.os }}-ocicl-
+
+      - name: Sync OCiCL dependencies
+        working-directory: tools/bdocgen
+        run: |
+          OCICL_LOCAL_ONLY=1 ocicl setup
+          OCICL_LOCAL_ONLY=1 ocicl install py4cl2-cffi fiveam hunchentoot
+
+      - name: Compile docs with BDocGen
+        run: >-
+          sbcl --script tools/bdocgen/scripts/run.lisp
+          --scope project
+          --project-root "${{ github.workspace }}"
+          --docs-root docs
+          --output-dir docs/_build_lisp
+          --addon-name blender-addon-framework
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bdocgen-docs-build
+          path: docs/_build_lisp

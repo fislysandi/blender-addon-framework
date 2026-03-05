@@ -23,6 +23,7 @@ dev = [
 
 [project.scripts]
 create = "src.commands.create:main"
+docs = "src.commands.docs:main"
 test = "src.commands.test:main"
 audit-stale-addons = "src.commands.audit_stale_addons:main"
 compile = "src.commands.compile:main"

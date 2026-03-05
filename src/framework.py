@@ -60,7 +60,6 @@ _ADDONS_FOLDER = "addons"
 _ADDON_ROOT = os.path.join(PROJECT_ROOT, _ADDONS_FOLDER)
 _CODE_TEMPLATES_ROOT = os.path.join(PROJECT_ROOT, "code_templates")
 _DEBUG_SESSION_DIR = os.path.join(PROJECT_ROOT, ".tmp", "debugger_sessions")
-_BDOCGEN_ROOT = os.path.join(PROJECT_ROOT, "bdocgen")
 _UNIFIED_TEMPLATE_MODE = "unified-v1"
 _LEGACY_TEMPLATE_MODE = "legacy"
 _CODE_TEMPLATE_METADATA_FILE = "template.toml"
@@ -3144,156 +3143,69 @@ def install_manifest_wheels(addon_name: str):
     return installed
 
 
-def _edn_string(value: str) -> str:
-    return json.dumps(str(value))
+def _bdocgen_script_path(project_root: str) -> str:
+    return os.path.join(project_root, "tools", "bdocgen", "scripts", "run.lisp")
 
 
-@dataclass(frozen=True)
-class _DocsPaths:
-    docs_root_rel: str
-    docs_root_abs: str
-    output_dir_rel: str
-    output_dir_abs: str
-    index_path: str
-    manifest_path: str
+def _docs_paths_for_addon(addon_name: str) -> tuple[str, str]:
+    docs_root = os.path.join("addons", addon_name, "docs")
+    output_dir = os.path.join(docs_root, "_build")
+    return docs_root, output_dir
 
 
-@dataclass(frozen=True)
-class _BDocGenRequest:
-    addon_name: str
-    docs_root_rel: str
-    output_dir_rel: str
+def _run_bdocgen_tool(
+    *, addon_name: str, project_root: str, docs_root: str, output_dir: str
+) -> None:
+    script_path = _bdocgen_script_path(project_root)
+    if not os.path.isfile(script_path):
+        raise RuntimeError(f"BDocGen script not found: {script_path}")
 
-
-def _docs_paths(addon_name: str) -> _DocsPaths:
-    docs_root_rel = os.path.join(_ADDONS_FOLDER, addon_name, "docs")
-    output_dir_rel = os.path.join(docs_root_rel, "_build")
-    return _DocsPaths(
-        docs_root_rel=docs_root_rel,
-        docs_root_abs=os.path.join(PROJECT_ROOT, docs_root_rel),
-        output_dir_rel=output_dir_rel,
-        output_dir_abs=os.path.join(PROJECT_ROOT, output_dir_rel),
-        index_path=os.path.join(PROJECT_ROOT, output_dir_rel, "index.html"),
-        manifest_path=os.path.join(PROJECT_ROOT, output_dir_rel, "manifest.json"),
-    )
-
-
-def _bdocgen_command(
-    addon_name: str, docs_root_rel: str, output_dir_rel: str
-) -> list[str]:
-    return [
-        "clj",
-        "-X:run",
-        ":scope",
-        ":project",
-        ":project-root",
-        _edn_string(".."),
-        ":docs-root",
-        _edn_string(docs_root_rel),
-        ":output-dir",
-        _edn_string(output_dir_rel),
-        ":addon-name",
-        _edn_string(addon_name),
+    command = [
+        "sbcl",
+        "--script",
+        script_path,
+        "--scope",
+        "project",
+        "--project-root",
+        project_root,
+        "--docs-root",
+        docs_root,
+        "--output-dir",
+        output_dir,
+        "--addon-name",
+        addon_name,
     ]
+    result = subprocess.run(command, cwd=project_root, capture_output=True, text=True)
+    if result.returncode == 0:
+        return
+
+    details = (result.stderr or result.stdout or "").strip()
+    raise RuntimeError(f"BDocGen command failed for addon '{addon_name}': {details}")
 
 
-def _validate_manifest_contract(manifest: dict, manifest_path: str):
-    required_keys = {"status", "scope", "page_count", "errors", "pages"}
-    missing = [key for key in required_keys if key not in manifest]
-    if missing:
-        raise RuntimeError(
-            f"BDocGen contract invalid: manifest missing keys {missing} ({manifest_path})"
-        )
-    if manifest["status"] != "ok":
-        raise RuntimeError(
-            f"BDocGen contract invalid: status={manifest['status']} errors={manifest.get('errors')}"
-        )
-    if manifest.get("errors"):
-        raise RuntimeError(f"BDocGen reported errors: {manifest['errors']}")
-
-    page_count = manifest.get("page_count")
-    pages = manifest.get("pages")
-    if not isinstance(page_count, int) or page_count < 0:
-        raise RuntimeError(f"BDocGen contract invalid: page_count={page_count}")
-    if not isinstance(pages, list):
-        raise RuntimeError("BDocGen contract invalid: pages must be a list")
-    if page_count != len(pages):
-        raise RuntimeError(
-            f"BDocGen contract invalid: page_count={page_count} but pages={len(pages)}"
-        )
-
-
-def _run_bdocgen_command(request: _BDocGenRequest):
-    if not os.path.isdir(_BDOCGEN_ROOT):
-        raise RuntimeError(f"BDocGen project not found: {_BDOCGEN_ROOT}")
-
-    command = _bdocgen_command(
-        request.addon_name,
-        request.docs_root_rel,
-        request.output_dir_rel,
+def build_docs_for_addon(addon_name: str, *, project_root: str = PROJECT_ROOT) -> dict:
+    docs_root, output_dir = _docs_paths_for_addon(addon_name)
+    _run_bdocgen_tool(
+        addon_name=addon_name,
+        project_root=project_root,
+        docs_root=docs_root,
+        output_dir=output_dir,
     )
 
-    result = subprocess.run(
-        command,
-        cwd=_BDOCGEN_ROOT,
-        capture_output=True,
-        text=True,
-    )
-
-    if result.returncode != 0:
-        details = (result.stderr or result.stdout).strip()
-        raise RuntimeError(
-            f"BDocGen failed for addon '{request.addon_name}' (exit {result.returncode}): {details}"
-        )
-
-
-def _validate_bdocgen_contract(request: _BDocGenRequest):
-    output_dir_abs = os.path.join(PROJECT_ROOT, request.output_dir_rel)
-    index_path = os.path.join(output_dir_abs, "index.html")
-    manifest_path = os.path.join(output_dir_abs, "manifest.json")
-
-    if not os.path.isfile(index_path):
-        raise RuntimeError(
-            f"BDocGen contract invalid: missing index.html at {index_path}"
-        )
+    manifest_path = os.path.join(project_root, output_dir, "manifest.json")
     if not os.path.isfile(manifest_path):
-        raise RuntimeError(
-            f"BDocGen contract invalid: missing manifest.json at {manifest_path}"
-        )
+        raise RuntimeError(f"BDocGen manifest not found: {manifest_path}")
 
     manifest = json.loads(read_utf8(manifest_path))
-    _validate_manifest_contract(manifest, manifest_path)
-    page_count = manifest.get("page_count")
-
     return {
-        "index_path": index_path,
+        "status": manifest.get("status", "unknown"),
+        "scope": manifest.get("scope", "project"),
+        "page_count": manifest.get("page_count", 0),
+        "errors": manifest.get("errors", []),
+        "pages": manifest.get("pages", []),
         "manifest_path": manifest_path,
-        "page_count": page_count,
+        "output_dir": os.path.join(project_root, output_dir),
     }
-
-
-def run_bdocgen(request: _BDocGenRequest) -> dict:
-    _run_bdocgen_command(request)
-    return _validate_bdocgen_contract(request)
-
-
-def build_docs_for_addon(addon_name: str):
-    paths = _docs_paths(addon_name)
-    docs_root_rel = paths.docs_root_rel
-    if not os.path.isdir(paths.docs_root_abs):
-        print(f"No docs directory for addon '{addon_name}', skipping BDocGen.")
-        return {"status": "skipped", "page_count": 0}
-
-    request = _BDocGenRequest(
-        addon_name=addon_name,
-        docs_root_rel=docs_root_rel,
-        output_dir_rel=paths.output_dir_rel,
-    )
-    contract = run_bdocgen(request)
-    print(
-        f"BDocGen generated {contract['page_count']} page(s) for '{addon_name}' at {paths.output_dir_rel}"
-    )
-    return {"status": "ok", **contract}
 
 
 def _build_initial_visited_py_files(addon_name: str) -> set[str]:
@@ -3916,6 +3828,14 @@ def _compile_docs_result(addon_name: str, *, need_zip: bool, skip_docs: bool) ->
         )
         return {"status": "skipped", "reason": "no_zip"}
     docs_build_result = build_docs_for_addon(addon_name)
+    if (
+        docs_build_result.get("status") == "skipped"
+        and docs_build_result.get("reason") == "external_tool"
+    ):
+        print(
+            "Docs build is managed by tools/bdocgen. "
+            f"Run tools/bdocgen for addon '{addon_name}' when needed."
+        )
     _maybe_print_docs_contract(docs_build_result)
     return docs_build_result
 

@@ -12,6 +12,7 @@ from src.commands.context import resolve_framework_root
 _COMMAND_MODULES = {
     "repl": "src.commands.repl",
     "create": "src.commands.create",
+    "docs": "src.commands.docs",
     "test": "src.commands.test",
     "compile": "src.commands.compile",
     "release": "src.commands.release",
