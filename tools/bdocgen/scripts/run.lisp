@@ -1,0 +1,10 @@
+(require :asdf)
+
+(let* ((script-path *load-truename*)
+       (script-dir (uiop:pathname-directory-pathname script-path))
+       (tool-root (uiop:pathname-parent-directory-pathname script-dir))
+       (asd-path (merge-pathnames #P"bdocgen.asd" tool-root)))
+  (asdf:load-asd asd-path)
+  (asdf:load-system "bdocgen")
+  (let ((exit-code (funcall (find-symbol "MAIN" :bdocgen))))
+    (uiop:quit exit-code)))

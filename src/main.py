@@ -68,6 +68,7 @@ TEST_RELEASE_DIR = os.path.join(PROJECT_ROOT, "../addon_test/")
 USE_UV_BY_DEFAULT = True
 SKIP_DOCS_BY_DEFAULT = False
 BUNDLE_DEPS_BY_DEFAULT = True
+TERMINAL_BELL = False
 
 
 def _coerce_bool(value, default):
@@ -165,6 +166,12 @@ def _default_state_overrides(default_config, current_state):
             bundle_deps_by_default, current_state["BUNDLE_DEPS_BY_DEFAULT"]
         )
 
+    terminal_bell = default_config.get("terminal_bell")
+    if terminal_bell is not None:
+        overrides["TERMINAL_BELL"] = _coerce_bool(
+            terminal_bell, current_state["TERMINAL_BELL"]
+        )
+
     return overrides
 
 
@@ -237,6 +244,7 @@ _runtime_state = {
     "USE_UV_BY_DEFAULT": USE_UV_BY_DEFAULT,
     "SKIP_DOCS_BY_DEFAULT": SKIP_DOCS_BY_DEFAULT,
     "BUNDLE_DEPS_BY_DEFAULT": BUNDLE_DEPS_BY_DEFAULT,
+    "TERMINAL_BELL": TERMINAL_BELL,
 }
 _runtime_state = _apply_config_overrides(
     _runtime_state, _load_project_config(CONFIG_FILEPATH)
@@ -251,6 +259,7 @@ TEST_RELEASE_DIR = _runtime_state["TEST_RELEASE_DIR"]
 USE_UV_BY_DEFAULT = _runtime_state["USE_UV_BY_DEFAULT"]
 SKIP_DOCS_BY_DEFAULT = _runtime_state["SKIP_DOCS_BY_DEFAULT"]
 BUNDLE_DEPS_BY_DEFAULT = _runtime_state["BUNDLE_DEPS_BY_DEFAULT"]
+TERMINAL_BELL = _runtime_state["TERMINAL_BELL"]
 
 
 def ensure_runtime_configuration(auto_detect: bool = True):
