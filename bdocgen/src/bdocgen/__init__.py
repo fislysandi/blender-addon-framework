@@ -1,1 +1,0 @@
-"""BDocGen Python runtime package."""
