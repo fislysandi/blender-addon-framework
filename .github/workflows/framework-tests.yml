@@ -1,10 +1,12 @@
-name: Framework Tests
+name: Framework Validation
 
 on:
   push:
     paths:
       - "src/**"
       - "tests/**"
+      - "tools/repl/**"
+      - "tools/adapters/**"
       - "pyproject.toml"
       - "uv.lock"
       - ".github/workflows/framework-tests.yml"
@@ -12,12 +14,66 @@ on:
     paths:
       - "src/**"
       - "tests/**"
+      - "tools/repl/**"
+      - "tools/adapters/**"
       - "pyproject.toml"
       - "uv.lock"
       - ".github/workflows/framework-tests.yml"
 
 jobs:
-  test-framework:
+  lisp-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python for uv tooling
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install SBCL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sbcl
+
+      - name: Install OCiCL
+        run: |
+          DEB_URL=$(curl -fsSL https://api.github.com/repos/ocicl/ocicl/releases/latest | jq -r '.assets[] | select(.name | endswith("_amd64.deb")) | .browser_download_url' | head -n1)
+          if [ -z "$DEB_URL" ] || [ "$DEB_URL" = "null" ]; then
+            echo "Failed to resolve OCiCL amd64 .deb asset from latest release" >&2
+            exit 1
+          fi
+          wget -O ocicl_latest_amd64.deb "$DEB_URL"
+          sudo apt install -y ./ocicl_latest_amd64.deb
+
+      - name: Cache OCiCL artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/ocicl
+            tools/repl/ocicl
+          key: ${{ runner.os }}-ocicl-repl-${{ hashFiles('tools/repl/ocicl.csv') }}
+          restore-keys: |
+            ${{ runner.os }}-ocicl-repl-
+
+      - name: Sync uv + OCiCL dependencies
+        run: sbcl --script tools/repl/scripts/sync-deps.lisp --targets repl
+
+      - name: Run Lisp test system (primary)
+        run: |
+          sbcl --non-interactive \
+            --eval '(require :asdf)' \
+            --eval '(load #P"/home/runner/.local/share/ocicl/ocicl-runtime.lisp")' \
+            --eval '(asdf:initialize-source-registry (list :source-registry (list :directory #P"'"${{ github.workspace }}"'/tools/repl/") :inherit-configuration))' \
+            --eval '(asdf:load-asd #P"'"${{ github.workspace }}"'/tools/repl/generic-repl.asd")' \
+            --eval '(asdf:test-system "generic-repl/tests")'
+
+  python-smoke:
+    needs: lisp-tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,7 +82,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Install uv
         run: pip install uv
@@ -34,5 +90,9 @@ jobs:
       - name: Sync dependencies
         run: uv sync --extra dev
 
-      - name: Run framework-only tests
-        run: uv run test-framework
+      - name: Run Python smoke tests
+        run: |
+          uv run python -m pytest \
+            tests/test_framework_functional_helpers.py \
+            tests/test_uv_integration.py \
+            tests/test_main_runtime_configuration.py

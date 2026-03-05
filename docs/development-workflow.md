@@ -18,21 +18,31 @@ This installs runtime dependencies plus developer tools declared in `pyproject.t
 
 ## Run framework tests
 
-Run unit tests for framework code:
+Lisp-first validation is the primary test path for command/runtime migration work:
 
 ```bash
-uv run test-framework
+sbcl --script tools/repl/scripts/sync-deps.lisp --targets repl
+sbcl --non-interactive \
+  --eval '(require :asdf)' \
+  --eval '(load (merge-pathnames #P".local/share/ocicl/ocicl-runtime.lisp" (user-homedir-pathname)))' \
+  --eval '(asdf:initialize-source-registry (list :source-registry (list :directory #P"tools/repl/") :inherit-configuration))' \
+  --eval '(asdf:load-asd #P"tools/repl/generic-repl.asd")' \
+  --eval '(asdf:test-system "generic-repl/tests")'
 ```
 
-Equivalent command:
+Python tests are now a smoke layer for integration-sensitive behavior:
 
 ```bash
-uv run python -m pytest tests
+uv sync --extra dev
+uv run python -m pytest \
+  tests/test_framework_functional_helpers.py \
+  tests/test_uv_integration.py \
+  tests/test_main_runtime_configuration.py
 ```
 
 CI parity note:
 
-- GitHub Actions workflow `framework-tests.yml` installs dev deps with `uv sync --extra dev` and runs `uv run test-framework`.
+- GitHub Actions workflow `framework-tests.yml` runs Lisp tests as the primary gate and then runs the Python smoke suite.
 
 ## Validate CLI changes
 
@@ -96,7 +106,8 @@ Before merging packaging-related changes:
 
 ## Recommended pull request checklist
 
-- Tests pass locally (`uv run test-framework`)
+- Lisp tests pass locally (`asdf:test-system "generic-repl/tests"` path above)
+- Python smoke tests pass locally (three-file pytest smoke suite above)
 - Changed CLI flags/arguments reflected in docs
 - New config fields documented in `docs/config-reference.md`
 - Template changes validated with `template apply --dry-run`
