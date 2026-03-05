@@ -1,6 +1,7 @@
 name: Docs BDocGen Build
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - "docs/**"
@@ -11,6 +12,9 @@ on:
       - "docs/**"
       - "tools/bdocgen/**"
       - ".github/workflows/docs-bdocgen.yml"
+
+permissions:
+  contents: read
 
 jobs:
   build-docs:
@@ -60,8 +64,32 @@ jobs:
           --output-dir docs/_build_lisp
           --addon-name blender-addon-framework
 
+      - name: Add .nojekyll marker
+        run: touch docs/_build_lisp/.nojekyll
+
       - name: Upload docs artifact
         uses: actions/upload-artifact@v4
         with:
           name: bdocgen-docs-build
           path: docs/_build_lisp
+
+      - name: Upload Pages artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/_build_lisp
+
+  deploy-pages:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: build-docs
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
