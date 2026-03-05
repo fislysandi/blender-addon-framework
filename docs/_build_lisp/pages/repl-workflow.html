@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>REPL Workflow</title><link rel="stylesheet" href="../_assets/theme.css"></head><body>
+<a class="skip-link" href="#main-content">Skip to content</a><div class="layout"><aside class="left-rail" aria-label="Documentation navigation"><h1 class="brand">blender-addon-framework</h1><p class="brand-sub">Reference Manual</p><a class="back-link" href="../index.html">Back to docs index</a><p class="nojs-hint">No JavaScript required. Use this navigation and your browser find shortcut (Ctrl+F).</p><details class="nav-mobile-toggle"><summary>Browse Pages</summary><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a class="current" href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></details><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a class="current" href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></aside><main class="content" id="main-content"><h1 id="repl-workflow">REPL Workflow</h1>
+<p>This guide documents the interactive REPL available through `baf`.</p>
+<p>&gt; Transition note: the project direction is Common Lisp-first REPL tooling.
+&gt; The current Python REPL remains available during migration and is planned for removal once the Common Lisp REPL implementation is ready.</p>
+<h2 id="start-the-repl">Start the REPL</h2>
+<p>From framework root:</p>
+<pre><code>uv run baf
+</code></pre>
+<p>Or open REPL explicitly:</p>
+<pre><code>uv run baf repl
+</code></pre>
+<p>Prompt example:</p>
+<pre><code>baf&gt;
+</code></pre>
+<p>`baf` command behavior:</p>
+<ul>
+<li>`uv run baf` starts REPL directly when no command is provided</li>
+<li>`uv run baf repl` opens REPL explicitly</li>
+<li>in REPL, typing `repl` prints a reminder that you are already in REPL mode</li>
+</ul>
+<h2 id="run-framework-commands-interactively">Run framework commands interactively</h2>
+<p>In the REPL, enter normal command forms:</p>
+<pre><code>test my_addon
+compile my_addon --with-version
+template list
+</code></pre>
+<p>Local REPL commands:</p>
+<ul>
+<li>`help` or `?` shows REPL help</li>
+<li>`reload` attempts fast in-process module reload, then falls back to process restart if needed</li>
+<li>`exit` or `quit` closes the REPL</li>
+</ul>
+<p>Keyboard interrupt behavior:</p>
+<ul>
+<li>first `Ctrl+C`: prints a warning and keeps REPL alive</li>
+<li>second consecutive `Ctrl+C`: exits REPL</li>
+</ul>
+<h2 id="lisp-command-forms">Lisp command forms</h2>
+<p>REPL also accepts Lisp-style forms for selected commands.</p>
+<p>Examples:</p>
+<pre><code>(test my_addon)
+(test :addon my_addon :no-debug true)
+(compile :addon my_addon :with-docs true :with-version true)
+(template :command list)
+</code></pre>
+<p>Notes:</p>
+<ul>
+<li>Keywords start with `:`</li>
+<li>Boolean values accept `true`, `false`, `on`, `off`, `yes`, `no`, `1`, `0`</li>
+<li>Keyword arguments can replace required positionals for supported commands</li>
+</ul>
+<p>Currently documented keyword mapping is explicitly implemented for:</p>
+<ul>
+<li>`test`</li>
+<li>`compile`</li>
+<li>`rename-addon`</li>
+<li>`addon-deps`</li>
+<li>`template`</li>
+</ul>
+<p>Other commands may still work in Lisp form through generic fallback argument conversion, but keyword coverage is strongest for the commands above.</p>
+<p>Examples by command:</p>
+<pre><code>(rename-addon old_addon new_addon :dry-run true)
+(addon-deps :command add :addon my_addon :package requests :use-uv true)
+(template :command apply :template ui/basic_panel :addon my_addon :on-conflict rename)
+</code></pre>
+<h2 id="repl-settings-forms">REPL settings forms</h2>
+<p>The REPL supports runtime settings and persistence into `config.toml`.</p>
+<p>Show active settings:</p>
+<pre><code>(settings)
+</code></pre>
+<p>Read one setting value and source:</p>
+<pre><code>(get :terminal-bell)
+(source :terminal-bell)
+</code></pre>
+<p>Set a session-only override:</p>
+<pre><code>(set! :skip-docs-by-default true)
+</code></pre>
+<p>Clear a session override:</p>
+<pre><code>(unset! :skip-docs-by-default)
+</code></pre>
+<p>Persist a value to `config.toml`:</p>
+<pre><code>(save! :use-uv-by-default true)
+</code></pre>
+<p>Behavior details:</p>
+<ul>
+<li>`(settings)` prints current value and source for each key (`session`, `config`, or `default`)</li>
+<li>`(get :key)` prints only the effective value</li>
+<li>`(source :key)` prints only the source layer</li>
+<li>`(set! :key value)` updates current session only</li>
+<li>`(unset! :key)` clears only session override</li>
+<li>`(save! :key value)` writes to `config.toml` `[default]` and updates effective runtime value</li>
+</ul>
+<h2 id="supported-setting-keys">Supported setting keys</h2>
+<ul>
+<li>`:terminal-bell`</li>
+<li>`:use-uv-by-default`</li>
+<li>`:skip-docs-by-default`</li>
+<li>`:bundle-deps-by-default`</li>
+</ul>
+<h2 id="framework-root-behavior">Framework root behavior</h2>
+<p>When launched through `baf`, the REPL resolves framework root automatically.</p>
+<p>If needed, pass it explicitly:</p>
+<pre><code>uv run baf --framework-root /path/to/framework repl
+</code></pre>
+<p>REPL command dispatch forwards this same framework root to command handlers that support `--framework-root`.</p>
+<h2 id="completion-behavior">Completion behavior</h2>
+<p>REPL completion supports both shell-style commands and Lisp forms.</p>
+<ul>
+<li>shell mode: command names, subcommands, addon names, and command flags</li>
+<li>Lisp mode: operators (`settings`, `get`, `set!`, `unset!`, `save!`, `source`), setting symbols, command keywords, and command-specific values</li>
+</ul>
+<p>If terminal completion is unavailable, commands still run normally without completion.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<ul>
+<li>If command completion does not appear, confirm your terminal supports readline behavior for your platform</li>
+<li>If REPL settings do not persist, verify write access to `config.toml` in framework root</li>
+<li>If command forms fail, use `help` and compare with command `--help` output</li>
+<li>If Lisp form flags behave unexpectedly, prefer equivalent shell command form to confirm base command behavior</li>
+</ul>
+</main><aside class="right-rail"><p class="rail-title">On This Page</p><ul class="toc-list"><li><a href="#start-the-repl">Start the REPL</a></li><li><a href="#run-framework-commands-interactively">Run framework commands interactively</a></li><li><a href="#lisp-command-forms">Lisp command forms</a></li><li><a href="#repl-settings-forms">REPL settings forms</a></li><li><a href="#supported-setting-keys">Supported setting keys</a></li><li><a href="#framework-root-behavior">Framework root behavior</a></li><li><a href="#completion-behavior">Completion behavior</a></li><li><a href="#troubleshooting">Troubleshooting</a></li></ul></aside></div></body></html>

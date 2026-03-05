@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Troubleshooting</title><link rel="stylesheet" href="../_assets/theme.css"></head><body>
+<a class="skip-link" href="#main-content">Skip to content</a><div class="layout"><aside class="left-rail" aria-label="Documentation navigation"><h1 class="brand">blender-addon-framework</h1><p class="brand-sub">Reference Manual</p><a class="back-link" href="../index.html">Back to docs index</a><p class="nojs-hint">No JavaScript required. Use this navigation and your browser find shortcut (Ctrl+F).</p><details class="nav-mobile-toggle"><summary>Browse Pages</summary><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a class="current" href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></details><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a class="current" href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></aside><main class="content" id="main-content"><h1 id="troubleshooting">Troubleshooting</h1>
+<p>This page covers common setup and command issues.</p>
+<h2 id="blender-path-is-not-configured">Blender path is not configured</h2>
+<p>Symptoms:</p>
+<ul>
+<li>Error indicates Blender was not found.</li>
+<li>Test/compile commands fail before running addon logic.</li>
+</ul>
+<p>Fix:</p>
+<ul>
+<li>Create or update `config.toml` in project root.</li>
+<li>Set `[blender].exe_path` to your Blender executable.</li>
+<li>Optionally set `[blender].addon_path` if autodetection is incorrect.</li>
+</ul>
+<p>Minimal example:</p>
+<pre><code>[blender]
+exe_path = &quot;/path/to/blender&quot;
+</code></pre>
+<p>Notes:</p>
+<ul>
+<li>On startup, the framework may auto-detect Blender and write detected path into `config.toml`.</li>
+<li>Values in `config.toml` override defaults from `src/main.py`.</li>
+</ul>
+<h2 id="warning-add-on-not-loaded-module-not-found">Warning: Add-on not loaded, module not found</h2>
+<p>Example:</p>
+<pre><code>Add-on not loaded: &quot;sample_addon&quot;, cause: No module named 'sample_addon'
+</code></pre>
+<p>Cause:</p>
+<ul>
+<li>Blender tries to re-enable addons remembered in previous sessions.</li>
+<li>Missing folders produce warnings even if your current target addon is fine.</li>
+</ul>
+<p>Options:</p>
+<ul>
+<li>Ignore the warning if your target addon works.</li>
+<li>Run `uv run audit-stale-addons` to inspect stale enabled addons.</li>
+<li>Run `uv run audit-stale-addons --disable-missing` to disable missing ones.</li>
+<li>Reset preferences with `uv run audit-stale-addons --reset-prefs`.</li>
+</ul>
+<h2 id="error-no-addon-name-provided">Error: No addon name provided</h2>
+<p>Cause:</p>
+<ul>
+<li>Command requires an addon argument and none was resolved.</li>
+</ul>
+<p>Fix:</p>
+<pre><code>uv run test my_addon
+uv run compile my_addon
+</code></pre>
+<p>Tip:</p>
+<ul>
+<li>Running inside `addons/my_addon/` allows autodetection for supported commands.</li>
+</ul>
+<h2 id="dependency-sync-behavior-is-unexpected">Dependency sync behavior is unexpected</h2>
+<p>Cause:</p>
+<ul>
+<li>UV/pip behavior depends on `default.use_uv_by_default` and command flags.</li>
+</ul>
+<p>Resolution order:</p>
+<ul>
+<li>CLI flags: `--use-uv` or `--no-use-uv`</li>
+<li>`config.toml`: `default.use_uv_by_default`</li>
+<li>Built-in default (`True`)</li>
+</ul>
+<h2 id="release-zip-location-is-not-where-expected">Release zip location is not where expected</h2>
+<p>Cause:</p>
+<ul>
+<li>Output path uses `default.release_dir` if configured, otherwise project `releases/`.</li>
+</ul>
+<p>Fix:</p>
+<ul>
+<li>Set `default.release_dir` in `config.toml`, or pass `--release-dir` when supported by your command invocation.</li>
+</ul>
+</main><aside class="right-rail"><p class="rail-title">On This Page</p><ul class="toc-list"><li><a href="#blender-path-is-not-configured">Blender path is not configured</a></li><li><a href="#warning-add-on-not-loaded-module-not-found">Warning: Add-on not loaded, module not found</a></li><li><a href="#error-no-addon-name-provided">Error: No addon name provided</a></li><li><a href="#dependency-sync-behavior-is-unexpected">Dependency sync behavior is unexpected</a></li><li><a href="#release-zip-location-is-not-where-expected">Release zip location is not where expected</a></li></ul></aside></div></body></html>

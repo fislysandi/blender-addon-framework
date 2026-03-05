@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Migrating Your Addon to Blender Addon Framework</title><link rel="stylesheet" href="../_assets/theme.css"></head><body>
+<a class="skip-link" href="#main-content">Skip to content</a><div class="layout"><aside class="left-rail" aria-label="Documentation navigation"><h1 class="brand">blender-addon-framework</h1><p class="brand-sub">Reference Manual</p><a class="back-link" href="../index.html">Back to docs index</a><p class="nojs-hint">No JavaScript required. Use this navigation and your browser find shortcut (Ctrl+F).</p><details class="nav-mobile-toggle"><summary>Browse Pages</summary><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a class="current" href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></details><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a class="current" href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></aside><main class="content" id="main-content"><h1 id="migrating-your-addon-to-blender-addon-framework">Migrating Your Addon to Blender Addon Framework</h1>
+<p>This guide explains how to move an existing addon project into this framework.</p>
+<h2 id="who-this-is-for">Who this is for</h2>
+<p>Use this when you already have a working Blender addon (inside or outside this repository) and want to adopt:</p>
+<ul>
+<li>framework CLI workflows (`create`, `test`, `compile`)</li>
+<li>unified addon structure (`unified-v1`)</li>
+<li>per-addon dependencies (`addon-deps`)</li>
+<li>reusable template workflow (`template apply/extract`)</li>
+</ul>
+<h2 id="migration-outcome">Migration outcome</h2>
+<p>After migration, your addon should live at:</p>
+<pre><code>addons/&lt;addon_name&gt;/
+  blender_manifest.toml
+  src/
+  docs/
+  tests/
+  pyproject.toml
+  uv.lock
+</code></pre>
+<h2 id="step-1-prepare-framework-workspace">Step 1: Prepare framework workspace</h2>
+<p>From framework root:</p>
+<pre><code>uv sync --extra dev
+</code></pre>
+<p>If needed, configure Blender in `config.toml` (see `docs/config-reference.md`).</p>
+<h2 id="step-2-create-target-addon-scaffold">Step 2: Create target addon scaffold</h2>
+<p>Create a new addon directory using the standard layout:</p>
+<pre><code>uv run create &lt;addon_name&gt;
+</code></pre>
+<p>This creates the destination folder under `addons/&lt;addon_name&gt;/`.</p>
+<h2 id="step-3-move-runtime-code-into-src">Step 3: Move runtime code into `src/`</h2>
+<p>Copy runtime modules from your old addon into:</p>
+<ul>
+<li>`addons/&lt;addon_name&gt;/src/`</li>
+<li>common subfolders such as `ui/`, `operators/`, `core/`, `utils/`, `i18n/`, `preferences/`</li>
+</ul>
+<p>Keep docs and tests separate:</p>
+<ul>
+<li>move user/developer docs into `addons/&lt;addon_name&gt;/docs/`</li>
+<li>move tests into `addons/&lt;addon_name&gt;/tests/`</li>
+</ul>
+<p>For unified structure details, see `docs/addon-structure-standard.md`.</p>
+<h2 id="step-4-align-addon-identity-and-preferences">Step 4: Align addon identity and preferences</h2>
+<p>Ensure addon package naming is consistent with framework expectations:</p>
+<ul>
+<li>verify `config.py` and addon name constants match your target addon identity</li>
+<li>update any hardcoded old package/module names in imports</li>
+</ul>
+<p>If your addon defines `AddonPreferences`, use the addon name constant as `bl_idname`.</p>
+<h2 id="step-5-resolve-imports">Step 5: Resolve imports</h2>
+<p>During migration, imports are the most common failure point.</p>
+<p>Checklist:</p>
+<ul>
+<li>Update module paths to the new `src/` layout.</li>
+<li>Remove stale references to old root-level folder structure.</li>
+<li>Confirm all referenced modules exist inside the migrated addon package.</li>
+</ul>
+<h2 id="step-6-configure-dependencies-for-the-addon">Step 6: Configure dependencies for the addon</h2>
+<p>Initialize per-addon dependency management:</p>
+<pre><code>uv run addon-deps init &lt;addon_name&gt;
+</code></pre>
+<p>Add required third-party packages one by one:</p>
+<pre><code>uv run addon-deps add &lt;addon_name&gt; &lt;package&gt;
+</code></pre>
+<p>Sync/install dependencies:</p>
+<pre><code>uv run addon-deps sync &lt;addon_name&gt;
+</code></pre>
+<p>Use `--use-uv` or `--no-use-uv` when you need to override defaults.</p>
+<h2 id="step-7-validate-migration-in-blender">Step 7: Validate migration in Blender</h2>
+<p>Run addon test workflow:</p>
+<pre><code>uv run test &lt;addon_name&gt;
+</code></pre>
+<p>If startup warnings mention missing old addons, use:</p>
+<pre><code>uv run audit-stale-addons
+</code></pre>
+<p>See `docs/troubleshooting.md` for cleanup options.</p>
+<h2 id="step-8-package-and-verify-output">Step 8: Package and verify output</h2>
+<p>Compile/package the migrated addon:</p>
+<pre><code>uv run compile &lt;addon_name&gt;
+</code></pre>
+<p>Optional checks:</p>
+<ul>
+<li>test extension packaging mode if required (`--extension`)</li>
+<li>verify output location (`default.release_dir` or `--release-dir`)</li>
+</ul>
+<h2 id="optional-reuse-framework-templates">Optional: Reuse framework templates</h2>
+<p>If you want to replace custom boilerplate with framework templates:</p>
+<pre><code>uv run template list
+uv run template apply &lt;template_name&gt; &lt;addon_name&gt; --dry-run
+</code></pre>
+<p>Apply only after reviewing planned file operations.</p>
+<h2 id="migration-checklist">Migration checklist</h2>
+<ul>
+<li>Addon scaffold created with `uv run create &lt;addon_name&gt;`</li>
+<li>Runtime code moved under `addons/&lt;addon_name&gt;/src/`</li>
+<li>Docs and tests moved into `docs/` and `tests/`</li>
+<li>Imports updated to new module paths</li>
+<li>Addon identity/config values aligned</li>
+<li>Dependencies initialized and synced (`addon-deps`)</li>
+<li>`uv run test &lt;addon_name&gt;` succeeds</li>
+<li>`uv run compile &lt;addon_name&gt;` succeeds</li>
+</ul>
+<h2 id="common-pitfalls">Common pitfalls</h2>
+<ul>
+<li>Leaving modules in legacy root paths instead of `src/`</li>
+<li>Missing or inconsistent addon name constants</li>
+<li>Broken imports after folder moves</li>
+<li>Forgetting to migrate addon-specific dependencies</li>
+<li>Assuming stale addon warnings are migration failures</li>
+</ul>
+</main><aside class="right-rail"><p class="rail-title">On This Page</p><ul class="toc-list"><li><a href="#who-this-is-for">Who this is for</a></li><li><a href="#migration-outcome">Migration outcome</a></li><li><a href="#step-1-prepare-framework-workspace">Step 1: Prepare framework workspace</a></li><li><a href="#step-2-create-target-addon-scaffold">Step 2: Create target addon scaffold</a></li><li><a href="#step-3-move-runtime-code-into-src">Step 3: Move runtime code into `src/`</a></li><li><a href="#step-4-align-addon-identity-and-preferences">Step 4: Align addon identity and preferences</a></li><li><a href="#step-5-resolve-imports">Step 5: Resolve imports</a></li><li><a href="#step-6-configure-dependencies-for-the-addon">Step 6: Configure dependencies for the addon</a></li><li><a href="#step-7-validate-migration-in-blender">Step 7: Validate migration in Blender</a></li><li><a href="#step-8-package-and-verify-output">Step 8: Package and verify output</a></li><li><a href="#optional-reuse-framework-templates">Optional: Reuse framework templates</a></li><li><a href="#migration-checklist">Migration checklist</a></li><li><a href="#common-pitfalls">Common pitfalls</a></li></ul></aside></div></body></html>

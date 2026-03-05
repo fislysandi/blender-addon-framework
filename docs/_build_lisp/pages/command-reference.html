@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Command Reference</title><link rel="stylesheet" href="../_assets/theme.css"></head><body>
+<a class="skip-link" href="#main-content">Skip to content</a><div class="layout"><aside class="left-rail" aria-label="Documentation navigation"><h1 class="brand">blender-addon-framework</h1><p class="brand-sub">Reference Manual</p><a class="back-link" href="../index.html">Back to docs index</a><p class="nojs-hint">No JavaScript required. Use this navigation and your browser find shortcut (Ctrl+F).</p><details class="nav-mobile-toggle"><summary>Browse Pages</summary><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a class="current" href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></details><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a class="current" href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></aside><main class="content" id="main-content"><h1 id="command-reference">Command Reference</h1>
+<p>This page lists framework CLI commands defined in `pyproject.toml`.</p>
+<h2 id="conventions">Conventions</h2>
+<ul>
+<li>Preferred form: `uv run &lt;command&gt; ...`</li>
+<li>Inside activated `.venv`: run command directly (`&lt;command&gt; ...`)</li>
+<li>Launcher form: `baf &lt;command&gt; ...`</li>
+<li>Addon argument can be auto-detected for selected commands when running inside an addon folder.</li>
+</ul>
+<p>Addon auto-detection checks:</p>
+<ul>
+<li>current path under `addons/&lt;addon_name&gt;/...`</li>
+<li>current/parent directory contains both `blender_manifest.toml` and `src/`</li>
+</ul>
+<h2 id="create">`create`</h2>
+<p>Create a new addon.</p>
+<pre><code>uv run create &lt;addon&gt;
+</code></pre>
+<p>Options:</p>
+<ul>
+<li>`--template {unified-v1,legacy}`</li>
+<li>`--legacy` (alias for `--template legacy`)</li>
+<li>`--no-git-init` (skip creating a git repo and initial commit inside the new addon)</li>
+<li>`--python-version &lt;version&gt;` (optional addon-local `.python-version` file)</li>
+</ul>
+<h2 id="test">`test`</h2>
+<p>Test an addon in Blender.</p>
+<pre><code>uv run test &lt;addon&gt;
+</code></pre>
+<p>Options:</p>
+<ul>
+<li>`--framework-root &lt;path&gt;`</li>
+<li>`--disable-watch`</li>
+<li>`--no-debug`</li>
+<li>`--with-wheels`</li>
+</ul>
+<h2 id="compile">`compile`</h2>
+<p>Package an addon for distribution.</p>
+<pre><code>uv run compile &lt;addon&gt;
+</code></pre>
+<p>Options:</p>
+<ul>
+<li>`--framework-root &lt;path&gt;`</li>
+<li>`--release-dir &lt;path&gt;`</li>
+<li>`--no-zip` (skip final zip artifact; docs generation is skipped in this mode)</li>
+<li>`--extension`</li>
+<li>`--with-version`</li>
+<li>`--with-timestamp`</li>
+<li>`--skip-docs`</li>
+<li>`--with-docs`</li>
+<li>`--no-deps`</li>
+<li>`--with-deps`</li>
+</ul>
+<h2 id="docs">`docs`</h2>
+<p>Generate static docs for an addon through `tools/bdocgen`.</p>
+<pre><code>uv run docs &lt;addon&gt;
+</code></pre>
+<p>Options:</p>
+<ul>
+<li>`--framework-root &lt;path&gt;`</li>
+</ul>
+<p>Notes:</p>
+<ul>
+<li>output is written to `addons/&lt;addon&gt;/docs/_build/`</li>
+<li>this command requires Lisp tooling (`sbcl`, `ocicl`) available on `PATH`</li>
+</ul>
+<h2 id="release-deprecated">`release` (deprecated)</h2>
+<p>Backward-compatible alias for `compile`.</p>
+<pre><code>uv run release &lt;addon&gt;
+</code></pre>
+<h2 id="rename-addon">`rename-addon`</h2>
+<p>Rename an existing addon and rewrite references.</p>
+<pre><code>uv run rename-addon &lt;old_name&gt; &lt;new_name&gt;
+</code></pre>
+<p>Options:</p>
+<ul>
+<li>`--dry-run`</li>
+<li>`--no-validate`</li>
+<li>`--no-git-commit` (skip auto-commit in addon git repo)</li>
+</ul>
+<h2 id="template">`template`</h2>
+<p>Manage reusable templates under `code_templates/`.</p>
+<pre><code>uv run template &lt;subcommand&gt; ...
+</code></pre>
+<p>Subcommands:</p>
+<ul>
+<li>`list`</li>
+<li>`apply &lt;template&gt; [addon] [--on-conflict {skip,overwrite,rename}] [--dry-run] [--no-git-commit]`</li>
+<li>`extract &lt;template&gt; &lt;source_addon&gt; &lt;source_path&gt; --target-prefix &lt;path&gt; [--description &lt;text&gt;] [--dry-run] [--overwrite]`</li>
+</ul>
+<p>Global option:</p>
+<ul>
+<li>`--framework-root &lt;path&gt;`</li>
+</ul>
+<h2 id="addon-deps">`addon-deps`</h2>
+<p>Manage per-addon dependencies.</p>
+<pre><code>uv run addon-deps &lt;subcommand&gt; ...
+</code></pre>
+<p>Subcommands:</p>
+<ul>
+<li>`init &lt;addon&gt;`</li>
+<li>`add &lt;addon&gt; &lt;package&gt; [--use-uv | --no-use-uv]`</li>
+<li>`list &lt;addon&gt;`</li>
+<li>`sync &lt;addon&gt; [--use-uv | --no-use-uv]`</li>
+</ul>
+<p>Global option:</p>
+<ul>
+<li>`--framework-root &lt;path&gt;`</li>
+</ul>
+<h2 id="completion">`completion`</h2>
+<p>Generate shell completion scripts and suggestions.</p>
+<pre><code>uv run completion &lt;subcommand&gt; ...
+</code></pre>
+<p>Subcommands:</p>
+<ul>
+<li>`script {bash|zsh|fish}`</li>
+<li>`suggest [words ...]`</li>
+</ul>
+<p>Global option:</p>
+<ul>
+<li>`--framework-root &lt;path&gt;`</li>
+</ul>
+<h2 id="baf">`baf`</h2>
+<p>Top-level launcher that forwards to framework commands and suggests close matches.</p>
+<pre><code>baf &lt;command&gt; [args...]
+</code></pre>
+<p>Option:</p>
+<ul>
+<li>`--framework-root &lt;path&gt;`</li>
+</ul>
+<p>Supported commands:</p>
+<ul>
+<li>`repl`, `create`, `docs`, `test`, `compile`, `release`, `rename-addon`, `addon-deps`, `template`, `completion`, `audit-stale-addons`</li>
+</ul>
+<h2 id="repl">`repl`</h2>
+<p>Open the interactive command loop.</p>
+<p>Note: this Python REPL command is transitional. The roadmap direction is Common Lisp-first REPL tooling, and this command is expected to be removed after migration.</p>
+<pre><code>uv run baf repl
+</code></pre>
+<p>Shortcut:</p>
+<ul>
+<li>`uv run baf` opens REPL when no command is provided</li>
+</ul>
+<p>Option:</p>
+<ul>
+<li>`--framework-root &lt;path&gt;`</li>
+</ul>
+<p>In-REPL local commands:</p>
+<ul>
+<li>`help` / `?`</li>
+<li>`reload`</li>
+<li>`exit` / `quit`</li>
+</ul>
+<p>In-REPL Lisp settings forms:</p>
+<ul>
+<li>`(settings)`</li>
+<li>`(get :key)`</li>
+<li>`(source :key)`</li>
+<li>`(set! :key true|false)`</li>
+<li>`(unset! :key)`</li>
+<li>`(save! :key true|false)`</li>
+</ul>
+<p>For full interactive examples, see `docs/repl-workflow.md`.</p>
+<h2 id="audit-stale-addons">`audit-stale-addons`</h2>
+<p>Inspect Blender preferences for enabled addons that can no longer be imported.</p>
+<pre><code>uv run audit-stale-addons
+</code></pre>
+<p>Options:</p>
+<ul>
+<li>`--disable-missing`</li>
+<li>`--reset-prefs`</li>
+</ul>
+<h2 id="test-framework">`test-framework`</h2>
+<p>Run framework-only unit tests.</p>
+<pre><code>uv run test-framework
+</code></pre>
+</main><aside class="right-rail"><p class="rail-title">On This Page</p><ul class="toc-list"><li><a href="#conventions">Conventions</a></li><li><a href="#create">`create`</a></li><li><a href="#test">`test`</a></li><li><a href="#compile">`compile`</a></li><li><a href="#docs">`docs`</a></li><li><a href="#release-deprecated">`release` (deprecated)</a></li><li><a href="#rename-addon">`rename-addon`</a></li><li><a href="#template">`template`</a></li><li><a href="#addon-deps">`addon-deps`</a></li><li><a href="#completion">`completion`</a></li><li><a href="#baf">`baf`</a></li><li><a href="#repl">`repl`</a></li><li><a href="#audit-stale-addons">`audit-stale-addons`</a></li><li><a href="#test-framework">`test-framework`</a></li></ul></aside></div></body></html>

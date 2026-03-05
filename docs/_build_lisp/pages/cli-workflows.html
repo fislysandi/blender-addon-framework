@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>CLI Workflows</title><link rel="stylesheet" href="../_assets/theme.css"></head><body>
+<a class="skip-link" href="#main-content">Skip to content</a><div class="layout"><aside class="left-rail" aria-label="Documentation navigation"><h1 class="brand">blender-addon-framework</h1><p class="brand-sub">Reference Manual</p><a class="back-link" href="../index.html">Back to docs index</a><p class="nojs-hint">No JavaScript required. Use this navigation and your browser find shortcut (Ctrl+F).</p><details class="nav-mobile-toggle"><summary>Browse Pages</summary><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a class="current" href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></details><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a class="current" href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></aside><main class="content" id="main-content"><h1 id="cli-workflows">CLI Workflows</h1>
+<p>This guide documents day-to-day CLI usage for the framework.</p>
+<h2 id="command-entry-points">Command entry points</h2>
+<ul>
+<li>Preferred: `uv run &lt;command&gt; ...`</li>
+<li>Alternative launcher: `baf &lt;command&gt; ...`</li>
+<li>Legacy module form remains available, for example: `python3 -m src.commands.test &lt;addon&gt;`</li>
+<li>Interactive mode: `uv run baf` opens the framework REPL</li>
+</ul>
+<h2 id="interactive-repl-workflow">Interactive REPL workflow</h2>
+<p>Start REPL:</p>
+<pre><code>uv run baf
+</code></pre>
+<p>Example interactive commands:</p>
+<pre><code>test my_addon
+compile my_addon --with-docs
+template list
+</code></pre>
+<p>REPL local commands:</p>
+<ul>
+<li>`help` or `?`</li>
+<li>`reload`</li>
+<li>`exit` or `quit`</li>
+</ul>
+<p>For Lisp forms and runtime settings overrides, see `docs/repl-workflow.md`.</p>
+<h2 id="create-and-scaffold">Create and scaffold</h2>
+<p>Create a new addon:</p>
+<pre><code>uv run create my_addon
+</code></pre>
+<p>By default this also runs `git init`, stages scaffold files, and creates an initial commit inside `addons/my_addon/`.</p>
+<p>Legacy layout opt-in:</p>
+<pre><code>uv run create my_addon --legacy
+</code></pre>
+<p>Skip git repo bootstrap when needed:</p>
+<pre><code>uv run create my_addon --no-git-init
+</code></pre>
+<p>Add optional addon-local Python version pin:</p>
+<pre><code>uv run create my_addon --python-version 3.11
+</code></pre>
+<p>Generated addon `pyproject.toml` includes dependency groups for `dev` and `test` by default.</p>
+<h2 id="reusable-templates">Reusable templates</h2>
+<p>List templates:</p>
+<pre><code>uv run template list
+</code></pre>
+<p>Preview apply without writing files:</p>
+<pre><code>uv run template apply ui/basic_panel my_addon --dry-run
+</code></pre>
+<p>Apply with conflict handling:</p>
+<pre><code>uv run template apply ui/basic_panel my_addon --on-conflict rename
+</code></pre>
+<p>By default, `template apply` creates a commit inside `addons/&lt;addon&gt;/` when that folder is already a git repo. Use `--no-git-commit` to skip.</p>
+<p>Extract a template from existing addon code:</p>
+<pre><code>uv run template extract ui/new_panel sample_addon src/ui --target-prefix src/ui --description &quot;Panel template&quot;
+</code></pre>
+<h2 id="test-workflow">Test workflow</h2>
+<p>Run with hot reload:</p>
+<pre><code>uv run test my_addon
+</code></pre>
+<p>Disable file watch:</p>
+<pre><code>uv run test my_addon --disable-watch
+</code></pre>
+<p>Install wheels before test:</p>
+<pre><code>uv run test my_addon --with-wheels
+</code></pre>
+<p>If you run commands inside an addon folder, addon autodetection is supported for `test`, `compile`, `docs`, `template apply`, and `addon-deps` subcommands.</p>
+<p>Autodetection works when either:</p>
+<ul>
+<li>current path is under `addons/&lt;addon_name&gt;/...`</li>
+<li>current/parent directory has both `blender_manifest.toml` and `src/`</li>
+</ul>
+<h2 id="docs-workflow">Docs workflow</h2>
+<p>Generate static docs for an addon:</p>
+<pre><code>uv run docs my_addon
+</code></pre>
+<p>Or run from inside the addon directory (autodetect addon name):</p>
+<pre><code>uv run docs
+</code></pre>
+<p>Output path:</p>
+<ul>
+<li>`addons/&lt;addon&gt;/docs/_build/`</li>
+</ul>
+<p>Requirements:</p>
+<ul>
+<li>`sbcl` and `ocicl` available on `PATH`</li>
+</ul>
+<h2 id="build-and-compile">Build and compile</h2>
+<p>Package addon:</p>
+<pre><code>uv run compile my_addon
+</code></pre>
+<p>Skip dependency wheel packaging:</p>
+<pre><code>uv run compile my_addon --no-deps
+</code></pre>
+<p>By default, compile bundles dependency wheels for extension packaging when matching wheel files exist in `wheels/`.
+Dependency names are discovered from `addons/&lt;addon&gt;/pyproject.toml` (`project.dependencies`) and merged with wheels declared in `blender_manifest.toml`.</p>
+<p>BDocGen runs during final zip packaging. If you run compile with `--no-zip`, docs generation is skipped.</p>
+<p>Deprecated alias:</p>
+<pre><code>uv run release my_addon
+</code></pre>
+<h2 id="rename-addon">Rename addon</h2>
+<p>Dry-run first:</p>
+<pre><code>uv run rename-addon old_addon new_addon --dry-run
+</code></pre>
+<p>Apply rename:</p>
+<pre><code>uv run rename-addon old_addon new_addon
+</code></pre>
+<p>By default, `rename-addon` creates a commit inside the renamed addon folder when it is a git repo. Use `--no-git-commit` to skip.</p>
+<h2 id="addon-dependency-management">Addon dependency management</h2>
+<p>Initialize per-addon dependency config:</p>
+<pre><code>uv run addon-deps init my_addon
+</code></pre>
+<p>Add package:</p>
+<pre><code>uv run addon-deps add my_addon requests
+</code></pre>
+<p>List packages:</p>
+<pre><code>uv run addon-deps list my_addon
+</code></pre>
+<p>Sync packages:</p>
+<pre><code>uv run addon-deps sync my_addon
+</code></pre>
+<p>Per-command override:</p>
+<ul>
+<li>Force UV: `--use-uv`</li>
+<li>Force pip fallback path: `--no-use-uv`</li>
+</ul>
+<h2 id="shell-completion">Shell completion</h2>
+<p>Generate shell completion script:</p>
+<pre><code>uv run completion script bash
+uv run completion script zsh
+uv run completion script fish
+</code></pre>
+<p>Get typo-aware command suggestions from words:</p>
+<pre><code>uv run completion suggest renmae-addon
+</code></pre>
+<h2 id="maintenance-helper">Maintenance helper</h2>
+<p>Audit stale enabled addons in Blender preferences:</p>
+<pre><code>uv run audit-stale-addons
+</code></pre>
+<p>Optional fixes:</p>
+<ul>
+<li>Disable missing modules: `uv run audit-stale-addons --disable-missing`</li>
+<li>Reset Blender preferences: `uv run audit-stale-addons --reset-prefs`</li>
+</ul>
+</main><aside class="right-rail"><p class="rail-title">On This Page</p><ul class="toc-list"><li><a href="#command-entry-points">Command entry points</a></li><li><a href="#interactive-repl-workflow">Interactive REPL workflow</a></li><li><a href="#create-and-scaffold">Create and scaffold</a></li><li><a href="#reusable-templates">Reusable templates</a></li><li><a href="#test-workflow">Test workflow</a></li><li><a href="#docs-workflow">Docs workflow</a></li><li><a href="#build-and-compile">Build and compile</a></li><li><a href="#rename-addon">Rename addon</a></li><li><a href="#addon-dependency-management">Addon dependency management</a></li><li><a href="#shell-completion">Shell completion</a></li><li><a href="#maintenance-helper">Maintenance helper</a></li></ul></aside></div></body></html>

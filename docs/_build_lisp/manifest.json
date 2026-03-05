@@ -1,0 +1,8 @@
+{
+  "status": "ok",
+  "scope": "project",
+  "page_count": 15,
+  "errors": [],
+  "pages": ["pages/addon-structure-standard.html","pages/cli-workflows.html","pages/coding-style.html","pages/command-reference.html","pages/config-lisp-planning.html","pages/config-reference.html","pages/debugger-log-analysis.html","pages/development-workflow.html","pages/getting-started.html","pages/index.html","pages/migrating-your-addon-to-blender-addon-framework.html","pages/repl-workflow.html","pages/runtime-addon-development.html","pages/troubleshooting.html","pages/venv-usage.html"],
+  "assets": ["_assets/theme.css"]
+}

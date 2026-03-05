@@ -1,0 +1,1 @@
+Error: '_RestrictContext' object has no attribute 'scene'

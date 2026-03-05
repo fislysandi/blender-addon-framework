@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Getting Started</title><link rel="stylesheet" href="../_assets/theme.css"></head><body>
+<a class="skip-link" href="#main-content">Skip to content</a><div class="layout"><aside class="left-rail" aria-label="Documentation navigation"><h1 class="brand">blender-addon-framework</h1><p class="brand-sub">Reference Manual</p><a class="back-link" href="../index.html">Back to docs index</a><p class="nojs-hint">No JavaScript required. Use this navigation and your browser find shortcut (Ctrl+F).</p><details class="nav-mobile-toggle"><summary>Browse Pages</summary><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a class="current" href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></details><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a class="current" href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></aside><main class="content" id="main-content"><h1 id="getting-started">Getting Started</h1>
+<p>This guide covers the full setup for developing Blender addons with this framework: required dependencies, project bootstrap, first addon, and the daily dev loop.</p>
+<h2 id="10-minute-quickstart">10-minute quickstart</h2>
+<p>If you already have Blender and UV installed, run these commands from repository root:</p>
+<pre><code>uv sync
+cat &gt; config.toml &lt;&lt; 'EOF'
+[blender]
+exe_path = &quot;/absolute/path/to/blender&quot;
+
+[default]
+addon = &quot;my_addon&quot;
+is_extension = false
+EOF
+uv run create my_addon
+uv run test my_addon
+uv run compile my_addon
+</code></pre>
+<p>Then open Blender, enable your addon, and iterate on files under `addons/my_addon/src/`.</p>
+<h2 id="what-you-need">What you need</h2>
+<p>Required:</p>
+<ul>
+<li>Blender `&gt;= 2.93`</li>
+<li>Python `&gt;= 3.10`</li>
+<li>UV package manager (&lt;https://docs.astral.sh/uv/&gt;)</li>
+</ul>
+<p>Recommended:</p>
+<ul>
+<li>Git (for addon scaffolding workflows that auto-initialize repos)</li>
+<li>An editor with Python support</li>
+</ul>
+<p>Optional (only if you want local docs generation tooling or Lisp automation scripts):</p>
+<ul>
+<li>SBCL</li>
+<li>OCICL</li>
+</ul>
+<h2 id="install-dependencies">Install dependencies</h2>
+<h3 id="1-install-blender">1) Install Blender</h3>
+<ul>
+<li>Install Blender and verify the executable path.</li>
+<li>You will reference this path in `config.toml` as `blender.exe_path`.</li>
+</ul>
+<h3 id="2-install-uv">2) Install UV</h3>
+<pre><code># macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows
+powershell -c &quot;irm https://astral.sh/uv/install.ps1 | iex&quot;
+</code></pre>
+<p>Verify:</p>
+<pre><code>uv --version
+</code></pre>
+<h3 id="3-sync-project-dependencies">3) Sync project dependencies</h3>
+<p>From repository root:</p>
+<pre><code>uv sync
+</code></pre>
+<p>This installs framework dependencies and creates `.venv` automatically.</p>
+<h3 id="4-install-lisp-tooling-optional">4) Install Lisp tooling (optional)</h3>
+<p>If you plan to automate workflows with Common Lisp scripts, install SBCL and OCICL and make sure both are available on your `PATH`.</p>
+<p>Quick checks:</p>
+<pre><code>sbcl --version
+ocicl --help
+</code></pre>
+<p>Optional validation:</p>
+<pre><code>uv run python -c &quot;import watchdog, toml; print('dependencies OK')&quot;
+</code></pre>
+<h2 id="configure-the-framework">Configure the framework</h2>
+<p>Create `config.toml` at project root:</p>
+<pre><code>[blender]
+exe_path = &quot;/absolute/path/to/blender&quot;
+
+[default]
+addon = &quot;my_addon&quot;
+is_extension = false
+use_uv_by_default = true
+release_dir = &quot;releases&quot;
+test_release_dir = &quot;.tmp/test_releases&quot;
+skip_docs_by_default = false
+bundle_deps_by_default = true
+</code></pre>
+<p>Notes:</p>
+<ul>
+<li>`config.toml` overrides defaults in `src/main.py`.</li>
+<li>Commands can still override config values with flags.</li>
+<li>If Blender path is missing/invalid, framework auto-detection may still work, but explicit config is more reliable.</li>
+</ul>
+<h2 id="create-your-first-addon">Create your first addon</h2>
+<pre><code>uv run create my_addon
+</code></pre>
+<p>Generated location:</p>
+<ul>
+<li>`addons/my_addon/`</li>
+</ul>
+<p>Default structure follows the unified standard (`src/`, `docs/`, `tests/`).</p>
+<p>Useful variants:</p>
+<ul>
+<li>legacy layout: `uv run create my_addon --legacy`</li>
+<li>skip addon git bootstrap: `uv run create my_addon --no-git-init`</li>
+<li>pin addon Python version: `uv run create my_addon --python-version 3.11`</li>
+</ul>
+<h2 id="run-the-development-loop">Run the development loop</h2>
+<h3 id="1-test-in-blender-hot-reload">1) Test in Blender (hot reload)</h3>
+<pre><code>uv run test my_addon
+</code></pre>
+<p>Useful flags:</p>
+<ul>
+<li>disable watch mode: `uv run test my_addon --disable-watch`</li>
+<li>install declared wheels before launch: `uv run test my_addon --with-wheels`</li>
+</ul>
+<h3 id="2-build-a-distributable-package">2) Build a distributable package</h3>
+<pre><code>uv run compile my_addon
+</code></pre>
+<p>Common variants:</p>
+<ul>
+<li>skip docs generation: `uv run compile my_addon --skip-docs`</li>
+<li>force docs generation: `uv run compile my_addon --with-docs`</li>
+<li>skip dependency wheels: `uv run compile my_addon --no-deps`</li>
+<li>custom output dir: `uv run compile my_addon --release-dir /path/to/out`</li>
+</ul>
+<p>By default, compiled zips are written to `releases/` unless overridden.</p>
+<h2 id="add-addon-dependencies">Add addon dependencies</h2>
+<p>Initialize addon-local dependency management:</p>
+<pre><code>uv run addon-deps init my_addon
+uv run addon-deps add my_addon requests
+uv run addon-deps sync my_addon
+</code></pre>
+<p>This keeps dependency declarations at addon scope instead of framework-global scope.</p>
+<h2 id="optional-generate-docs-for-an-addon">Optional: generate docs for an addon</h2>
+<p>If SBCL and OCICL are installed, you can build static docs from `addons/&lt;addon&gt;/docs`:</p>
+<pre><code>uv run docs my_addon
+
+# equivalent direct tool invocation
+sbcl --script tools/bdocgen/scripts/run.lisp \
+  --scope project \
+  --project-root . \
+  --docs-root addons/my_addon/docs \
+  --output-dir addons/my_addon/docs/_build \
+  --addon-name my_addon
+</code></pre>
+<h2 id="where-to-go-next">Where to go next</h2>
+<ul>
+<li>runtime-focused addon loop: `docs/runtime-addon-development.md`</li>
+<li>day-to-day workflows: `docs/cli-workflows.md`</li>
+<li>complete command list: `docs/command-reference.md`</li>
+<li>config details and precedence: `docs/config-reference.md`</li>
+<li>addon layout standard: `docs/addon-structure-standard.md`</li>
+<li>activated venv workflow: `docs/venv-usage.md`</li>
+<li>migration guide for existing addons: `docs/migrating-your-addon-to-blender-addon-framework.md`</li>
+<li>troubleshooting: `docs/troubleshooting.md`</li>
+</ul>
+</main><aside class="right-rail"><p class="rail-title">On This Page</p><ul class="toc-list"><li><a href="#10-minute-quickstart">10-minute quickstart</a></li><li><a href="#what-you-need">What you need</a></li><li><a href="#install-dependencies">Install dependencies</a></li><li><a href="#configure-the-framework">Configure the framework</a></li><li><a href="#create-your-first-addon">Create your first addon</a></li><li><a href="#run-the-development-loop">Run the development loop</a></li><li><a href="#add-addon-dependencies">Add addon dependencies</a></li><li><a href="#optional-generate-docs-for-an-addon">Optional: generate docs for an addon</a></li><li><a href="#where-to-go-next">Where to go next</a></li></ul></aside></div></body></html>

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Development Workflow</title><link rel="stylesheet" href="../_assets/theme.css"></head><body>
+<a class="skip-link" href="#main-content">Skip to content</a><div class="layout"><aside class="left-rail" aria-label="Documentation navigation"><h1 class="brand">blender-addon-framework</h1><p class="brand-sub">Reference Manual</p><a class="back-link" href="../index.html">Back to docs index</a><p class="nojs-hint">No JavaScript required. Use this navigation and your browser find shortcut (Ctrl+F).</p><details class="nav-mobile-toggle"><summary>Browse Pages</summary><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a class="current" href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></details><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a class="current" href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></aside><main class="content" id="main-content"><h1 id="development-workflow">Development Workflow</h1>
+<p>This guide is for maintainers working on the framework itself.</p>
+<h2 id="scope">Scope</h2>
+<ul>
+<li>Framework code lives under `src/`.</li>
+<li>Framework tests live under `tests/`.</li>
+<li>Reusable addon templates live under `code_templates/`.</li>
+</ul>
+<h2 id="local-setup">Local setup</h2>
+<pre><code>uv sync --extra dev
+</code></pre>
+<p>This installs runtime dependencies plus developer tools declared in `pyproject.toml`.</p>
+<h2 id="run-framework-tests">Run framework tests</h2>
+<p>Run unit tests for framework code:</p>
+<pre><code>uv run test-framework
+</code></pre>
+<p>Equivalent command:</p>
+<pre><code>uv run python -m pytest tests
+</code></pre>
+<p>CI parity note:</p>
+<ul>
+<li>GitHub Actions workflow `framework-tests.yml` installs dev deps with `uv sync --extra dev` and runs `uv run test-framework`.</li>
+</ul>
+<h2 id="validate-cli-changes">Validate CLI changes</h2>
+<p>When modifying command behavior in `src/commands/`:</p>
+<ul>
+<li>Check command help output locally.</li>
+<li>Verify examples in docs reflect actual flags.</li>
+<li>Confirm command names match `[project.scripts]` in `pyproject.toml`.</li>
+</ul>
+<p>Common commands to spot-check:</p>
+<pre><code>uv run create --help
+uv run test --help
+uv run compile --help
+uv run template --help
+uv run addon-deps --help
+uv run rename-addon --help
+uv run completion --help
+</code></pre>
+<h2 id="template-maintenance-workflow">Template maintenance workflow</h2>
+<p>List templates:</p>
+<pre><code>uv run template list
+</code></pre>
+<p>Extract reusable code from an addon:</p>
+<pre><code>uv run template extract ui/new_panel sample_addon src/ui --target-prefix src/ui --description &quot;Panel template&quot;
+</code></pre>
+<p>Apply template to verify behavior:</p>
+<pre><code>uv run template apply ui/new_panel sample_addon --dry-run
+uv run template apply ui/new_panel sample_addon --on-conflict rename
+</code></pre>
+<h2 id="documentation-update-checklist">Documentation update checklist</h2>
+<p>When behavior changes, update docs in the same pull request:</p>
+<ul>
+<li>`README.md` command tables and navigation links</li>
+<li>`docs/cli-workflows.md`</li>
+<li>`docs/repl-workflow.md` (if REPL behavior, forms, or settings changed)</li>
+<li>`docs/debugger-log-analysis.md` (if debugger session or eval tooling changed)</li>
+<li>`docs/config-reference.md` (if config keys/defaults changed)</li>
+<li>`docs/troubleshooting.md` (if errors/messages changed)</li>
+</ul>
+<h2 id="release-impact-checks">Release-impact checks</h2>
+<p>Before merging packaging-related changes:</p>
+<ul>
+<li>Run `uv run compile &lt;addon&gt;` with a sample addon.</li>
+<li>Verify output path behavior (`default.release_dir` and `--release-dir`).</li>
+<li>Verify docs generation behavior (`skip_docs_by_default`, `--skip-docs`, `--with-docs`).</li>
+</ul>
+<h2 id="recommended-pull-request-checklist">Recommended pull request checklist</h2>
+<ul>
+<li>Tests pass locally (`uv run test-framework`)</li>
+<li>Changed CLI flags/arguments reflected in docs</li>
+<li>New config fields documented in `docs/config-reference.md`</li>
+<li>Template changes validated with `template apply --dry-run`</li>
+</ul>
+</main><aside class="right-rail"><p class="rail-title">On This Page</p><ul class="toc-list"><li><a href="#scope">Scope</a></li><li><a href="#local-setup">Local setup</a></li><li><a href="#run-framework-tests">Run framework tests</a></li><li><a href="#validate-cli-changes">Validate CLI changes</a></li><li><a href="#template-maintenance-workflow">Template maintenance workflow</a></li><li><a href="#documentation-update-checklist">Documentation update checklist</a></li><li><a href="#release-impact-checks">Release-impact checks</a></li><li><a href="#recommended-pull-request-checklist">Recommended pull request checklist</a></li></ul></aside></div></body></html>

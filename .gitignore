@@ -172,3 +172,6 @@ config.toml
 /bdocgen/.cpcache/
 /bdocgen/docs/_build/
 /bdocgen/target/
+
+# Local OciCL vendor cache (Common Lisp dependencies)
+/tools/repl/ocicl/

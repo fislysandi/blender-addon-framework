@@ -112,6 +112,12 @@ Each build writes:
 - `pages`
 - `assets`
 
+## GitHub Pages Publishing Requirement
+
+When BDocGen output is used for GitHub Pages, include an upstream project link in generated site chrome (for example header or footer):
+
+- `https://github.com/fislysandi/BlenderAddonPackageTool.git`
+
 ## Testing
 
 ```bash

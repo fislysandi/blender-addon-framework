@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Coding Style</title><link rel="stylesheet" href="../_assets/theme.css"></head><body>
+<a class="skip-link" href="#main-content">Skip to content</a><div class="layout"><aside class="left-rail" aria-label="Documentation navigation"><h1 class="brand">blender-addon-framework</h1><p class="brand-sub">Reference Manual</p><a class="back-link" href="../index.html">Back to docs index</a><p class="nojs-hint">No JavaScript required. Use this navigation and your browser find shortcut (Ctrl+F).</p><details class="nav-mobile-toggle"><summary>Browse Pages</summary><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a class="current" href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></details><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a class="current" href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></aside><main class="content" id="main-content"><h1 id="coding-style">Coding Style</h1>
+<p>This document defines Python coding standards for framework and addon-facing code in this repository.</p>
+<p>Use RFC-style keywords:</p>
+<ul>
+<li>MUST: required for all new/updated code</li>
+<li>SHOULD: default expectation unless there is a clear reason not to</li>
+<li>MAY: optional improvement when it increases clarity</li>
+</ul>
+<h2 id="1-core-principles">1) Core principles</h2>
+<ul>
+<li>Code MUST optimize for readability and maintainability over cleverness.</li>
+<li>Logic SHOULD be decomposed into small, composable functions.</li>
+<li>Side effects MUST be isolated near boundaries (CLI entry points, filesystem, subprocess, network, Blender runtime calls).</li>
+<li>New behavior SHOULD fit existing project patterns before introducing new abstractions.</li>
+</ul>
+<h2 id="2-functional-programming-baseline">2) Functional programming baseline</h2>
+<ul>
+<li>Pure functions SHOULD be preferred for transformation logic.</li>
+<li>Functions SHOULD return new values rather than mutating input objects in place.</li>
+<li>Iterator pipelines SHOULD be composed in clear, small steps.</li>
+<li>Higher-order helpers MUST use explicit type annotations for function arguments and return values.</li>
+</ul>
+<p>Functional toolkit usage (standard library):</p>
+<ul>
+<li>`functools`: `partial`, `cache`/`lru_cache`, `cached_property`, `singledispatch`</li>
+<li>`itertools`: `chain`, `islice`, `takewhile`, `accumulate`, combinatorics helpers</li>
+<li>`operator`: `itemgetter`, `attrgetter`, `methodcaller`</li>
+<li>`typing`: `Callable`, `Protocol`, `Generator`, `TypeAlias`, `ParamSpec`, `Concatenate`</li>
+</ul>
+<p>Caching rule:</p>
+<ul>
+<li>Caching MUST only be used for deterministic logic with stable inputs.</li>
+</ul>
+<h2 id="3-naming-and-structure">3) Naming and structure</h2>
+<ul>
+<li>Modules MUST use `snake_case` names.</li>
+<li>Functions and variables MUST use `snake_case`.</li>
+<li>Constants MUST use `UPPER_SNAKE_CASE`.</li>
+<li>Classes MUST use `PascalCase`.</li>
+<li>Private/internal helpers SHOULD be prefixed with `_`.</li>
+</ul>
+<p>Command modules under `src/commands/` SHOULD follow this structure:</p>
+<ul>
+<li>parse args</li>
+<li>resolve context/paths</li>
+<li>validate input</li>
+<li>call framework/service layer</li>
+<li>print user-facing status and exit code</li>
+</ul>
+<h2 id="4-type-hints-and-interfaces">4) Type hints and interfaces</h2>
+<ul>
+<li>New public functions MUST include type annotations.</li>
+<li>Internal helpers SHOULD include annotations when non-trivial.</li>
+<li>Return types MUST be explicit for functions returning collections, tuples, or optionals.</li>
+<li>Complex dict payloads SHOULD be replaced with typed structures when practical (typed dicts, dataclasses, or well-documented tuple aliases).</li>
+</ul>
+<h2 id="5-error-handling-and-cli-behavior">5) Error handling and CLI behavior</h2>
+<ul>
+<li>Errors MUST provide actionable messages (what failed and what the user can do next).</li>
+<li>CLI commands MUST exit with non-zero status on failure.</li>
+<li>Commands SHOULD validate inputs early and print available options when possible.</li>
+<li>Exceptions SHOULD be handled at command boundaries; pure helper functions SHOULD raise specific errors instead of printing.</li>
+</ul>
+<p>Message style:</p>
+<ul>
+<li>Success messages SHOULD be short and explicit.</li>
+<li>Error messages SHOULD avoid stack traces unless explicitly requested for debugging.</li>
+</ul>
+<h2 id="6-side-effect-boundaries">6) Side-effect boundaries</h2>
+<ul>
+<li>Filesystem, subprocess, and Blender interaction MUST be grouped in thin wrapper functions.</li>
+<li>Data transformation MUST be separated from I/O code where practical.</li>
+<li>Logging/printing SHOULD happen near entry points, not deep in transform logic.</li>
+</ul>
+<h2 id="7-testing-style">7) Testing style</h2>
+<ul>
+<li>Pure transformation logic MUST have unit tests for normal and edge cases.</li>
+<li>Tests SHOULD be table-driven when validating multiple input/output cases.</li>
+<li>Tests MUST be deterministic (no time/network/process dependency unless explicitly scoped).</li>
+<li>New command behavior SHOULD include tests for argument handling and failure paths when feasible.</li>
+</ul>
+<p>Framework test command:</p>
+<pre><code>uv run test-framework
+</code></pre>
+<h2 id="8-do-avoid">8) Do / Avoid</h2>
+<p>Do:</p>
+<ul>
+<li>Write small functions with single responsibilities.</li>
+<li>Prefer explicit names and explicit return values.</li>
+<li>Keep command entry points thin and predictable.</li>
+<li>Reuse existing utility helpers before adding new ones.</li>
+</ul>
+<p>Avoid:</p>
+<ul>
+<li>Hidden mutations across module boundaries.</li>
+<li>Mixing I/O and complex transformation logic in one function.</li>
+<li>Broad `except Exception` without user-actionable error output.</li>
+<li>Adding abstractions without a concrete maintenance benefit.</li>
+</ul>
+<h2 id="9-review-checklist">9) Review checklist</h2>
+<p>For each PR, reviewers SHOULD verify:</p>
+<ul>
+<li>Naming and structure follow this guide.</li>
+<li>Side effects are isolated and easy to trace.</li>
+<li>Type hints are present and useful.</li>
+<li>Errors and CLI output are actionable.</li>
+<li>Tests cover behavior changes and edge cases.</li>
+</ul>
+<p>When reviewing FP adherence in depth, you MAY also use:</p>
+<ul>
+<li>`/home/fislysandi/.config/opencode/context/core/workflows/code-review.md`</li>
+</ul>
+</main><aside class="right-rail"><p class="rail-title">On This Page</p><ul class="toc-list"><li><a href="#1-core-principles">1) Core principles</a></li><li><a href="#2-functional-programming-baseline">2) Functional programming baseline</a></li><li><a href="#3-naming-and-structure">3) Naming and structure</a></li><li><a href="#4-type-hints-and-interfaces">4) Type hints and interfaces</a></li><li><a href="#5-error-handling-and-cli-behavior">5) Error handling and CLI behavior</a></li><li><a href="#6-side-effect-boundaries">6) Side-effect boundaries</a></li><li><a href="#7-testing-style">7) Testing style</a></li><li><a href="#8-do-avoid">8) Do / Avoid</a></li><li><a href="#9-review-checklist">9) Review checklist</a></li></ul></aside></div></body></html>

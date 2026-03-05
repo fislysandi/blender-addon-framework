@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>config.lisp Planning Note</title><link rel="stylesheet" href="../_assets/theme.css"></head><body>
+<a class="skip-link" href="#main-content">Skip to content</a><div class="layout"><aside class="left-rail" aria-label="Documentation navigation"><h1 class="brand">blender-addon-framework</h1><p class="brand-sub">Reference Manual</p><a class="back-link" href="../index.html">Back to docs index</a><p class="nojs-hint">No JavaScript required. Use this navigation and your browser find shortcut (Ctrl+F).</p><details class="nav-mobile-toggle"><summary>Browse Pages</summary><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a class="current" href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></details><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a class="current" href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></aside><main class="content" id="main-content"><h1 id="config-lisp-planning-note">config.lisp Planning Note</h1>
+<p>This page tracks the planned migration direction from `config.toml` to Lisp-oriented configuration.</p>
+<p>&gt; Status: planning only.
+&gt; `config.toml` remains the active runtime configuration source today.</p>
+<h2 id="why-this-is-planned">Why this is planned</h2>
+<ul>
+<li>align configuration model with Common Lisp-first REPL/tooling direction</li>
+<li>keep settings representation closer to Lisp tooling runtime</li>
+<li>simplify future REPL settings/profile persistence integration</li>
+</ul>
+<h2 id="what-is-expected-to-change">What is expected to change</h2>
+<ul>
+<li>primary config file name is expected to become `config.lisp`</li>
+<li>settings currently under TOML sections (`[blender]`, `[default]`) will move to Lisp data forms</li>
+<li>migration docs will define exact key mapping and fallback behavior</li>
+</ul>
+<h2 id="what-is-expected-to-stay-stable">What is expected to stay stable</h2>
+<ul>
+<li>command-line flags remain highest-precedence overrides</li>
+<li>user-facing behaviors for core defaults should remain compatible where possible</li>
+<li>migration window should support clear diagnostics and deterministic precedence rules</li>
+</ul>
+<h2 id="not-finalized-yet">Not finalized yet</h2>
+<ul>
+<li>exact `config.lisp` syntax and schema</li>
+<li>mixed-mode precedence when both config formats exist</li>
+<li>automatic conversion tooling (`config.toml` -&gt; `config.lisp`)</li>
+<li>deprecation timeline for TOML-based config</li>
+</ul>
+<h2 id="until-migration-lands">Until migration lands</h2>
+<ul>
+<li>use `config.toml` for all current configuration</li>
+<li>refer to `docs/config-reference.md` for supported keys and precedence</li>
+<li>treat this page as architecture direction, not implementation contract</li>
+</ul>
+</main><aside class="right-rail"><p class="rail-title">On This Page</p><ul class="toc-list"><li><a href="#why-this-is-planned">Why this is planned</a></li><li><a href="#what-is-expected-to-change">What is expected to change</a></li><li><a href="#what-is-expected-to-stay-stable">What is expected to stay stable</a></li><li><a href="#not-finalized-yet">Not finalized yet</a></li><li><a href="#until-migration-lands">Until migration lands</a></li></ul></aside></div></body></html>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Configuration Reference</title><link rel="stylesheet" href="../_assets/theme.css"></head><body>
+<a class="skip-link" href="#main-content">Skip to content</a><div class="layout"><aside class="left-rail" aria-label="Documentation navigation"><h1 class="brand">blender-addon-framework</h1><p class="brand-sub">Reference Manual</p><a class="back-link" href="../index.html">Back to docs index</a><p class="nojs-hint">No JavaScript required. Use this navigation and your browser find shortcut (Ctrl+F).</p><details class="nav-mobile-toggle"><summary>Browse Pages</summary><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a class="current" href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></details><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a class="current" href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></aside><main class="content" id="main-content"><h1 id="configuration-reference">Configuration Reference</h1>
+<p>This document describes supported `config.toml` keys and how the framework resolves them.</p>
+<p>&gt; Transition note: the current configuration file is `config.toml`.
+&gt; In the near future, configuration is expected to move toward Lisp-oriented configuration (`config.lisp`) as Common Lisp-first tooling becomes primary.
+&gt; Until that migration lands, `config.toml` is the active source of truth for command defaults.</p>
+<p>Planning companion:</p>
+<ul>
+<li>`docs/config-lisp-planning.md`</li>
+</ul>
+<h2 id="file-location">File location</h2>
+<ul>
+<li>Path: `config.toml` at project root</li>
+<li>Loader: `src/main.py`</li>
+<li>Behavior: if the file exists, values override defaults defined in `src/main.py`</li>
+</ul>
+<h2 id="current-config-format">Current config format</h2>
+<ul>
+<li>Active format: TOML (`config.toml`)</li>
+<li>Scope: framework-level defaults and Blender path settings</li>
+<li>Typical consumers: `test`, `compile`, `addon-deps`, REPL settings defaults</li>
+</ul>
+<h2 id="example">Example</h2>
+<pre><code>[blender]
+exe_path = &quot;/path/to/blender&quot;
+addon_path = &quot;/path/to/blender/scripts/addons&quot;
+
+[default]
+addon = &quot;my_addon&quot;
+is_extension = false
+release_dir = &quot;/path/to/releases&quot;
+test_release_dir = &quot;/path/to/test/releases&quot;
+use_uv_by_default = true
+skip_docs_by_default = false
+bundle_deps_by_default = true
+terminal_bell = false
+</code></pre>
+<h2 id="blender">`[blender]`</h2>
+<ul>
+<li>`exe_path` (`string`)</li>
+<li>Blender executable path.</li>
+<li>Used to derive addon install directory when `addon_path` is not provided.</li>
+<li>`addon_path` (`string`)</li>
+<li>Blender addon directory override.</li>
+<li>Takes precedence over derived addon path.</li>
+</ul>
+<h2 id="default">`[default]`</h2>
+<ul>
+<li>`addon` (`string`)</li>
+<li>Default addon name when command argument is omitted.</li>
+<li>Commands still accept explicit addon names, which are preferred.</li>
+<li>`is_extension` (`bool`)</li>
+<li>Default extension packaging mode.</li>
+<li>Can be overridden by CLI flags in commands that expose extension switches.</li>
+<li>`release_dir` (`string`)</li>
+<li>Default output directory for packaged artifacts.</li>
+<li>Used by `uv run compile` unless `--release-dir` is passed.</li>
+<li>`test_release_dir` (`string`)</li>
+<li>Directory used for temporary test release flow.</li>
+<li>`use_uv_by_default` (`bool`)</li>
+<li>Default UV preference for addon dependency workflows (`addon-deps add/sync`).</li>
+<li>Command flags `--use-uv` and `--no-use-uv` override this value.</li>
+<li>`skip_docs_by_default` (`bool`)</li>
+<li>Default docs-generation behavior during compile.</li>
+<li>Mapped to `uv run compile` option defaults (`--skip-docs` / `--with-docs`).</li>
+<li>`bundle_deps_by_default` (`bool`)</li>
+<li>Default dependency-wheel packaging behavior during compile.</li>
+<li>Mapped to `uv run compile` option defaults (`--no-deps` / `--with-deps`).</li>
+<li>`terminal_bell` (`bool`)</li>
+<li>Default terminal bell behavior for interactive CLI sessions (including REPL).</li>
+<li>`false` silences bell, `true` keeps terminal bell enabled.</li>
+</ul>
+<h2 id="resolution-precedence">Resolution precedence</h2>
+<p>General order:</p>
+<ul>
+<li>Command-line flags/arguments</li>
+<li>REPL runtime overrides (when using REPL settings forms)</li>
+<li>`config.toml`</li>
+<li>Built-in defaults in `src/main.py`</li>
+</ul>
+<p>Near-future migration expectation:</p>
+<ul>
+<li>when `config.lisp` is introduced, precedence rules will be documented explicitly for mixed-mode transition</li>
+<li>command flags will remain highest-priority overrides</li>
+</ul>
+<p>Examples:</p>
+<ul>
+<li>`uv run compile my_addon --release-dir /tmp/out` overrides `default.release_dir`.</li>
+<li>`uv run addon-deps add my_addon requests --no-use-uv` overrides `default.use_uv_by_default`.</li>
+<li>`uv run compile my_addon --with-docs` overrides `default.skip_docs_by_default`.</li>
+<li>`uv run compile my_addon --no-deps` overrides `default.bundle_deps_by_default`.</li>
+</ul>
+<h2 id="auto-detection-behavior">Auto-detection behavior</h2>
+<p>If Blender executable is not valid, runtime configuration can attempt auto-detection. When successful, detected Blender path may be written back to project `config.toml`.</p>
+<h2 id="notes">Notes</h2>
+<ul>
+<li>Boolean-like strings are coerced internally for config-backed defaults (`true/false`, `yes/no`, `1/0`, `on/off`).</li>
+<li>Unknown keys are ignored by the current loader.</li>
+<li>During migration planning, prefer adding new user-facing defaults in documented keys only, to keep TOML -&gt; Lisp migration predictable.</li>
+</ul>
+</main><aside class="right-rail"><p class="rail-title">On This Page</p><ul class="toc-list"><li><a href="#file-location">File location</a></li><li><a href="#current-config-format">Current config format</a></li><li><a href="#example">Example</a></li><li><a href="#blender">`[blender]`</a></li><li><a href="#default">`[default]`</a></li><li><a href="#resolution-precedence">Resolution precedence</a></li><li><a href="#auto-detection-behavior">Auto-detection behavior</a></li><li><a href="#notes">Notes</a></li></ul></aside></div></body></html>

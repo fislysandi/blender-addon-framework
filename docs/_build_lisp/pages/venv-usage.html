@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Virtual Environment Usage</title><link rel="stylesheet" href="../_assets/theme.css"></head><body>
+<a class="skip-link" href="#main-content">Skip to content</a><div class="layout"><aside class="left-rail" aria-label="Documentation navigation"><h1 class="brand">blender-addon-framework</h1><p class="brand-sub">Reference Manual</p><a class="back-link" href="../index.html">Back to docs index</a><p class="nojs-hint">No JavaScript required. Use this navigation and your browser find shortcut (Ctrl+F).</p><details class="nav-mobile-toggle"><summary>Browse Pages</summary><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a class="current" href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></details><ul class="nav-list"><li><a href="../pages/addon-structure-standard.html">Addon Structure Standard</a></li><li><a href="../pages/cli-workflows.html">CLI Workflows</a></li><li><a href="../pages/coding-style.html">Coding Style</a></li><li><a href="../pages/command-reference.html">Command Reference</a></li><li><a href="../pages/config-lisp-planning.html">config.lisp Planning Note</a></li><li><a href="../pages/config-reference.html">Configuration Reference</a></li><li><a href="../pages/debugger-log-analysis.html">Debugger Log Analysis</a></li><li><a href="../pages/development-workflow.html">Development Workflow</a></li><li><a href="../pages/getting-started.html">Getting Started</a></li><li><a href="../pages/index.html">Blender Addon Framework Documentation</a></li><li><a href="../pages/migrating-your-addon-to-blender-addon-framework.html">Migrating Your Addon to Blender Addon Framework</a></li><li><a href="../pages/repl-workflow.html">REPL Workflow</a></li><li><a href="../pages/runtime-addon-development.html">Runtime Addon Development</a></li><li><a href="../pages/troubleshooting.html">Troubleshooting</a></li><li><a class="current" href="../pages/venv-usage.html">Virtual Environment Usage</a></li></ul></aside><main class="content" id="main-content"><h1 id="virtual-environment-usage">Virtual Environment Usage</h1>
+<p>This project supports two equivalent ways to run framework commands:</p>
+<ul>
+<li>`uv run &lt;command&gt; ...` (recommended default)</li>
+<li>activate `.venv` and run commands directly (`create`, `test`, `compile`, etc.)</li>
+</ul>
+<h2 id="1-sync-dependencies">1) Sync dependencies</h2>
+<p>From project root:</p>
+<pre><code>uv sync
+</code></pre>
+<p>This creates/updates `.venv` and installs project dependencies and CLI entrypoints.</p>
+<h2 id="2-activate-the-virtual-environment">2) Activate the virtual environment</h2>
+<p>macOS/Linux (bash/zsh):</p>
+<pre><code>source .venv/bin/activate
+</code></pre>
+<p>fish:</p>
+<pre><code>source .venv/bin/activate.fish
+</code></pre>
+<p>Windows (PowerShell):</p>
+<pre><code>.venv\Scripts\Activate.ps1
+</code></pre>
+<p>Windows (cmd):</p>
+<pre><code>.venv\Scripts\activate.bat
+</code></pre>
+<h2 id="3-run-framework-commands-directly-inside-the-venv">3) Run framework commands directly inside the venv</h2>
+<p>After activation, you can use command names without `uv run`.</p>
+<p>Examples:</p>
+<pre><code>create my_addon
+test my_addon
+compile my_addon
+template list
+addon-deps list my_addon
+rename-addon old_name new_name --dry-run
+completion script bash
+baf test my_addon
+</code></pre>
+<h2 id="4-deactivate-when-done">4) Deactivate when done</h2>
+<pre><code>deactivate
+</code></pre>
+<h2 id="command-form-mapping">Command form mapping</h2>
+<p>Both forms are valid:</p>
+<ul>
+<li>With UV wrapper: `uv run test my_addon`</li>
+<li>Inside active venv: `test my_addon`</li>
+</ul>
+<p>Use whichever fits your workflow. Team docs and CI commonly use `uv run ...` for consistency.</p>
+</main><aside class="right-rail"><p class="rail-title">On This Page</p><ul class="toc-list"><li><a href="#1-sync-dependencies">1) Sync dependencies</a></li><li><a href="#2-activate-the-virtual-environment">2) Activate the virtual environment</a></li><li><a href="#3-run-framework-commands-directly-inside-the-venv">3) Run framework commands directly inside the venv</a></li><li><a href="#4-deactivate-when-done">4) Deactivate when done</a></li><li><a href="#command-form-mapping">Command form mapping</a></li></ul></aside></div></body></html>

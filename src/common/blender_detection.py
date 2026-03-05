@@ -22,6 +22,8 @@ import re
 import subprocess
 from typing import Dict, List, Optional, Tuple
 
+from src.common.terminal_readline import suppress_terminal_bell
+
 
 def is_windows() -> bool:
     """Check if the current platform is Windows."""
@@ -334,6 +336,7 @@ def select_blender_installation(
         print(
             f"Found 1 Blender installation: {installations[0]['path']} (version {installations[0]['version']})"
         )
+        suppress_terminal_bell()
         response = input("Use this installation? (Y/n): ").strip().lower()
         if response in ("", "y", "yes"):
             return installations[0]
@@ -357,6 +360,7 @@ def select_blender_installation(
     )
 
     try:
+        suppress_terminal_bell()
         choice = input("> ").strip()
         if not choice:
             return None
